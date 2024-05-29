@@ -2,7 +2,18 @@ import inspect
 import types
 import typing
 
-from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait
+from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
+
+
+def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
+    if not cls:
+        return set()
+    subclasses = []
+    for subclass in cls.__subclasses__():
+        subclasses.append(subclass)
+        subclasses.extend(generic_get_subclasses(subclass))
+
+    return set(subclasses)
 
 
 def get_all_subclasses(cls, include_abstract: bool = False) -> set[type["BaseNode"]]:
@@ -87,11 +98,51 @@ def get_direct_instantiations_of_trait(
     )
 
 
+def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
+    """Gets the subclasses of a ReifiedRelation, with following rules:
+
+    Where a generic type is passed with a type argument, the subclasses are found
+    and applied with the same argument.
+
+    Where a ReifiedRelation has a type already manually bound, the subclasses of
+    this class are found.
+    """
+
+    # If it is a generic type...
+    if origin_type := cls.__pydantic_generic_metadata__.get("origin", False):
+        subclasses = set()
+        # ... get all the subclasses of the generic type...
+        for subclass in generic_get_subclasses(origin_type):
+            origin = subclass.__pydantic_generic_metadata__.get("origin", False)
+            args = subclass.__pydantic_generic_metadata__.get("args", False)
+            # ... and, checking the wrapped type is something real...
+            if (
+                args
+                and inspect.isclass(args[0])
+                and issubclass(
+                    args[0],
+                    (BaseNode, ReifiedRelation, HeritableTrait, NonHeritableTrait),
+                )
+            ):
+                # ...get the subclasses of that type which are generic (i.e. have "parameters")
+                subclasses.add(subclass)
+                # ... get all the subclasses of that, and construct types out of that
+                # by applying the original arg
+                for ssc in generic_get_subclasses(origin):
+                    if ssc.__pydantic_generic_metadata__.get("parameters"):
+                        subclasses.add(ssc[args[0]])
+        return subclasses
+    else:
+        # Otherwise, it's a non-generic type; just get the subclasses and itself
+        return set([cls, *generic_get_subclasses(cls)])
+
+
 def get_concrete_model_types(
     classes: type[BaseNode]
     | type[HeritableTrait]
     | type[NonHeritableTrait]
-    | types.UnionType,
+    | types.UnionType
+    | type[ReifiedRelation],
     include_subclasses: bool = False,
     include_abstract: bool = False,
     follow_trait_subclasses: bool = False,
@@ -133,6 +184,8 @@ def get_concrete_model_types(
         ):
             if not instantiated_trait.__abstract__ or include_abstract:
                 concrete_model_types.append(instantiated_trait)
+    elif inspect.isclass(classes) and issubclass(classes, ReifiedRelation):
+        concrete_model_types.extend(get_subclasses_of_reified_relations(classes))
 
     elif inspect.isclass(classes) and issubclass(classes, BaseNode):
         if not classes.__abstract__ or include_abstract:
@@ -144,3 +197,40 @@ def get_concrete_model_types(
             )
 
     return set(concrete_model_types)
+
+
+def get_non_heritable_traits_as_direct_ancestors(
+    cls: type[BaseNode],
+) -> set[NonHeritableTrait]:
+    """Identifies NonHeritableTraits that are directly applied to a model class"""
+
+    traits_as_direct_bases = []
+    for base in cls.__bases__:
+        for parent in inspect.getmro(base):
+            if parent is BaseNode:
+                break
+            elif parent is NonHeritableTrait:
+                traits_as_direct_bases.append(base)
+            else:
+                continue
+    return set(traits_as_direct_bases)
+
+
+def get_non_heritable_traits_as_indirect_ancestors(
+    cls,
+) -> set[NonHeritableTrait]:
+    """Identifies NonHeritableTraits in a model class's hierarchy that are not
+    directly applied to the class"""
+
+    traits_as_indirect_ancestors = []
+    traits_as_direct_ancestors = get_non_heritable_traits_as_direct_ancestors(cls)
+    for c in cls.mro():
+        if (
+            issubclass(c, NonHeritableTrait)
+            and not issubclass(c, BaseNode)
+            and c is not NonHeritableTrait
+            and c is not cls
+            and c not in traits_as_direct_ancestors
+        ):
+            traits_as_indirect_ancestors.append(c)
+    return set(traits_as_indirect_ancestors)

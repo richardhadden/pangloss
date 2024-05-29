@@ -1,8 +1,8 @@
 import pytest
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.models import BaseNode, HeritableTrait
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
+from pangloss.models import BaseNode, HeritableTrait
 
 
 @pytest.fixture(scope="function", autouse=True)

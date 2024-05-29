@@ -1,20 +1,43 @@
 from __future__ import annotations
 
+import typing
+
 import pytest
 
-from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait
+from pangloss.models import (
+    BaseNode,
+    HeritableTrait,
+    NonHeritableTrait,
+    ReifiedRelation,
+    RelationConfig,
+)
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import (
     get_concrete_model_types,
     get_direct_instantiations_of_trait,
     get_trait_subclasses,
     model_is_trait,
+    generic_get_subclasses,
+    get_subclasses_of_reified_relations,
 )
 
 
 @pytest.fixture(scope="function", autouse=True)
 def reset_model_manager():
     ModelManager._reset()
+
+
+def test_generic_get_subclasses():
+    class Thing:
+        pass
+
+    class SubThing(Thing):
+        pass
+
+    class SubSubThing(SubThing):
+        pass
+
+    assert generic_get_subclasses(Thing) == set([SubThing, SubSubThing])
 
 
 def test_model_is_trait():
@@ -90,6 +113,42 @@ def test_get_trait_subclasses():
     assert get_trait_subclasses(Relatable) == set(
         [Relatable, VeryRelatable, VeryVeryRelatable]
     )
+
+
+def test_get_subclasses_of_reified_relations():
+    class Person(BaseNode):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class SubIdentification[T](Identification[T]):
+        pass
+
+    class SubSubIdentification[T](Identification[T]):
+        pass
+
+    class PersonIdentification(Identification[Person]):
+        target: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_target_of_identification")
+        ]
+
+    class SpecialPersonIdentification(PersonIdentification):
+        pass
+
+    class ReallySpecialPersonIdentification(SpecialPersonIdentification):
+        pass
+
+    assert get_subclasses_of_reified_relations(Identification[Person]) == {
+        Identification[Person],
+        SubIdentification[Person],
+        SubSubIdentification[Person],
+    }
+    assert get_subclasses_of_reified_relations(PersonIdentification) == {
+        PersonIdentification,
+        SpecialPersonIdentification,
+        ReallySpecialPersonIdentification,
+    }
 
 
 def test_get_concrete_model_types_include_subclasses():
@@ -213,3 +272,60 @@ def test_get_concrete_model_types_for_nonheritable_traits():
     assert get_concrete_model_types(Relatable, follow_trait_subclasses=True) == set(
         [Thing, Thong]
     )
+
+
+def test_get_concrete_model_types_for_reified_relations():
+    class Person(BaseNode):
+        pass
+
+    class ActsOnBehalfOf[T](ReifiedRelation[T]):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class SubIdentification[T](Identification[T]):
+        pass
+
+    class SubSubIdentification[T](Identification[T]):
+        pass
+
+    class PersonIdentification(Identification[Person]):
+        pass
+
+    class SpecialPersonIdentification(PersonIdentification):
+        pass
+
+    class ReallySpecialPersonIdentification(SpecialPersonIdentification):
+        pass
+
+    assert get_concrete_model_types(Identification[Person]) == {
+        Identification[Person],
+        SubIdentification[Person],
+        SubSubIdentification[Person],
+    }
+    assert get_concrete_model_types(PersonIdentification) == {
+        PersonIdentification,
+        SpecialPersonIdentification,
+        ReallySpecialPersonIdentification,
+    }
+
+    assert get_concrete_model_types(
+        Identification[Person] | ActsOnBehalfOf[Identification[Person]]
+    ) == {
+        Identification[Person],
+        SubIdentification[Person],
+        SubSubIdentification[Person],
+        ActsOnBehalfOf[Identification[Person]],
+    }
+
+
+def test_get_non_heritable_traits_as_direct_ancestors():
+    class Relatable(NonHeritableTrait):
+        pass
+
+    class Thing(BaseNode, Relatable):
+        pass
+
+    class SubThing(Thing):
+        pass

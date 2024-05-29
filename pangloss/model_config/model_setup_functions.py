@@ -22,6 +22,9 @@ from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
 )
+from pangloss.model_config.model_setup_utils import (
+    get_non_heritable_traits_as_indirect_ancestors,
+)
 
 
 def get_relation_config_from_field_metadata(
@@ -131,6 +134,15 @@ def build_field_definition_from_annotation(
 
     # Type is an embedded node
     elif type_origin is Embedded:
+        typing_args = typing.get_args(field.annotation)
+        if not typing_args or (
+            inspect.isclass(typing_args[0]) and not issubclass(typing_args[0], RootNode)
+        ):
+            raise PanglossConfigError(
+                f"Error with field '{field_name}' on model '{model.__name__}':"
+                "the type argument of Embedded must be a subclass of BaseNode"
+            )
+
         return EmbeddedFieldDefinition(
             field_name=field_name,
             field_annotated_type=typing.get_args(field.annotation)[0],
@@ -192,8 +204,23 @@ def build_field_definition_from_annotation(
 
 
 def initialise_model_field_definitions(cls: type[RootNode]):
+    """Creates a model field_definition object for each field
+    of a model"""
     cls.field_definitions = ModelFieldDefinitions()
     for field_name, field in cls.model_fields.items():
         cls.field_definitions[field_name] = build_field_definition_from_annotation(
             model=cls, field_name=field_name, field=field
         )
+
+
+def delete_indirect_non_heritable_trait_fields__(
+    cls: type[RootNode],
+) -> None:
+    trait_fields_to_delete = set()
+    for trait in get_non_heritable_traits_as_indirect_ancestors(cls):
+        for field_name in cls.model_fields:
+            # AND AND... not in the parent class annotations that is *not* a trait...
+            if field_name in trait.__annotations__ and trait not in cls.__annotations__:
+                trait_fields_to_delete.add(field_name)
+    for td in trait_fields_to_delete:
+        del cls.model_fields[td]
