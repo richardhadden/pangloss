@@ -1,8 +1,12 @@
 import pytest
 
+import typing
+
+import annotated_types
+
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
-from pangloss.models import BaseNode, HeritableTrait
+from pangloss.models import BaseNode, HeritableTrait, Embedded, RelationConfig
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -40,3 +44,34 @@ def test_model_is_subclass_of_trait():
     assert is_subclass_of_heritable_trait(VeryRelatable)
 
     assert not is_subclass_of_heritable_trait(Thing)
+
+
+def test_model_field_initialisation():
+    class RelatedThing(BaseNode):
+        pass
+
+    class OtherRelatedThing(BaseNode):
+        pass
+
+    class EmbeddedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        name: str
+        age: int
+        embedded: Embedded[EmbeddedThing]
+        related_to: typing.Annotated[
+            RelatedThing | OtherRelatedThing,
+            RelationConfig(reverse_name="is_related_to"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Thing.model_fields["name"].annotation == str
+    assert Thing.model_fields["age"].annotation == int
+
+    assert Thing.model_fields["embedded"].annotation
+    assert Thing.model_fields["embedded"].metadata == [
+        annotated_types.MinLen(1),
+        annotated_types.MaxLen(1),
+    ]

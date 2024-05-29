@@ -64,7 +64,7 @@ class ListFieldDefinition(FieldDefinition):
 class EmbeddedFieldDefinition(FieldDefinition):
     field_annotated_type: type["RootNode"] | types.UnionType
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
-        default_factory=list
+        default_factory=lambda: [annotated_types.MinLen(1), annotated_types.MaxLen(1)]
     )
 
 
