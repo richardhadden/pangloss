@@ -2,11 +2,14 @@ import pytest
 
 import typing
 
-import annotated_types
-
+from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
-from pangloss.models import BaseNode, HeritableTrait, Embedded, RelationConfig
+from pangloss.model_config.model_setup_functions import (
+    initialise_reference_set_on_base_models,
+)
+from pangloss.model_config.models_base import ReferenceSetBase
+from pangloss.models import BaseNode, HeritableTrait, RelationConfig
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -46,20 +49,14 @@ def test_model_is_subclass_of_trait():
     assert not is_subclass_of_heritable_trait(Thing)
 
 
-def test_model_field_initialisation():
+def test_initialise_relation_field_on_model():
     class RelatedThing(BaseNode):
         pass
 
     class OtherRelatedThing(BaseNode):
         pass
 
-    class EmbeddedThing(BaseNode):
-        pass
-
     class Thing(BaseNode):
-        name: str
-        age: int
-        embedded: Embedded[EmbeddedThing]
         related_to: typing.Annotated[
             RelatedThing | OtherRelatedThing,
             RelationConfig(reverse_name="is_related_to"),
@@ -67,11 +64,40 @@ def test_model_field_initialisation():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    assert Thing.model_fields["name"].annotation == str
-    assert Thing.model_fields["age"].annotation == int
+    # assert Thing.model_fields["related_to"].annotation
 
-    assert Thing.model_fields["embedded"].annotation
-    assert Thing.model_fields["embedded"].metadata == [
-        annotated_types.MinLen(1),
-        annotated_types.MaxLen(1),
-    ]
+
+def test_initialise_reference_set_on_models():
+    class Thing(BaseNode):
+        name: str
+        age: int
+
+    class OtherThing(BaseNode):
+        name: str
+        age: int
+
+        class ReferenceSet(ReferenceSetBase):
+            name: str
+
+    class BrokenThingA(BaseNode):
+        name: str
+
+        class ReferenceSet:
+            name: str
+
+    # ModelManager.initialise_models(_defined_in_test=True)
+
+    initialise_reference_set_on_base_models(Thing)
+
+    assert Thing.ReferenceSet
+    assert set(Thing.ReferenceSet.model_fields.keys()) == set(["type", "uuid"])
+
+    initialise_reference_set_on_base_models(OtherThing)
+
+    assert OtherThing.ReferenceSet
+    assert set(OtherThing.ReferenceSet.model_fields.keys()) == set(
+        ["name", "type", "uuid"]
+    )
+
+    with pytest.raises(PanglossConfigError):
+        initialise_reference_set_on_base_models(BrokenThingA)

@@ -91,7 +91,7 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
     model_config = {"alias_generator": humps.camelize, "populate_by_name": True}
 
 
-class ReferenceSetBase(_SubNodeProxy):
+class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
     """Base model for setting reference to a model"""
 
     type: str

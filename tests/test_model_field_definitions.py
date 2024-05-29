@@ -128,11 +128,15 @@ def test_model_field_definition_with_embedded_type():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert Thing.field_definitions["embedded_thing"] == EmbeddedFieldDefinition(
-        field_name="embedded_thing", field_annotated_type=InnerThing
+        field_name="embedded_thing",
+        field_annotated_type=InnerThing,
+        validators=[annotated_types.MinLen(1), annotated_types.MaxLen(1)],
     )
 
     assert SecondThing.field_definitions["embedded_thing"] == EmbeddedFieldDefinition(
-        field_annotated_type=InnerThing | SecondInnerThing, field_name="embedded_thing"
+        field_annotated_type=InnerThing | SecondInnerThing,
+        field_name="embedded_thing",
+        validators=[annotated_types.MinLen(1), annotated_types.MaxLen(1)],
     )
 
     assert ThirdThing.field_definitions["embedded_thing"] == EmbeddedFieldDefinition(

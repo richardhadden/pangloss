@@ -21,6 +21,7 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     HeritableTrait,
     NonHeritableTrait,
+    ReferenceSetBase,
 )
 from pangloss.model_config.model_setup_utils import (
     get_non_heritable_traits_as_indirect_ancestors,
@@ -224,3 +225,19 @@ def delete_indirect_non_heritable_trait_fields(
                 trait_fields_to_delete.add(field_name)
     for td in trait_fields_to_delete:
         del cls.model_fields[td]
+
+
+def initialise_reference_set_on_base_models(cls: type[RootNode]):
+    if (
+        getattr(cls, "ReferenceSet", None)
+        and inspect.isclass(cls.ReferenceSet)
+        and issubclass(cls.ReferenceSet, ReferenceSetBase)
+    ):
+        return
+    if getattr(cls, "ReferenceSet", None):
+        raise PanglossConfigError(
+            f"ReferenceSet defined on model '{cls.__name__}' must be class inheriting from pangloss.models.ReferenceSet"
+        )
+    cls.ReferenceSet = pydantic.create_model(
+        f"{cls.__name__}ReferenceSet", __base__=ReferenceSetBase
+    )
