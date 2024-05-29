@@ -213,13 +213,13 @@ def initialise_model_field_definitions(cls: type[RootNode]):
         )
 
 
-def delete_indirect_non_heritable_trait_fields__(
+def delete_indirect_non_heritable_trait_fields(
     cls: type[RootNode],
 ) -> None:
     trait_fields_to_delete = set()
     for trait in get_non_heritable_traits_as_indirect_ancestors(cls):
         for field_name in cls.model_fields:
-            # AND AND... not in the parent class annotations that is *not* a trait...
+            # TODO: AND AND... not in the parent class annotations that is *not* a trait...
             if field_name in trait.__annotations__ and trait not in cls.__annotations__:
                 trait_fields_to_delete.add(field_name)
     for td in trait_fields_to_delete:

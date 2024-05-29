@@ -281,3 +281,54 @@ def test_model_field_definition_with_nonheritable_trait():
         field_annotated_type=Relatable,
         reverse_name="has_reverse_relation_to_thing",
     )
+
+
+def test_delete_indirect_non_heritable_fields():
+    class Trait(NonHeritableTrait):
+        trait_field: str
+
+    class Thing(BaseNode, Trait):
+        thing_field: str
+
+    class SubThing(Thing):
+        sub_thing_field: str
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    thing_fields = set(Thing.model_fields.keys())
+
+    assert "thing_field" in thing_fields
+    assert "trait_field" in thing_fields
+
+    assert "thing_field" in Thing.field_definitions
+    assert "trait_field" in Thing.field_definitions
+
+    subthing_fields = set(SubThing.model_fields.keys())
+
+    assert "thing_field" in subthing_fields
+    assert "sub_thing_field" in subthing_fields
+    assert "trait_field" not in subthing_fields
+
+    assert "thing_field" in SubThing.field_definitions
+    assert "sub_thing_field" in SubThing.field_definitions
+    assert "trait_field" not in SubThing.field_definitions
+
+
+def test_field_definition_field_concrete_type_set_up_correctly():
+    class Thing(BaseNode):
+        pass
+
+    class OtherThing(BaseNode):
+        pass
+
+    class ThingOwner(BaseNode):
+        thing_owned: typing.Annotated[
+            Thing | OtherThing, RelationConfig(reverse_name="is_owned_by")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    thing_owned_definition = ThingOwner.field_definitions["thing_owned"]
+
+    assert isinstance(thing_owned_definition, RelationFieldDefinition)
+    assert thing_owned_definition.field_concrete_types == set([Thing, OtherThing])

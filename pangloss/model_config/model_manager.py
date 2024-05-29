@@ -20,8 +20,13 @@ class ModelManager:
     def initialise_models(cls, _defined_in_test=False):
         from pangloss.model_config.model_setup_functions import (
             initialise_model_field_definitions,
+            delete_indirect_non_heritable_trait_fields,
         )
 
         for model in cls.registered_models:
+            model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
+
+            delete_indirect_non_heritable_trait_fields(model)
+
             model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
             initialise_model_field_definitions(model)

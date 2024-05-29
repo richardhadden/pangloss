@@ -19,6 +19,8 @@ from pangloss.model_config.model_setup_utils import (
     model_is_trait,
     generic_get_subclasses,
     get_subclasses_of_reified_relations,
+    get_non_heritable_traits_as_direct_ancestors,
+    get_non_heritable_traits_as_indirect_ancestors,
 )
 
 
@@ -329,3 +331,20 @@ def test_get_non_heritable_traits_as_direct_ancestors():
 
     class SubThing(Thing):
         pass
+
+    assert get_non_heritable_traits_as_direct_ancestors(Thing) == set([Relatable])
+    assert get_non_heritable_traits_as_direct_ancestors(SubThing) == set()
+
+
+def test_get_non_heritable_traits_as_indirect_ancestors():
+    class Relatable(NonHeritableTrait):
+        pass
+
+    class Thing(BaseNode, Relatable):
+        pass
+
+    class SubThing(Thing):
+        pass
+
+    assert get_non_heritable_traits_as_indirect_ancestors(Thing) == set()
+    assert get_non_heritable_traits_as_indirect_ancestors(SubThing) == set([Relatable])

@@ -4,6 +4,9 @@ import typing
 
 from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
 
+if typing.TYPE_CHECKING:
+    from pangloss.model_config.models_base import RootNode
+
 
 def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
     if not cls:
@@ -138,7 +141,7 @@ def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
 
 
 def get_concrete_model_types(
-    classes: type[BaseNode]
+    classes: type["RootNode"]
     | type[HeritableTrait]
     | type[NonHeritableTrait]
     | types.UnionType

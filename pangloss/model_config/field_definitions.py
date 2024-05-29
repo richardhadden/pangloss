@@ -13,6 +13,7 @@ from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
 )
+from pangloss.model_config.model_setup_utils import get_concrete_model_types
 
 
 @dataclasses.dataclass
@@ -76,6 +77,7 @@ class RelationFieldDefinition(FieldDefinition):
         | type["HeritableTrait"]
         | type["NonHeritableTrait"]
     )
+
     reverse_name: str
     relation_model: typing.Optional[type["RelationPropertiesModel"]] = None
     subclasses_relation: typing.Optional[str] = None
@@ -85,6 +87,12 @@ class RelationFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
+    field_concrete_types: typing.Container[
+        type["RootNode"] | type["ReifiedRelation"]
+    ] = dataclasses.field(default_factory=set)
+
+    def __post_init__(self):
+        self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
 
 
 @dataclasses.dataclass
@@ -96,3 +104,6 @@ class ModelFieldDefinitions:
 
     def __setitem__(self, key, value):
         self.fields[key] = value
+
+    def __contains__(self, key):
+        return key in self.fields
