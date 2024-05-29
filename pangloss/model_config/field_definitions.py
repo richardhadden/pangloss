@@ -1,0 +1,98 @@
+import dataclasses
+import datetime
+import enum
+import types
+import typing
+
+import annotated_types
+
+from pangloss.model_config.models_base import (
+    RootNode,
+    RelationPropertiesModel,
+    ReifiedRelation,
+    HeritableTrait,
+    NonHeritableTrait,
+)
+
+
+@dataclasses.dataclass
+class FieldDefinition:
+    field_name: str
+
+
+type MappedCypherTypes = (
+    bool
+    | int
+    | float
+    | str
+    | datetime.date
+    | datetime.timedelta
+    | datetime.datetime
+    | enum.Enum
+)
+MappedCypherTypesSet = set(
+    [
+        bool,
+        int,
+        float,
+        str,
+        datetime.date,
+        datetime.timedelta,
+        datetime.datetime,
+        enum.Enum,
+    ]
+)
+
+
+@dataclasses.dataclass
+class LiteralFieldDefinition(FieldDefinition):
+    field_annotated_type: type[MappedCypherTypes]
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
+    field_metatype: typing.Literal["Literal"] = "Literal"
+
+
+@dataclasses.dataclass
+class ListFieldDefinition(FieldDefinition):
+    field_annotated_type: type[MappedCypherTypes]
+    field_metatype: typing.Literal["List"] = "List"
+
+
+@dataclasses.dataclass
+class EmbeddedFieldDefinition(FieldDefinition):
+    field_annotated_type: type["RootNode"] | types.UnionType
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
+
+
+@dataclasses.dataclass
+class RelationFieldDefinition(FieldDefinition):
+    field_annotated_type: (
+        type["RootNode"]
+        | types.UnionType
+        | type["ReifiedRelation"]
+        | type["HeritableTrait"]
+        | type["NonHeritableTrait"]
+    )
+    reverse_name: str
+    relation_model: typing.Optional[type["RelationPropertiesModel"]] = None
+    subclasses_relation: typing.Optional[str] = None
+    create_inline: bool = False
+    edit_inline: bool = False
+    delete_related_on_detach: bool = False
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
+
+
+@dataclasses.dataclass
+class ModelFieldDefinitions:
+    fields: dict[str, FieldDefinition | None] = dataclasses.field(default_factory=dict)
+
+    def __getitem__(self, key) -> FieldDefinition | None:
+        return self.fields[key]
+
+    def __setitem__(self, key, value):
+        self.fields[key] = value
