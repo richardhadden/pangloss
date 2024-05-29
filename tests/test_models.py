@@ -1,7 +1,8 @@
 import pytest
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.models import BaseNode
+from pangloss.models import BaseNode, HeritableTrait
+from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -24,3 +25,18 @@ def test_abstract_declaration_not_inherited():
     assert Thing.__abstract__
     assert not Animal.__abstract__
     assert Pet.__abstract__
+
+
+def test_model_is_subclass_of_trait():
+    class Relatable(HeritableTrait):
+        pass
+
+    class VeryRelatable(Relatable):
+        pass
+
+    class Thing(BaseNode, Relatable):
+        pass
+
+    assert is_subclass_of_heritable_trait(VeryRelatable)
+
+    assert not is_subclass_of_heritable_trait(Thing)
