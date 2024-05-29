@@ -67,7 +67,7 @@ def test_initialise_relation_field_on_model():
     # assert Thing.model_fields["related_to"].annotation
 
 
-def test_initialise_reference_set_on_models():
+def test_initialise_reference_set_on_models_function():
     class Thing(BaseNode):
         name: str
         age: int
@@ -82,7 +82,7 @@ def test_initialise_reference_set_on_models():
     class BrokenThingA(BaseNode):
         name: str
 
-        class ReferenceSet:
+        class ReferenceSet:  # <-- Does not inherit from ReferenceSetBase
             name: str
 
     # ModelManager.initialise_models(_defined_in_test=True)
@@ -101,3 +101,13 @@ def test_initialise_reference_set_on_models():
 
     with pytest.raises(PanglossConfigError):
         initialise_reference_set_on_base_models(BrokenThingA)
+
+
+def test_initialise_reference_set_on_models_during_model_setup():
+    class NewThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert NewThing.ReferenceSet
+    assert set(NewThing.ReferenceSet.model_fields.keys()) == set(["type", "uuid"])
