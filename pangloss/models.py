@@ -22,7 +22,8 @@ class BaseNode(RootNode):
         # (type-checking needs to be overridden as this can't be dynamic!)
         cls.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
 
-        # Set class as abstract if it has __abstract__ set to
+        # Set class as abstract if it has __abstract__ set to True on its
+        # own class dict (i.e. not inherited)
         cls.__abstract__ = cls.__dict__.get("__abstract__", False)
 
         # Register the model with ModelManager

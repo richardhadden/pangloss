@@ -14,6 +14,7 @@ from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     RelationFieldDefinition,
 )
+from pangloss.model_config.models_base import NonHeritableTrait
 from pangloss.models import (
     BaseNode,
     Embedded,
@@ -247,6 +248,27 @@ def test_model_field_definition_with_heritable_trait():
         ]
 
     class Relatable(HeritableTrait):
+        pass
+
+    class RelatedThing(BaseNode, Relatable):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Thing.field_definitions["related_to"] == RelationFieldDefinition(
+        field_name="related_to",
+        field_annotated_type=Relatable,
+        reverse_name="has_reverse_relation_to_thing",
+    )
+
+
+def test_model_field_definition_with_nonheritable_trait():
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            Relatable, RelationConfig("has_reverse_relation_to_thing")
+        ]
+
+    class Relatable(NonHeritableTrait):
         pass
 
     class RelatedThing(BaseNode, Relatable):
