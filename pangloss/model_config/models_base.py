@@ -83,8 +83,16 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     pass
 
 
+# Reference types need to be separated, so that additional fields for viewing
+# can be added for list-views, etc., while still only requiring necessary fields
+# (type and uuid) for setting relations
+
+
 class ReferenceViewBase(_GenericNode, _SubNodeProxy):
-    """Base model for viewing reference to a model"""
+    """Base model for viewing reference to a model
+
+    Requires uuid, type and label
+    """
 
     uuid: uuid.UUID
 
@@ -92,7 +100,10 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
 
 
 class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
-    """Base model for setting reference to a model"""
+    """Base model for setting reference to a model
+
+    Requires only the type of the model and the uuid
+    """
 
     type: str
     uuid: uuid.UUID

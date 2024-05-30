@@ -22,6 +22,7 @@ from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     ReferenceSetBase,
+    ReferenceViewBase,
 )
 from pangloss.model_config.model_setup_utils import (
     get_non_heritable_traits_as_indirect_ancestors,
@@ -228,16 +229,54 @@ def delete_indirect_non_heritable_trait_fields(
 
 
 def initialise_reference_set_on_base_models(cls: type[RootNode]):
+    # If ReferenceSet manually defined on a class, and it's a subclass of
+    # ReferenceSetBase, just override the `type` field to the class name
     if (
         getattr(cls, "ReferenceSet", None)
         and inspect.isclass(cls.ReferenceSet)
         and issubclass(cls.ReferenceSet, ReferenceSetBase)
     ):
+        cls.ReferenceSet.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
+        cls.ReferenceSet.model_fields["type"].default = cls.__name__
         return
+
+    # If ReferenceSet is manually defined but does not fulfil requirement above (subclassing
+    # ReferenceViewSet), raise an error
     if getattr(cls, "ReferenceSet", None):
         raise PanglossConfigError(
             f"ReferenceSet defined on model '{cls.__name__}' must be class inheriting from pangloss.models.ReferenceSet"
         )
+
+    # Otherwise, construct a ReferenceSet class
     cls.ReferenceSet = pydantic.create_model(
-        f"{cls.__name__}ReferenceSet", __base__=ReferenceSetBase
+        f"{cls.__name__}ReferenceSet",
+        __base__=ReferenceSetBase,
+        type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
+    )
+
+
+def initialise_reference_view_on_base_models(cls: type[RootNode]):
+    # If ReferenceView manually defined on a class, and it is a subclass
+    # of ReferenceViewBase, just override the `type` field to the class name
+    if (
+        getattr(cls, "ReferenceView", None)
+        and inspect.isclass(cls.ReferenceView)
+        and issubclass(cls.ReferenceView, ReferenceViewBase)
+    ):
+        cls.ReferenceView.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
+        cls.ReferenceView.model_fields["type"].default = cls.__name__
+        return
+
+    # If ReferenceView is manually defined but does not fulfil requirement above (subclassing
+    # ReferenceViewBase), raise an error
+    if getattr(cls, "ReferenceView", None):
+        raise PanglossConfigError(
+            f"ReferenceView defined on model '{cls.__name__}' must be class inheriting from pangloss.models.ReferenceView"
+        )
+
+    # Otherwise, construct a ReferenceView class
+    cls.ReferenceView = pydantic.create_model(
+        f"{cls.__name__}ReferenceView",
+        __base__=ReferenceViewBase,
+        type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
     )

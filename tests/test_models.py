@@ -7,8 +7,9 @@ from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
 from pangloss.model_config.model_setup_functions import (
     initialise_reference_set_on_base_models,
+    initialise_reference_view_on_base_models,
 )
-from pangloss.model_config.models_base import ReferenceSetBase
+from pangloss.model_config.models_base import ReferenceSetBase, ReferenceViewBase
 from pangloss.models import BaseNode, HeritableTrait, RelationConfig
 
 
@@ -85,18 +86,22 @@ def test_initialise_reference_set_on_models_function():
         class ReferenceSet:  # <-- Does not inherit from ReferenceSetBase
             name: str
 
-    # ModelManager.initialise_models(_defined_in_test=True)
-
     initialise_reference_set_on_base_models(Thing)
 
     assert Thing.ReferenceSet
     assert set(Thing.ReferenceSet.model_fields.keys()) == set(["type", "uuid"])
+    assert Thing.ReferenceSet.model_fields["type"].annotation == typing.Literal["Thing"]
+    assert Thing.ReferenceSet.model_fields["type"].default == "Thing"
 
     initialise_reference_set_on_base_models(OtherThing)
 
     assert OtherThing.ReferenceSet
     assert set(OtherThing.ReferenceSet.model_fields.keys()) == set(
         ["name", "type", "uuid"]
+    )
+    assert (
+        OtherThing.ReferenceSet.model_fields["type"].annotation
+        == typing.Literal["OtherThing"]
     )
 
     with pytest.raises(PanglossConfigError):
@@ -111,3 +116,70 @@ def test_initialise_reference_set_on_models_during_model_setup():
 
     assert NewThing.ReferenceSet
     assert set(NewThing.ReferenceSet.model_fields.keys()) == set(["type", "uuid"])
+    assert (
+        NewThing.ReferenceSet.model_fields["type"].annotation
+        == typing.Literal["NewThing"]
+    )
+    assert NewThing.ReferenceSet.model_fields["type"].default == "NewThing"
+
+
+def test_initialise_reference_view_on_models_function():
+    class Thing(BaseNode):
+        name: str
+        age: int
+
+    class OtherThing(BaseNode):
+        name: str
+        age: int
+
+        class ReferenceView(ReferenceViewBase):
+            name: str
+
+    class BrokenThingA(BaseNode):
+        name: str
+
+        class ReferenceView:  # <-- Does not inherit from ReferenceSetBase
+            name: str
+
+    initialise_reference_view_on_base_models(Thing)
+
+    assert Thing.ReferenceView
+    assert set(Thing.ReferenceView.model_fields.keys()) == set(
+        ["type", "uuid", "label"]
+    )
+    assert (
+        Thing.ReferenceView.model_fields["type"].annotation == typing.Literal["Thing"]
+    )
+    assert Thing.ReferenceView.model_fields["type"].default == "Thing"
+
+    initialise_reference_view_on_base_models(OtherThing)
+
+    assert OtherThing.ReferenceView
+    assert set(OtherThing.ReferenceView.model_fields.keys()) == set(
+        ["type", "uuid", "label", "name"]
+    )
+    assert (
+        OtherThing.ReferenceView.model_fields["type"].annotation
+        == typing.Literal["OtherThing"]
+    )
+    assert OtherThing.ReferenceView.model_fields["type"].default == "OtherThing"
+
+    with pytest.raises(PanglossConfigError):
+        initialise_reference_view_on_base_models(BrokenThingA)
+
+
+def test_initialise_reference_view_on_models_during_model_setup():
+    class NewThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert NewThing.ReferenceView
+    assert set(NewThing.ReferenceView.model_fields.keys()) == set(
+        ["type", "uuid", "label"]
+    )
+    assert (
+        NewThing.ReferenceView.model_fields["type"].annotation
+        == typing.Literal["NewThing"]
+    )
+    assert NewThing.ReferenceView.model_fields["type"].default == "NewThing"

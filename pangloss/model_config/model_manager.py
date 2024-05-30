@@ -22,6 +22,7 @@ class ModelManager:
             initialise_model_field_definitions,
             delete_indirect_non_heritable_trait_fields,
             initialise_reference_set_on_base_models,
+            initialise_reference_view_on_base_models,
         )
 
         for model in cls.registered_models:
@@ -33,3 +34,4 @@ class ModelManager:
             initialise_model_field_definitions(model)
 
             initialise_reference_set_on_base_models(model)
+            initialise_reference_view_on_base_models(model)
