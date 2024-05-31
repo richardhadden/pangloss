@@ -384,7 +384,3 @@ def test_create_reference_set_with_relation_property_model():
         reference_set_model.model_fields["relation_properties"].annotation
         == ThingToRelatedThingPropertiesModel
     )
-
-
-def test_create_reference_to_reified_relation_with_relation_property_model():
-    pass

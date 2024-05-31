@@ -343,13 +343,13 @@ def test_initialise_reified_relation_model_with_double_reified():
     class Identification[T](ReifiedRelation[T]):
         certainty: int
 
-    class DoubleIdentification[T](ReifiedRelation[T]):
+    class ForwardedIdentification[T](ReifiedRelation[T]):
         pass
 
     class IdentifiedThing(BaseNode):
         pass
 
-    reified_relation = Identification[DoubleIdentification[IdentifiedThing]]
+    reified_relation = Identification[ForwardedIdentification[IdentifiedThing]]
 
     ModelManager.initialise_models(_defined_in_test=True)
 
@@ -357,11 +357,11 @@ def test_initialise_reified_relation_model_with_double_reified():
 
     assert reified_relation.field_definitions["target"] == RelationFieldDefinition(
         field_name="target",
-        field_annotated_type=DoubleIdentification[IdentifiedThing],
+        field_annotated_type=ForwardedIdentification[IdentifiedThing],
         reverse_name="is_target_of",
     )
 
-    assert DoubleIdentification[IdentifiedThing].field_definitions[
+    assert ForwardedIdentification[IdentifiedThing].field_definitions[
         "target"
     ] == RelationFieldDefinition(
         field_name="target",
@@ -371,13 +371,42 @@ def test_initialise_reified_relation_model_with_double_reified():
 
     assert (
         typing.get_origin(
-            DoubleIdentification[IdentifiedThing].model_fields["target"].annotation
+            ForwardedIdentification[IdentifiedThing].model_fields["target"].annotation
         )
         == list
     )
     assert (
         typing.get_args(
-            DoubleIdentification[IdentifiedThing].model_fields["target"].annotation
+            ForwardedIdentification[IdentifiedThing].model_fields["target"].annotation
         )[0].__name__
         == "IdentifiedThingReferenceSet"
+    )
+
+
+def test_initialise_reified_relation_with_relation_property_model():
+    class ThingIdentificationRelationProperties(RelationPropertiesModel):
+        type_of_thing: str
+
+    class Identification[T](ReifiedRelation[T]):
+        certainty: int
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            Identification[RelatedThing],
+            RelationConfig(
+                reverse_name="is_related_to",
+                relation_model=ThingIdentificationRelationProperties,
+            ),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    related_to_annotation = Thing.model_fields["related_to"].annotation
+    assert typing.get_origin(related_to_annotation) == list
+    assert (
+        typing.get_args(related_to_annotation)[0].__name__
+        == "Thing__related_to__Identification[test_initialise_reified_relation_with_relation_property_model.<locals>.RelatedThing]"
     )

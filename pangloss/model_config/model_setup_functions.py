@@ -131,7 +131,6 @@ def build_field_definition_from_annotation(
         )
         and (relation_config := get_relation_config_from_field_metadata(field.metadata))
     ):
-        print(model, field_name, "IS RELATION FIELD")
         validators = [
             metadata_item
             for metadata_item in field.metadata
@@ -211,7 +210,6 @@ def build_field_definition_from_annotation(
     # Any other annotation, assume it's a literal type
 
     elif field.annotation:
-        print(model, field_name, "IS LITERAL FIELD")
         return LiteralFieldDefinition(
             field_name=field_name,
             field_annotated_type=field.annotation,  # type: ignore
@@ -322,8 +320,19 @@ def initialise_outgoing_relation_types_on_base_model(
                     reference_types.append(concrete_type.ReferenceSet)
 
             if issubclass(concrete_type, ReifiedRelation):
-                initialise_reified_relation(concrete_type)
-                reference_types.append(concrete_type)
+                if field.relation_model:
+                    initialise_reified_relation(concrete_type)
+                    reified_relation_model_with_relation_property_model = pydantic.create_model(
+                        f"{cls.__name__}__{field.field_name}__{concrete_type.__name__}",
+                        __base__=concrete_type,
+                        relation_properties=(field.relation_model, ...),
+                    )
+                    reference_types.append(
+                        reified_relation_model_with_relation_property_model
+                    )
+                else:
+                    initialise_reified_relation(concrete_type)
+                    reference_types.append(concrete_type)
 
         cls.model_fields[field.field_name].annotation = list[
             typing.Union[
