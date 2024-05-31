@@ -4,6 +4,7 @@ import typing
 
 import pytest
 
+from pangloss.model_config.models_base import RelationPropertiesModel
 from pangloss.models import (
     BaseNode,
     HeritableTrait,
@@ -13,6 +14,7 @@ from pangloss.models import (
 )
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import (
+    create_reference_set_model_with_property_model,
     get_concrete_model_types,
     get_direct_instantiations_of_trait,
     get_trait_subclasses,
@@ -348,3 +350,37 @@ def test_get_non_heritable_traits_as_indirect_ancestors():
 
     assert get_non_heritable_traits_as_indirect_ancestors(Thing) == set()
     assert get_non_heritable_traits_as_indirect_ancestors(SubThing) == set([Relatable])
+
+
+def test_create_reference_set_with_relation_property_model():
+    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+        type_of_relation: str
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(
+                reverse_name="is_related_to",
+                relation_model=ThingToRelatedThingPropertiesModel,
+            ),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    reference_set_model = create_reference_set_model_with_property_model(
+        Thing, RelatedThing, ThingToRelatedThingPropertiesModel, "related_to"
+    )
+
+    assert (
+        reference_set_model.__name__ == "Thing__related_to__RelatedThing__ReferenceSet"
+    )
+    assert (
+        reference_set_model.model_fields["type"].annotation
+        == typing.Literal["RelatedThing"]
+    )
+    assert reference_set_model.model_fields["relation_properties"]
+    assert (
+        reference_set_model.model_fields["relation_properties"].annotation
+        == ThingToRelatedThingPropertiesModel
+    )

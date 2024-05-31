@@ -2,6 +2,8 @@ import pytest
 
 import typing
 
+import annotated_types
+
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
@@ -48,24 +50,6 @@ def test_model_is_subclass_of_trait():
     assert is_subclass_of_heritable_trait(VeryRelatable)
 
     assert not is_subclass_of_heritable_trait(Thing)
-
-
-def test_initialise_relation_field_on_model():
-    class RelatedThing(BaseNode):
-        pass
-
-    class OtherRelatedThing(BaseNode):
-        pass
-
-    class Thing(BaseNode):
-        related_to: typing.Annotated[
-            RelatedThing | OtherRelatedThing,
-            RelationConfig(reverse_name="is_related_to"),
-        ]
-
-    ModelManager.initialise_models(_defined_in_test=True)
-
-    # assert Thing.model_fields["related_to"].annotation
 
 
 def test_initialise_reference_set_on_models_function():
@@ -183,3 +167,37 @@ def test_initialise_reference_view_on_models_during_model_setup():
         == typing.Literal["NewThing"]
     )
     assert NewThing.ReferenceView.model_fields["type"].default == "NewThing"
+
+
+def test_initialise_basic_relation_field_on_model():
+    class RelatedThing(BaseNode):
+        pass
+
+    class SubRelatedThing(RelatedThing):
+        pass
+
+    class OtherRelatedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing | OtherRelatedThing,
+            RelationConfig(
+                reverse_name="is_related_to", validators=[annotated_types.MaxLen(10)]
+            ),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert (
+        Thing.model_fields["related_to"].annotation
+        == RelatedThing.ReferenceSet
+        | SubRelatedThing.ReferenceSet
+        | OtherRelatedThing.ReferenceSet
+    )
+
+    assert annotated_types.MaxLen(10) in Thing.model_fields["related_to"].metadata
+
+
+def test_construct_specialised_reference_set_model_with_relation_properties():
+    pass

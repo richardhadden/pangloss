@@ -280,3 +280,22 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
         __base__=ReferenceViewBase,
         type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
     )
+
+
+def initialise_outgoing_relation_types_on_base_model(cls: type[RootNode]):
+    """Convert Relation fields on a model to ReferenceSet types or ReifiedRelation,
+    if necessary constructing a new field-specific type if a RelationPropertyModel
+    is added"""
+
+    for field in cls.field_definitions:
+        if isinstance(field, RelationFieldDefinition):
+            reference_types = []
+            for concrete_type in field.field_concrete_types:
+                if issubclass(concrete_type, RootNode):
+                    reference_types.append(concrete_type.ReferenceSet)
+
+            cls.model_fields[field.field_name].annotation = typing.Union[
+                *reference_types  # type: ignore
+            ]
+
+            cls.model_fields[field.field_name].metadata = field.validators

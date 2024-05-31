@@ -2,6 +2,9 @@ import inspect
 import types
 import typing
 
+import pydantic
+
+from pangloss.model_config.models_base import RelationPropertiesModel, ReferenceSetBase
 from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
 
 if typing.TYPE_CHECKING:
@@ -237,3 +240,17 @@ def get_non_heritable_traits_as_indirect_ancestors(
         ):
             traits_as_indirect_ancestors.append(c)
     return set(traits_as_indirect_ancestors)
+
+
+def create_reference_set_model_with_property_model(
+    origin_model: type["RootNode"],
+    target_model: type["RootNode"],
+    relation_model: type[RelationPropertiesModel],
+    field_name: str,
+) -> type[ReferenceSetBase]:
+    return pydantic.create_model(
+        f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
+        __base__=ReferenceSetBase,
+        type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
+        relation_properties=(relation_model,),
+    )

@@ -66,6 +66,7 @@ class EmbeddedFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
+    field_metatype: typing.Literal["Embedded"] = "Embedded"
 
     def __post_init__(self):
         if not self.validators:
@@ -91,9 +92,10 @@ class RelationFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
-    field_concrete_types: typing.Container[
+    field_concrete_types: typing.Iterable[
         type["RootNode"] | type["ReifiedRelation"]
     ] = dataclasses.field(default_factory=set)
+    field_metatype: typing.Literal["Relation"] = "Relation"
 
     def __post_init__(self):
         self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
@@ -101,7 +103,7 @@ class RelationFieldDefinition(FieldDefinition):
 
 @dataclasses.dataclass
 class ModelFieldDefinitions:
-    fields: dict[str, FieldDefinition | None] = dataclasses.field(default_factory=dict)
+    fields: dict[str, FieldDefinition] = dataclasses.field(default_factory=dict)
 
     def __getitem__(self, key) -> FieldDefinition | None:
         return self.fields[key]
@@ -111,3 +113,7 @@ class ModelFieldDefinitions:
 
     def __contains__(self, key):
         return key in self.fields
+
+    def __iter__(self) -> typing.Generator[FieldDefinition, None, None]:
+        for key, field in self.fields.items():
+            yield field

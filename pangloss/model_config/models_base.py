@@ -39,6 +39,13 @@ class _SubNodeProxy:
     base_class: typing.ClassVar[type["RootNode"]]
 
 
+STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
+    "alias_generator": humps.camelize,
+    "populate_by_name": True,
+    "use_enum_values": True,
+}
+
+
 class _GenericNode(pydantic.BaseModel):
     type: str
     label: str
@@ -96,7 +103,7 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
 
     uuid: uuid.UUID
 
-    model_config = {"alias_generator": humps.camelize, "populate_by_name": True}
+    model_config = STANDARD_MODEL_CONFIG
 
 
 class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
@@ -108,7 +115,7 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
     type: str
     uuid: uuid.UUID
 
-    model_config = {"alias_generator": humps.camelize, "populate_by_name": True}
+    model_config = STANDARD_MODEL_CONFIG
 
 
 class RootNode(_GenericNode):
@@ -137,8 +144,8 @@ class Embedded[T]:
     pass
 
 
-class RelationPropertiesModel:
-    pass
+class RelationPropertiesModel(pydantic.BaseModel):
+    model_config = STANDARD_MODEL_CONFIG
 
 
 @dataclasses.dataclass
