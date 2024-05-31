@@ -136,7 +136,7 @@ def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
                 # by applying the original arg
                 for ssc in generic_get_subclasses(origin):
                     if ssc.__pydantic_generic_metadata__.get("parameters"):
-                        subclasses.add(ssc[args[0]])
+                        subclasses.add(ssc[*args])  # type: ignore
         return subclasses
     else:
         # Otherwise, it's a non-generic type; just get the subclasses and itself
@@ -252,5 +252,5 @@ def create_reference_set_model_with_property_model(
         f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
         __base__=ReferenceSetBase,
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
-        relation_properties=(relation_model,),
+        relation_properties=(relation_model, ...),
     )

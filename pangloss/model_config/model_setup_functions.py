@@ -26,6 +26,7 @@ from pangloss.model_config.models_base import (
 )
 from pangloss.model_config.model_setup_utils import (
     get_non_heritable_traits_as_indirect_ancestors,
+    create_reference_set_model_with_property_model,
 )
 
 
@@ -47,7 +48,7 @@ def is_relation_field(
     field_annotation,
     field_metadata,
     field_name: str,
-    model: type["RootNode"],
+    model: type["RootNode"] | type["ReifiedRelation"],
 ) -> bool:
     relation_config = get_relation_config_from_field_metadata(field_metadata)
 
@@ -94,10 +95,31 @@ def is_relation_field(
 
 
 def build_field_definition_from_annotation(
-    model: type[RootNode], field_name: str, field: pydantic.fields.FieldInfo
+    model: type[RootNode] | type[ReifiedRelation],
+    field_name: str,
+    field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
-    type_origin = typing.get_origin(field.annotation)
+    print("====")
 
+    if type(
+        field.annotation
+    ) is typing.TypeVar and get_relation_config_from_field_metadata(field.metadata):
+        print(model.__pydantic_generic_metadata__)
+
+        # vite fait, here: on the raving offchance that someone makes a double-generic
+        # reified_relation, we should use the right param as the right field (i.e. by looking
+        # as the names and makign use we get the right index for parameters)
+        print(
+            model.__pydantic_generic_metadata__["origin"].__pydantic_generic_metadata__[
+                "parameters"
+            ]
+        )
+        # type_origin = model.__pydantic_generic_metadata__["args"]
+        field.annotation = model.__pydantic_generic_metadata__["args"][0]
+
+    print(field)
+
+    type_origin = typing.get_origin(field.annotation)
     # Guard clauses:
     #   If it is a relation and no RelationConfig provided, die
     #   If it's a union of relations and no RelationConfig, die
@@ -117,6 +139,7 @@ def build_field_definition_from_annotation(
         )
         and (relation_config := get_relation_config_from_field_metadata(field.metadata))
     ):
+        print(model, field_name, "IS RELATION FIELD")
         validators = [
             metadata_item
             for metadata_item in field.metadata
@@ -196,6 +219,7 @@ def build_field_definition_from_annotation(
     # Any other annotation, assume it's a literal type
 
     elif field.annotation:
+        print(model, field_name, "IS LITERAL FIELD")
         return LiteralFieldDefinition(
             field_name=field_name,
             field_annotated_type=field.annotation,  # type: ignore
@@ -205,7 +229,7 @@ def build_field_definition_from_annotation(
     raise Exception("Field type not caught")
 
 
-def initialise_model_field_definitions(cls: type[RootNode]):
+def initialise_model_field_definitions(cls: type[RootNode] | type[ReifiedRelation]):
     """Creates a model field_definition object for each field
     of a model"""
     cls.field_definitions = ModelFieldDefinitions()
@@ -287,15 +311,31 @@ def initialise_outgoing_relation_types_on_base_model(cls: type[RootNode]):
     if necessary constructing a new field-specific type if a RelationPropertyModel
     is added"""
 
-    for field in cls.field_definitions:
-        if isinstance(field, RelationFieldDefinition):
-            reference_types = []
-            for concrete_type in field.field_concrete_types:
-                if issubclass(concrete_type, RootNode):
+    for field in cls.field_definitions.relation_fields:
+        reference_types = []
+        for concrete_type in field.field_concrete_types:
+            if issubclass(concrete_type, RootNode):
+                if field.relation_model:
+                    reference_types.append(
+                        create_reference_set_model_with_property_model(
+                            origin_model=cls,
+                            target_model=concrete_type,
+                            relation_model=field.relation_model,
+                            field_name=field.field_name,
+                        )
+                    )
+                else:
                     reference_types.append(concrete_type.ReferenceSet)
 
-            cls.model_fields[field.field_name].annotation = typing.Union[
-                *reference_types  # type: ignore
-            ]
+            if issubclass(concrete_type, ReifiedRelation):
+                reference_types.append(concrete_type)
 
-            cls.model_fields[field.field_name].metadata = field.validators
+        cls.model_fields[field.field_name].annotation = typing.Union[
+            *reference_types  # type: ignore
+        ]
+
+        cls.model_fields[field.field_name].metadata = field.validators
+
+
+def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
+    initialise_model_field_definitions(reified_relation)

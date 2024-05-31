@@ -71,6 +71,8 @@ class _ExtantNodeMixin:
 class ReifiedRelation[T](pydantic.BaseModel):
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
 
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
 
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for getting model to edit"""

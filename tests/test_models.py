@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import pytest
 
+import inspect
 import typing
 
 import annotated_types
+import pydantic
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.model_manager import ModelManager
@@ -10,8 +14,18 @@ from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_tra
 from pangloss.model_config.model_setup_functions import (
     initialise_reference_set_on_base_models,
     initialise_reference_view_on_base_models,
+    initialise_reified_relation,
 )
-from pangloss.model_config.models_base import ReferenceSetBase, ReferenceViewBase
+from pangloss.model_config.models_base import (
+    ReferenceSetBase,
+    ReferenceViewBase,
+    RelationPropertiesModel,
+    ReifiedRelation,
+)
+from pangloss.model_config.field_definitions import (
+    LiteralFieldDefinition,
+    RelationFieldDefinition,
+)
 from pangloss.models import BaseNode, HeritableTrait, RelationConfig
 
 
@@ -200,4 +214,83 @@ def test_initialise_basic_relation_field_on_model():
 
 
 def test_construct_specialised_reference_set_model_with_relation_properties():
-    pass
+    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+        type_of_relation: str
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(
+                reverse_name="is_related_to",
+                relation_model=ThingToRelatedThingPropertiesModel,
+            ),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    related_to_annotation = Thing.model_fields["related_to"].annotation
+    assert related_to_annotation
+    assert inspect.isclass(related_to_annotation)
+    assert (
+        related_to_annotation.__name__
+        == "Thing__related_to__RelatedThing__ReferenceSet"
+    )
+    assert issubclass(related_to_annotation, pydantic.BaseModel)
+    assert (
+        related_to_annotation.model_fields["relation_properties"].annotation
+        == ThingToRelatedThingPropertiesModel
+    )
+
+
+def test_initialise_reified_relation_model():
+    class Identification[T](ReifiedRelation[T]):
+        certainty: int
+        points_to_other_thing: typing.Annotated[
+            OtherThing, RelationConfig(reverse_name="is_pointed_to_by_identification")
+        ]
+
+    class IdentifiedThing(BaseNode):
+        pass
+
+    class OtherIdentifiedThing(BaseNode):
+        pass
+
+    class OtherThing(BaseNode):
+        pass
+
+    reified_relation = Identification[IdentifiedThing | OtherIdentifiedThing]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    initialise_reified_relation(reified_relation)
+
+    assert reified_relation.field_definitions
+    assert reified_relation.field_definitions["certainty"] == LiteralFieldDefinition(
+        field_name="certainty",
+        field_annotated_type=int,
+    )
+    assert reified_relation.field_definitions[
+        "points_to_other_thing"
+    ] == RelationFieldDefinition(
+        field_name="points_to_other_thing",
+        field_annotated_type=OtherThing,
+        reverse_name="is_pointed_to_by_identification",
+    )
+    assert reified_relation.field_definitions["target"] == RelationFieldDefinition(
+        field_name="target",
+        field_annotated_type=IdentifiedThing | OtherIdentifiedThing,
+        reverse_name="is_target_of",
+    )
+
+    """ Thinking out loud:
+        reification needs its fields initialised
+        so needs a field_definition so it can handle things? Yes probably
+        
+        but this cannot be done ahead of time, as generic type means
+        it doesn't really really exist until use by some class...
+        
+        *should* if carefully done be able to use previous base_model initting functions?
+    """

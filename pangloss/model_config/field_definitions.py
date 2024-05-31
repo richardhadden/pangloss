@@ -117,3 +117,11 @@ class ModelFieldDefinitions:
     def __iter__(self) -> typing.Generator[FieldDefinition, None, None]:
         for key, field in self.fields.items():
             yield field
+
+    @property
+    def relation_fields(
+        self,
+    ) -> typing.Generator[RelationFieldDefinition, None, None]:
+        for key, field in self.fields.items():
+            if isinstance(field, RelationFieldDefinition):
+                yield field
