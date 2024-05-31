@@ -99,27 +99,19 @@ def build_field_definition_from_annotation(
     field_name: str,
     field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
-    print("====")
-
-    if type(
-        field.annotation
-    ) is typing.TypeVar and get_relation_config_from_field_metadata(field.metadata):
-        print(model.__pydantic_generic_metadata__)
-
-        # vite fait, here: on the raving offchance that someone makes a double-generic
-        # reified_relation, we should use the right param as the right field (i.e. by looking
-        # as the names and makign use we get the right index for parameters)
-        print(
-            model.__pydantic_generic_metadata__["origin"].__pydantic_generic_metadata__[
-                "parameters"
-            ]
+    # If the model is a Generic, the field annotation will be a TypeVar;
+    # in this case, we need to extract the type arguments to the origin class and
+    # change the field.annotation to be the right index of the model arg
+    if type(field.annotation) is typing.TypeVar:
+        origin = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
         )
-        # type_origin = model.__pydantic_generic_metadata__["args"]
-        field.annotation = model.__pydantic_generic_metadata__["args"][0]
-
-    print(field)
+        origin_typevars = origin.__pydantic_generic_metadata__["parameters"]
+        typevar_index = [str(p) for p in origin_typevars].index(str(field.annotation))
+        field.annotation = model.__pydantic_generic_metadata__["args"][typevar_index]
 
     type_origin = typing.get_origin(field.annotation)
+
     # Guard clauses:
     #   If it is a relation and no RelationConfig provided, die
     #   If it's a union of relations and no RelationConfig, die
@@ -306,7 +298,9 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
     )
 
 
-def initialise_outgoing_relation_types_on_base_model(cls: type[RootNode]):
+def initialise_outgoing_relation_types_on_base_model(
+    cls: type[RootNode] | type[ReifiedRelation],
+):
     """Convert Relation fields on a model to ReferenceSet types or ReifiedRelation,
     if necessary constructing a new field-specific type if a RelationPropertyModel
     is added"""
@@ -328,10 +322,13 @@ def initialise_outgoing_relation_types_on_base_model(cls: type[RootNode]):
                     reference_types.append(concrete_type.ReferenceSet)
 
             if issubclass(concrete_type, ReifiedRelation):
+                initialise_reified_relation(concrete_type)
                 reference_types.append(concrete_type)
 
-        cls.model_fields[field.field_name].annotation = typing.Union[
-            *reference_types  # type: ignore
+        cls.model_fields[field.field_name].annotation = list[
+            typing.Union[
+                *reference_types  # type: ignore
+            ]
         ]
 
         cls.model_fields[field.field_name].metadata = field.validators
@@ -339,3 +336,4 @@ def initialise_outgoing_relation_types_on_base_model(cls: type[RootNode]):
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
     initialise_model_field_definitions(reified_relation)
+    initialise_outgoing_relation_types_on_base_model(reified_relation)

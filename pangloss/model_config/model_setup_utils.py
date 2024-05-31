@@ -243,8 +243,8 @@ def get_non_heritable_traits_as_indirect_ancestors(
 
 
 def create_reference_set_model_with_property_model(
-    origin_model: type["RootNode"],
-    target_model: type["RootNode"],
+    origin_model: type["RootNode"] | type["ReifiedRelation"],
+    target_model: type["RootNode"] | type["ReifiedRelation"],
     relation_model: type[RelationPropertiesModel],
     field_name: str,
 ) -> type[ReferenceSetBase]:
