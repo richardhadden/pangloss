@@ -44,7 +44,7 @@ def get_relation_config_from_field_metadata(
         return None
 
 
-def set_type_to_literal_on_base_model(cls: type[RootNode]):
+def set_type_to_literal_on_base_model(cls: type[RootNode] | type[ReifiedRelation]):
     cls.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
     cls.model_fields["type"].default = cls.__name__
 
@@ -406,5 +406,6 @@ def initialise_embedded_nodes_on_base_model(
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
+    set_type_to_literal_on_base_model(reified_relation)
     initialise_model_field_definitions(reified_relation)
     initialise_outgoing_relation_types_on_base_model(reified_relation)
