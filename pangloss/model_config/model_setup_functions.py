@@ -44,6 +44,11 @@ def get_relation_config_from_field_metadata(
         return None
 
 
+def set_type_to_literal_on_base_model(cls: type[RootNode]):
+    cls.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
+    cls.model_fields["type"].default = cls.__name__
+
+
 def is_relation_field(
     type_origin,
     field_annotation,
@@ -390,8 +395,8 @@ def initialise_embedded_nodes_on_base_model(
             embedded_models.append(embedded_type.EmbeddedSet)
 
         cls.model_fields[embedded_field_definition.field_name].annotation = list[
-            typing.Union[*embedded_models]
-        ]  # type: ignore
+            typing.Union[*embedded_models]  # type: ignore
+        ]
         cls.model_fields[
             embedded_field_definition.field_name
         ].metadata = embedded_field_definition.validators

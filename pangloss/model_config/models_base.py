@@ -119,6 +119,9 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
     model_config = STANDARD_MODEL_CONFIG
 
+    def _as_dict(self):
+        return {"type": self.type, "uuid": self.uuid}
+
 
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
     @property
