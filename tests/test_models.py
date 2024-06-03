@@ -197,3 +197,6 @@ def test_create_with_reified_relation():
             }
         ],
     )
+
+    assert thing.related_to[0].target[0].type == "RelatedThing"
+    assert thing.related_to[0].target[0].relation_properties.certainty == 1
