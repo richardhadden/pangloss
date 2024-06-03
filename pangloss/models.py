@@ -5,6 +5,7 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     HeritableTrait,
     NonHeritableTrait,
+    RelationPropertiesModel,
 )
 from pangloss.model_config.model_manager import ModelManager
 
@@ -12,7 +13,14 @@ import typing
 
 # This is doing nothing, just making sure the import is being used
 # so won't be cleared up by linters
-(RelationConfig, Embedded, ReifiedRelation, HeritableTrait, NonHeritableTrait)  # type: ignore
+(
+    RelationConfig,
+    Embedded,
+    ReifiedRelation,
+    HeritableTrait,
+    NonHeritableTrait,
+    RelationPropertiesModel,
+)  # type: ignore
 
 
 class BaseNode(RootNode):

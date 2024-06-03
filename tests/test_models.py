@@ -9,7 +9,13 @@ import annotated_types
 import pydantic
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.models import BaseNode, RelationConfig
+from pangloss.model_config.models_base import Embedded
+from pangloss.models import (
+    BaseNode,
+    RelationConfig,
+    RelationPropertiesModel,
+    ReifiedRelation,
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -96,3 +102,98 @@ def test_create_with_inline_create():
     )
 
     assert thing.related_to[0] == RelatedThing(label="A Related Thing", number=100)
+
+
+@typing.no_type_check
+def test_create_with_embedded_node():
+    class EmbeddedThing(BaseNode):
+        number: int
+
+    class Thing(BaseNode):
+        name: str
+        age: int
+        list_of_things: list[str]
+        embedded_thing: Embedded[EmbeddedThing]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    Thing(
+        label="A Thing",
+        name="A Thing Name",
+        age=100,
+        list_of_things=["one", "two", "three"],
+        embedded_thing=[{"type": "EmbeddedThing", "number": 1}],
+    )
+
+
+@typing.no_type_check
+def test_create_with_relation_property_model():
+    class ThingRelatedThingRelation(RelationPropertiesModel):
+        certainty: int
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(
+                reverse_name="has_relation_to", relation_model=ThingRelatedThingRelation
+            ),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    Thing(
+        label="A Thing",
+        related_to=[
+            {
+                "type": "RelatedThing",
+                "uuid": uuid.uuid4(),
+                "relation_properties": {"certainty": 1},
+            }
+        ],
+    )
+
+
+@typing.no_type_check
+def test_create_with_reified_relation():
+    class IdentificationCertainty(RelationPropertiesModel):
+        certainty: int
+
+    T = typing.TypeVar("T")
+
+    class Identification(ReifiedRelation[T]):
+        target: typing.Annotated[
+            T,
+            RelationConfig(
+                "is_target_of_identification",
+                relation_model=IdentificationCertainty,
+                validators=[annotated_types.MinLen(1)],
+            ),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            Identification[RelatedThing], RelationConfig(reverse_name="is_related_to")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    thing = Thing(
+        label="A Thing",
+        related_to=[
+            {
+                "target": [
+                    {
+                        "type": "RelatedThing",
+                        "uuid": uuid.uuid4(),
+                        "relation_properties": {"certainty": 1},
+                    }
+                ]
+            }
+        ],
+    )

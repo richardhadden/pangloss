@@ -352,6 +352,7 @@ def initialise_outgoing_relation_types_on_base_model(
                         reified_relation_model_with_relation_property_model
                     )
                 else:
+                    print(concrete_type)
                     initialise_reified_relation(concrete_type)
                     reference_types.append(concrete_type)
 
@@ -360,6 +361,7 @@ def initialise_outgoing_relation_types_on_base_model(
                 *reference_types  # type: ignore
             ]
         ]
+        cls.model_fields[field.field_name].discriminator = "type"
 
         cls.model_fields[field.field_name].metadata = field.validators
 
@@ -400,6 +402,7 @@ def initialise_embedded_nodes_on_base_model(
         cls.model_fields[
             embedded_field_definition.field_name
         ].metadata = embedded_field_definition.validators
+        cls.model_fields[embedded_field_definition.field_name].discriminator = "type"
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):

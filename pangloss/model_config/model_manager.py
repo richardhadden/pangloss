@@ -29,15 +29,11 @@ class ModelManager:
         )
 
         for model in cls.registered_models:
-            model.model_rebuild(
-                force=True, _parent_namespace_depth=3 if _defined_in_test else 2
-            )
+            model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
             set_type_to_literal_on_base_model(model)
             delete_indirect_non_heritable_trait_fields(model)
 
-            model.model_rebuild(
-                force=True, _parent_namespace_depth=3 if _defined_in_test else 2
-            )
+            model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
             initialise_model_field_definitions(model)
 
             initialise_reference_set_on_base_models(model)
@@ -49,3 +45,6 @@ class ModelManager:
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
             initialise_embedded_nodes_on_base_model(model)
+            model.model_rebuild(
+                force=True, _parent_namespace_depth=3 if _defined_in_test else 2
+            )
