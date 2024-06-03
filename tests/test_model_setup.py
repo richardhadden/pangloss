@@ -11,6 +11,7 @@ from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
 from pangloss.model_config.model_setup_functions import (
+    create_embedded_set_model,
     initialise_reference_set_on_base_models,
     initialise_reference_view_on_base_models,
     initialise_reified_relation,
@@ -20,6 +21,7 @@ from pangloss.model_config.models_base import (
     ReferenceViewBase,
     RelationPropertiesModel,
     ReifiedRelation,
+    Embedded,
 )
 from pangloss.model_config.field_definitions import (
     LiteralFieldDefinition,
@@ -248,6 +250,46 @@ def test_construct_specialised_reference_set_model_with_relation_properties():
     )
 
 
+def test_initialise_relation_field_on_model_with_create_inline():
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(reverse_name="is_related_to", create_inline=True),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Thing.model_fields["related_to"].annotation == list[RelatedThing]
+
+
+def test_initialise_relation_field_on_model_with_create_inline_with_relation_properties():
+    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+        type_of_relation: str
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(
+                reverse_name="is_related_to",
+                create_inline=True,
+                relation_model=ThingToRelatedThingPropertiesModel,
+            ),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert (
+        typing.get_args(Thing.model_fields["related_to"].annotation)[0].__name__
+        == "Thing__related_to__RelatedThing__CreateInline"
+    )
+
+
 def test_initialise_reified_relation_model():
     class Identification[T](ReifiedRelation[T]):
         certainty: int
@@ -410,3 +452,55 @@ def test_initialise_reified_relation_with_relation_property_model():
         typing.get_args(related_to_annotation)[0].__name__
         == "Thing__related_to__Identification[test_initialise_reified_relation_with_relation_property_model.<locals>.RelatedThing]"
     )
+
+    assert typing.get_args(related_to_annotation)[0].model_fields["relation_properties"]
+    assert (
+        typing.get_args(related_to_annotation)[0]
+        .model_fields["relation_properties"]
+        .annotation
+        == ThingIdentificationRelationProperties
+    )
+
+
+def test_create_embedded_set_node_type():
+    class RelatedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        name: str
+        age: int
+        related_to: typing.Annotated[
+            RelatedThing, RelationConfig(reverse_name="has_related_thing")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    embedded_set_model = create_embedded_set_model(Thing)
+
+    with pytest.raises(KeyError):
+        embedded_set_model.model_fields["label"]
+
+    assert embedded_set_model.model_fields["name"].annotation == str
+    assert embedded_set_model.model_fields["age"].annotation == int
+    assert (
+        embedded_set_model.model_fields["related_to"].annotation
+        == list[RelatedThing.ReferenceSet]
+    )
+
+
+def test_initialise_embedded_node_on_base_model():
+    class Thing(BaseNode):
+        embedded_thing: Embedded[InnerThing]
+
+    class InnerThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert (
+        Thing.model_fields["embedded_thing"].annotation == list[InnerThing.EmbeddedSet]
+    )
+    assert Thing.model_fields["embedded_thing"].metadata == [
+        annotated_types.MinLen(1),
+        annotated_types.MaxLen(1),
+    ]

@@ -107,6 +107,22 @@ def test_model_field_definition_raises_error_with_union_of_literal_types():
         ModelManager.initialise_models(_defined_in_test=True)
 
 
+def test_embedded_field_definition_builds_concrete_types_on_init():
+    class InnerThing(BaseNode):
+        pass
+
+    class OtherInnerThing(BaseNode):
+        pass
+
+    embedded_definition = EmbeddedFieldDefinition(
+        field_name="embedded_thing", field_annotated_type=InnerThing | OtherInnerThing
+    )
+
+    assert embedded_definition.field_concrete_types == set(
+        [InnerThing, OtherInnerThing]
+    )
+
+
 def test_model_field_definition_with_embedded_type():
     class Thing(BaseNode):
         embedded_thing: Embedded[InnerThing]

@@ -15,6 +15,7 @@ from pangloss.model_config.field_definitions import (
     RelationFieldDefinition,
 )
 from pangloss.model_config.models_base import (
+    EmbeddedSetBase,
     RootNode,
     Embedded,
     RelationConfig,
@@ -219,7 +220,9 @@ def build_field_definition_from_annotation(
     raise Exception("Field type not caught")
 
 
-def initialise_model_field_definitions(cls: type[RootNode] | type[ReifiedRelation]):
+def initialise_model_field_definitions(
+    cls: type[RootNode] | type[ReifiedRelation],
+):
     """Creates a model field_definition object for each field
     of a model"""
     cls.field_definitions = ModelFieldDefinitions()
@@ -252,6 +255,7 @@ def initialise_reference_set_on_base_models(cls: type[RootNode]):
     ):
         cls.ReferenceSet.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
         cls.ReferenceSet.model_fields["type"].default = cls.__name__
+        cls.ReferenceSet.base_class = cls
         return
 
     # If ReferenceSet is manually defined but does not fulfil requirement above (subclassing
@@ -267,6 +271,7 @@ def initialise_reference_set_on_base_models(cls: type[RootNode]):
         __base__=ReferenceSetBase,
         type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
     )
+    cls.ReferenceSet.base_class = cls
 
 
 def initialise_reference_view_on_base_models(cls: type[RootNode]):
@@ -279,6 +284,7 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
     ):
         cls.ReferenceView.model_fields["type"].annotation = typing.Literal[cls.__name__]  # type: ignore
         cls.ReferenceView.model_fields["type"].default = cls.__name__
+        cls.ReferenceView.base_class = cls
         return
 
     # If ReferenceView is manually defined but does not fulfil requirement above (subclassing
@@ -294,6 +300,7 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
         __base__=ReferenceViewBase,
         type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
     )
+    cls.ReferenceView.base_class = cls
 
 
 def initialise_outgoing_relation_types_on_base_model(
@@ -307,7 +314,16 @@ def initialise_outgoing_relation_types_on_base_model(
         reference_types = []
         for concrete_type in field.field_concrete_types:
             if issubclass(concrete_type, RootNode):
-                if field.relation_model:
+                if field.create_inline and field.relation_model:
+                    create_inline_model_with_relation_model = pydantic.create_model(
+                        f"{cls.__name__}__{field.field_name}__{concrete_type.__name__}__CreateInline",
+                        __base__=concrete_type,
+                        relation_properties=(field.relation_model, ...),
+                    )
+                    reference_types.append(create_inline_model_with_relation_model)
+                elif field.create_inline:
+                    reference_types.append(concrete_type)
+                elif field.relation_model:
                     reference_types.append(
                         create_reference_set_model_with_property_model(
                             origin_model=cls,
@@ -341,6 +357,44 @@ def initialise_outgoing_relation_types_on_base_model(
         ]
 
         cls.model_fields[field.field_name].metadata = field.validators
+
+
+def create_embedded_set_model(cls: type[RootNode]):
+    embedded_set_model = pydantic.create_model(
+        f"{cls.__name__}EmbeddedSet", __base__=EmbeddedSetBase
+    )
+    embedded_set_model.base_class = cls
+
+    fields = {
+        field_name: field
+        for field_name, field in cls.model_fields.items()
+        if field_name != "label"
+    }
+    embedded_set_model.model_fields = fields
+    embedded_set_model.model_rebuild(force=True)
+
+    # It should not be necessary to initialise anything on this model
+    # as it inherits the already-initialised fields from its container base class
+
+    return embedded_set_model
+
+
+def initialise_embedded_nodes_on_base_model(
+    cls: type[RootNode] | type[ReifiedRelation],
+):
+    for embedded_field_definition in cls.field_definitions.embedded_fields:
+        embedded_models = []
+        for embedded_type in embedded_field_definition.field_concrete_types:
+            if not getattr(embedded_type, "EmbeddedSet", None):
+                embedded_type.EmbeddedSet = create_embedded_set_model(embedded_type)
+            embedded_models.append(embedded_type.EmbeddedSet)
+
+        cls.model_fields[embedded_field_definition.field_name].annotation = list[
+            typing.Union[*embedded_models]
+        ]  # type: ignore
+        cls.model_fields[
+            embedded_field_definition.field_name
+        ].metadata = embedded_field_definition.validators
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):

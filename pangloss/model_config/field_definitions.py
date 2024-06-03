@@ -67,8 +67,13 @@ class EmbeddedFieldDefinition(FieldDefinition):
         default_factory=list
     )
     field_metatype: typing.Literal["Embedded"] = "Embedded"
+    field_concrete_types: typing.Iterable[type["RootNode"]] = dataclasses.field(
+        default_factory=set
+    )
 
     def __post_init__(self):
+        self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
+        print(self.field_concrete_types)
         if not self.validators:
             self.validators = [annotated_types.MinLen(1), annotated_types.MaxLen(1)]
 
@@ -124,4 +129,12 @@ class ModelFieldDefinitions:
     ) -> typing.Generator[RelationFieldDefinition, None, None]:
         for key, field in self.fields.items():
             if isinstance(field, RelationFieldDefinition):
+                yield field
+
+    @property
+    def embedded_fields(
+        self,
+    ) -> typing.Generator[EmbeddedFieldDefinition, None, None]:
+        for key, field in self.fields.items():
+            if isinstance(field, EmbeddedFieldDefinition):
                 yield field

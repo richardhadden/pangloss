@@ -120,6 +120,17 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
     model_config = STANDARD_MODEL_CONFIG
 
 
+class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
+    @property
+    def field_definitions(self) -> "ModelFieldDefinitions":
+        return self.base_class.field_definitions
+
+
+class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
+    type: str
+    uuid: uuid.UUID
+
+
 class RootNode(_GenericNode):
     """Default base model on creation"""
 
@@ -128,6 +139,8 @@ class RootNode(_GenericNode):
     EditSet: typing.ClassVar[type[EditSetBase]]
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
     ReferenceSet: typing.ClassVar[type[ReferenceSetBase]]
+    EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
+    EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
 
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
