@@ -15,6 +15,7 @@ from pangloss.models import (
     RelationConfig,
     RelationPropertiesModel,
     ReifiedRelation,
+    HeritableTrait,
 )
 
 
@@ -210,3 +211,39 @@ def test_create_with_reified_relation():
 
     assert thing.related_to[0].target[0].type == "RelatedThing"
     assert thing.related_to[0].target[0].relation_properties.certainty == 1
+
+
+@typing.no_type_check
+def test_initialise_relation_with_trait():
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            Relatable, RelationConfig(reverse_name="has_relation_to")
+        ]
+
+    class Relatable(HeritableTrait):
+        something: str
+
+    class OtherThing(BaseNode, Relatable):
+        pass
+
+    class OtherOtherThing(BaseNode, Relatable):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    other_thing_uuid = uuid.uuid4()
+    other_thing = OtherThing.ReferenceSet(uuid=other_thing_uuid)
+    other_other_thing_uuid = uuid.uuid4()
+    other_other_thing = OtherOtherThing.ReferenceSet(uuid=other_other_thing_uuid)
+
+    thing = Thing(
+        label="A Thing",
+        related_to=[other_thing._as_dict(), other_other_thing._as_dict()],
+    )
+
+    assert thing.related_to[0].type == "OtherThing"
+    assert thing.related_to[0] == OtherThing.ReferenceSet(uuid=other_thing_uuid)
+    assert thing.related_to[1].type == "OtherOtherThing"
+    assert thing.related_to[1] == OtherOtherThing.ReferenceSet(
+        uuid=other_other_thing_uuid
+    )

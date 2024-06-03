@@ -38,6 +38,10 @@ Required model variations:
 class _SubNodeProxy:
     base_class: typing.ClassVar[type["RootNode"]]
 
+    @property
+    def field_definitions(self) -> "ModelFieldDefinitions":
+        return self.base_class.field_definitions
+
 
 STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
     "alias_generator": humps.camelize,
@@ -70,8 +74,8 @@ class _ExtantNodeMixin:
 
 class ReifiedRelation[T](pydantic.BaseModel):
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
-
     type: str
+
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
 
@@ -125,9 +129,7 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
 
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
-    @property
-    def field_definitions(self) -> "ModelFieldDefinitions":
-        return self.base_class.field_definitions
+    pass
 
 
 class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
