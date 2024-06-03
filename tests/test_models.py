@@ -161,6 +161,9 @@ def test_create_with_reified_relation():
     class IdentificationCertainty(RelationPropertiesModel):
         certainty: int
 
+    class ThingToIdentifcation(RelationPropertiesModel):
+        something: str
+
     T = typing.TypeVar("T")
 
     class Identification(ReifiedRelation[T]):
@@ -172,13 +175,17 @@ def test_create_with_reified_relation():
                 validators=[annotated_types.MinLen(1)],
             ),
         ]
+        identification_description: str
 
     class RelatedThing(BaseNode):
         pass
 
     class Thing(BaseNode):
         related_to: typing.Annotated[
-            Identification[RelatedThing], RelationConfig(reverse_name="is_related_to")
+            Identification[RelatedThing],
+            RelationConfig(
+                reverse_name="is_related_to", relation_model=ThingToIdentifcation
+            ),
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
@@ -187,13 +194,16 @@ def test_create_with_reified_relation():
         label="A Thing",
         related_to=[
             {
+                "type": "Identification[test_create_with_reified_relation.<locals>.RelatedThing]",
                 "target": [
                     {
                         "type": "RelatedThing",
                         "uuid": uuid.uuid4(),
                         "relation_properties": {"certainty": 1},
                     }
-                ]
+                ],
+                "identification_description": "not bad",
+                "relation_properties": {"something": "some thing"},
             }
         ],
     )
