@@ -111,9 +111,17 @@ class RelationFieldDefinition(FieldDefinition):
         self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
 
 
+@dataclasses.dataclass
 class IncomingRelationDefinition(FieldDefinition):
-    source_types: type["RootNode"] | type["ReifiedRelation"]
-    source_concrete_types: type["ReferenceViewBase"] | type["IncomingRelationView"]
+    reverse_name: str
+    source_type: type["RootNode"] | type["ReifiedRelation"]
+    target_type: type["RootNode"]
+    source_concrete_type: type["ReferenceViewBase"] | type["IncomingRelationView"] = (
+        dataclasses.field(init=False)
+    )
+
+    def __hash__(self):
+        return hash(self.reverse_name + str(self.source_type) + str(self.target_type))
 
 
 @dataclasses.dataclass

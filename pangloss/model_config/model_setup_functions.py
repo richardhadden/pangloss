@@ -7,6 +7,7 @@ import pydantic
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
+    IncomingRelationDefinition,
     ModelFieldDefinitions,
     FieldDefinition,
     LiteralFieldDefinition,
@@ -554,3 +555,19 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
 
     cls.View.base_class = cls
     cls.View.model_rebuild(force=True)
+
+
+def initialise_reverse_relations_on_related_models(source_class: type[RootNode]):
+    for outgoing_relation_definition in source_class.field_definitions.relation_fields:
+        for concrete_target_class in outgoing_relation_definition.field_concrete_types:
+            if issubclass(concrete_target_class, RootNode):
+                concrete_target_class.incoming_relation_definitions[
+                    outgoing_relation_definition.reverse_name
+                ].add(
+                    IncomingRelationDefinition(
+                        field_name=outgoing_relation_definition.field_name,
+                        reverse_name=outgoing_relation_definition.reverse_name,
+                        source_type=source_class,
+                        target_type=concrete_target_class,
+                    )
+                )

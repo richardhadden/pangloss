@@ -367,3 +367,17 @@ def test_reverse_relation_field_definitions():
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
+
+    thing_incoming_definition = next(
+        iter(Thing.incoming_relation_definitions["is_owned_by"])
+    )
+    assert thing_incoming_definition.field_name == "thing_owned"
+    assert thing_incoming_definition.reverse_name == "is_owned_by"
+    assert thing_incoming_definition.source_type is ThingOwner
+
+    other_thing_incoming_definition = next(
+        iter(OtherThing.incoming_relation_definitions["is_owned_by"])
+    )
+    assert other_thing_incoming_definition.field_name == "thing_owned"
+    assert other_thing_incoming_definition.reverse_name == "is_owned_by"
+    assert other_thing_incoming_definition.source_type is ThingOwner

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import dataclasses
 import datetime
 import typing
@@ -151,10 +152,14 @@ class RootNode(_GenericNode):
 
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
     incoming_relation_definitions: typing.ClassVar[
-        dict[str, "IncomingRelationDefinition"]
+        dict[str, set["IncomingRelationDefinition"]]
     ]
 
     __abstract__: typing.ClassVar[bool] = True
+
+    def __init_subclass__(cls) -> None:
+        # Make sure this is set as a new defaultdict for each subclass!
+        cls.incoming_relation_definitions = collections.defaultdict(set)
 
 
 class HeritableTrait:

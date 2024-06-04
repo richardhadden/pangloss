@@ -27,6 +27,7 @@ class ModelManager:
             initialise_outgoing_relation_types_on_base_model,
             initialise_embedded_nodes_on_base_model,
             initialise_view_type_for_base,
+            initialise_reverse_relations_on_related_models,
         )
 
         for model in cls.registered_models:
@@ -39,6 +40,8 @@ class ModelManager:
 
             initialise_reference_set_on_base_models(model)
             initialise_reference_view_on_base_models(model)
+
+            initialise_reverse_relations_on_related_models(model)
 
         for model in cls.registered_models:
             initialise_outgoing_relation_types_on_base_model(model)
