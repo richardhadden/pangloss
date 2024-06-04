@@ -510,12 +510,21 @@ def test_initialise_view_type_for_base():
     class Identification[T](ReifiedRelation[T]):
         pass
 
+    class ToIdentification(RelationPropertiesModel):
+        something: str
+
     class Thing(BaseNode):
         name: typing.Annotated[str, annotated_types.MaxLen(10)]
         age: int
         related_to: typing.Annotated[
             RelatedThing | Identification[RelatedThing],
             RelationConfig(reverse_name="has_reverse_relation_to"),
+        ]
+        also_related_to: typing.Annotated[
+            RelatedThing | Identification[RelatedThing],
+            RelationConfig(
+                reverse_name="has_also_relation_to", relation_model=ToIdentification
+            ),
         ]
 
     class RelatedThing(BaseNode):
@@ -529,4 +538,17 @@ def test_initialise_view_type_for_base():
     assert (
         Thing.View.model_fields["related_to"].annotation
         == list[RelatedThing.ReferenceView | Identification[RelatedThing].View]
+    )
+
+    also_related_to_args = typing.get_args(
+        typing.get_args(Thing.View.model_fields["also_related_to"].annotation)[0]
+    )
+
+    assert (
+        also_related_to_args[0].__name__
+        == "Thing__also_related_to__RelatedThing__ReferenceView"
+    )
+    assert (
+        also_related_to_args[1].__name__
+        == "Thing__also_related_to__Identification[test_initialise_view_type_for_base.<locals>.RelatedThing]__View"
     )

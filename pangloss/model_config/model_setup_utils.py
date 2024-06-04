@@ -267,7 +267,7 @@ def create_reference_view_model_with_property_model(
     field_name: str,
 ) -> type[ReferenceViewBase]:
     return pydantic.create_model(
-        f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
+        f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceView",
         __base__=ReferenceViewBase,
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         relation_properties=(relation_model, ...),
