@@ -504,3 +504,29 @@ def test_initialise_embedded_node_on_base_model():
         annotated_types.MinLen(1),
         annotated_types.MaxLen(1),
     ]
+
+
+def test_initialise_view_type_for_base():
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Thing(BaseNode):
+        name: typing.Annotated[str, annotated_types.MaxLen(10)]
+        age: int
+        related_to: typing.Annotated[
+            RelatedThing | Identification[RelatedThing],
+            RelationConfig(reverse_name="has_reverse_relation_to"),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Thing.View.model_fields["name"].annotation == str
+    assert Thing.View.model_fields["name"].metadata == [annotated_types.MaxLen(10)]
+    assert Thing.View.model_fields["age"].annotation == int
+    assert (
+        Thing.View.model_fields["related_to"].annotation
+        == list[RelatedThing.ReferenceView | Identification[RelatedThing].View]
+    )

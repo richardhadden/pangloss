@@ -36,7 +36,7 @@ Required model variations:
 
 
 class _SubNodeProxy:
-    base_class: typing.ClassVar[type["RootNode"]]
+    base_class: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
 
     @property
     def field_definitions(self) -> "ModelFieldDefinitions":
@@ -76,6 +76,7 @@ class ReifiedRelation[T](pydantic.BaseModel):
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
     type: str
 
+    View: typing.ClassVar[type[ViewBase]]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
 

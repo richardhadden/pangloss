@@ -4,7 +4,11 @@ import typing
 
 import pydantic
 
-from pangloss.model_config.models_base import RelationPropertiesModel, ReferenceSetBase
+from pangloss.model_config.models_base import (
+    ReferenceViewBase,
+    RelationPropertiesModel,
+    ReferenceSetBase,
+)
 from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
 
 if typing.TYPE_CHECKING:
@@ -251,6 +255,20 @@ def create_reference_set_model_with_property_model(
     return pydantic.create_model(
         f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
         __base__=ReferenceSetBase,
+        type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
+        relation_properties=(relation_model, ...),
+    )
+
+
+def create_reference_view_model_with_property_model(
+    origin_model: type["RootNode"] | type["ReifiedRelation"],
+    target_model: type["RootNode"] | type["ReifiedRelation"],
+    relation_model: type[RelationPropertiesModel],
+    field_name: str,
+) -> type[ReferenceViewBase]:
+    return pydantic.create_model(
+        f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
+        __base__=ReferenceViewBase,
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         relation_properties=(relation_model, ...),
     )

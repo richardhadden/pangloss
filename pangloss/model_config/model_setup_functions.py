@@ -24,8 +24,10 @@ from pangloss.model_config.models_base import (
     NonHeritableTrait,
     ReferenceSetBase,
     ReferenceViewBase,
+    ViewBase,
 )
 from pangloss.model_config.model_setup_utils import (
+    create_reference_view_model_with_property_model,
     get_non_heritable_traits_as_indirect_ancestors,
     create_reference_set_model_with_property_model,
 )
@@ -180,6 +182,7 @@ def build_field_definition_from_annotation(
         return ListFieldDefinition(
             field_name=field_name,
             field_annotated_type=typing.get_args(field.annotation)[0],
+            validators=field.metadata,
         )
 
     # Guard clauses before we fall back to treating the annotation as a proper literal type
@@ -352,7 +355,6 @@ def initialise_outgoing_relation_types_on_base_model(
                         reified_relation_model_with_relation_property_model
                     )
                 else:
-                    print(concrete_type)
                     initialise_reified_relation(concrete_type)
                     reference_types.append(concrete_type)
 
@@ -409,3 +411,83 @@ def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
     set_type_to_literal_on_base_model(reified_relation)
     initialise_model_field_definitions(reified_relation)
     initialise_outgoing_relation_types_on_base_model(reified_relation)
+
+
+def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
+    if not getattr(cls, "View", None):
+        cls.View = pydantic.create_model(f"{cls.__name__}View", __base__=ViewBase)
+        # Add property fields
+        for property_field_definition in cls.field_definitions.property_fields:
+            cls.View.model_fields[property_field_definition.field_name] = (
+                pydantic.fields.FieldInfo.from_annotation(
+                    property_field_definition.field_annotated_type,
+                )
+            )
+            cls.View.model_fields[
+                property_field_definition.field_name
+            ].metadata = property_field_definition.validators
+
+        # Add relation fields
+        for relation_field_definition in cls.field_definitions.relation_fields:
+            referenced_types = []
+            for concrete_type in relation_field_definition.field_concrete_types:
+                if issubclass(concrete_type, RootNode):
+                    if not getattr(concrete_type, "View", None):
+                        initialise_view_type_for_base(concrete_type)
+
+                    if (
+                        relation_field_definition.create_inline
+                        and relation_field_definition.relation_model
+                    ):
+                        create_inline_model_with_relation_model = pydantic.create_model(
+                            f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__ViewInline",
+                            __base__=concrete_type.View,
+                            relation_properties=(
+                                relation_field_definition.relation_model,
+                                ...,
+                            ),
+                        )
+                        referenced_types.append(create_inline_model_with_relation_model)
+                    elif relation_field_definition.create_inline:
+                        referenced_types.append(concrete_type.View)
+
+                    elif relation_field_definition.relation_model:
+                        referenced_types.append(
+                            create_reference_view_model_with_property_model(
+                                origin_model=cls,
+                                target_model=concrete_type,
+                                relation_model=relation_field_definition.relation_model,
+                                field_name=relation_field_definition.field_name,
+                            )
+                        )
+                    else:
+                        referenced_types.append(concrete_type.ReferenceView)
+                if issubclass(concrete_type, ReifiedRelation):
+                    initialise_view_type_for_base(concrete_type)
+                    if relation_field_definition.relation_model:
+                        reified_relation_view_model_with_relation_property_model = pydantic.create_model(
+                            f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__View",
+                            __base__=concrete_type.View,
+                            relation_properties=(
+                                relation_field_definition.relation_model,
+                                ...,
+                            ),
+                        )
+                        referenced_types.append(
+                            reified_relation_view_model_with_relation_property_model
+                        )
+                    else:
+                        referenced_types.append(concrete_type.View)
+
+            cls.View.model_fields[relation_field_definition.field_name] = (
+                pydantic.fields.FieldInfo.from_annotation(
+                    list[
+                        typing.Union[
+                            *referenced_types  # type: ignore
+                        ]
+                    ]
+                )
+            )
+
+    cls.View.base_class = cls
+    cls.View.model_rebuild(force=True)

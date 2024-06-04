@@ -26,6 +26,7 @@ class ModelManager:
             initialise_reference_view_on_base_models,
             initialise_outgoing_relation_types_on_base_model,
             initialise_embedded_nodes_on_base_model,
+            initialise_view_type_for_base,
         )
 
         for model in cls.registered_models:
@@ -45,6 +46,12 @@ class ModelManager:
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
             initialise_embedded_nodes_on_base_model(model)
+            model.model_rebuild(
+                force=True, _parent_namespace_depth=3 if _defined_in_test else 2
+            )
+
+        for model in cls.registered_models:
+            initialise_view_type_for_base(model)
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )

@@ -58,6 +58,9 @@ class LiteralFieldDefinition(FieldDefinition):
 class ListFieldDefinition(FieldDefinition):
     field_annotated_type: type[MappedCypherTypes]
     field_metatype: typing.Literal["List"] = "List"
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
 
 
 @dataclasses.dataclass
@@ -132,9 +135,15 @@ class ModelFieldDefinitions:
                 yield field
 
     @property
-    def embedded_fields(
-        self,
-    ) -> typing.Generator[EmbeddedFieldDefinition, None, None]:
+    def embedded_fields(self) -> typing.Generator[EmbeddedFieldDefinition, None, None]:
         for key, field in self.fields.items():
             if isinstance(field, EmbeddedFieldDefinition):
+                yield field
+
+    @property
+    def property_fields(
+        self,
+    ) -> typing.Generator[LiteralFieldDefinition | ListFieldDefinition, None, None]:
+        for key, field in self.fields.items():
+            if isinstance(field, (LiteralFieldDefinition, ListFieldDefinition)):
                 yield field
