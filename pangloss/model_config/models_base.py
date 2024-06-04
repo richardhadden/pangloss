@@ -10,7 +10,7 @@ import humps
 import pydantic
 
 if typing.TYPE_CHECKING:
-    from field_definitions import ModelFieldDefinitions
+    from field_definitions import ModelFieldDefinitions, IncomingRelationDefinition
 
 """
 Required model variations:
@@ -95,7 +95,7 @@ class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for viewing model"""
 
-    pass
+    generated: typing.ClassVar[bool] = True
 
 
 # Reference types need to be separated, so that additional fields for viewing
@@ -130,7 +130,7 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
 
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
-    pass
+    type: str
 
 
 class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
@@ -150,6 +150,9 @@ class RootNode(_GenericNode):
     EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
 
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+    incoming_relation_definitions: typing.ClassVar[
+        dict[str, "IncomingRelationDefinition"]
+    ]
 
     __abstract__: typing.ClassVar[bool] = True
 
@@ -163,6 +166,10 @@ class NonHeritableTrait:
 
 
 class Embedded[T]:
+    pass
+
+
+class IncomingRelationView(pydantic.BaseModel):
     pass
 
 

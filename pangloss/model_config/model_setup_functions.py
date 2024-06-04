@@ -16,6 +16,7 @@ from pangloss.model_config.field_definitions import (
 )
 from pangloss.model_config.models_base import (
     EmbeddedSetBase,
+    EmbeddedViewBase,
     RootNode,
     Embedded,
     RelationConfig,
@@ -388,6 +389,26 @@ def create_embedded_set_model(cls: type[RootNode]):
     return embedded_set_model
 
 
+def create_embedded_view_model(cls: type[RootNode]):
+    embedded_set_model = pydantic.create_model(
+        f"{cls.__name__}EmbeddedView", __base__=EmbeddedViewBase
+    )
+    embedded_set_model.base_class = cls
+
+    fields = {
+        field_name: field
+        for field_name, field in cls.model_fields.items()
+        if field_name != "label"
+    }
+    embedded_set_model.model_fields = fields
+    embedded_set_model.model_rebuild(force=True)
+
+    # It should not be necessary to initialise anything on this model
+    # as it inherits the already-initialised fields from its container base class
+
+    return embedded_set_model
+
+
 def initialise_embedded_nodes_on_base_model(
     cls: type[RootNode] | type[ReifiedRelation],
 ):
@@ -413,81 +434,123 @@ def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
     initialise_outgoing_relation_types_on_base_model(reified_relation)
 
 
-def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
-    if not getattr(cls, "View", None):
-        cls.View = pydantic.create_model(f"{cls.__name__}View", __base__=ViewBase)
-        # Add property fields
-        for property_field_definition in cls.field_definitions.property_fields:
-            cls.View.model_fields[property_field_definition.field_name] = (
-                pydantic.fields.FieldInfo.from_annotation(
-                    property_field_definition.field_annotated_type,
-                )
-            )
-            cls.View.model_fields[
-                property_field_definition.field_name
-            ].metadata = property_field_definition.validators
+def initialise_relation_fields_on_view_model(
+    cls: type[RootNode] | type[ReifiedRelation],
+):
+    # Add relation fields
+    for relation_field_definition in cls.field_definitions.relation_fields:
+        referenced_types = []
+        for concrete_type in relation_field_definition.field_concrete_types:
+            if issubclass(concrete_type, RootNode):
+                initialise_view_type_for_base(concrete_type)
 
-        # Add relation fields
-        for relation_field_definition in cls.field_definitions.relation_fields:
-            referenced_types = []
-            for concrete_type in relation_field_definition.field_concrete_types:
-                if issubclass(concrete_type, RootNode):
-                    if not getattr(concrete_type, "View", None):
-                        initialise_view_type_for_base(concrete_type)
+                if (
+                    relation_field_definition.create_inline
+                    and relation_field_definition.relation_model
+                ):
+                    create_inline_model_with_relation_model = pydantic.create_model(
+                        f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__ViewInline",
+                        __base__=concrete_type.View,
+                        relation_properties=(
+                            relation_field_definition.relation_model,
+                            ...,
+                        ),
+                    )
+                    referenced_types.append(create_inline_model_with_relation_model)
+                elif relation_field_definition.create_inline:
+                    referenced_types.append(concrete_type.View)
 
-                    if (
-                        relation_field_definition.create_inline
-                        and relation_field_definition.relation_model
-                    ):
-                        create_inline_model_with_relation_model = pydantic.create_model(
-                            f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__ViewInline",
-                            __base__=concrete_type.View,
-                            relation_properties=(
-                                relation_field_definition.relation_model,
-                                ...,
-                            ),
+                elif relation_field_definition.relation_model:
+                    referenced_types.append(
+                        create_reference_view_model_with_property_model(
+                            origin_model=cls,
+                            target_model=concrete_type,
+                            relation_model=relation_field_definition.relation_model,
+                            field_name=relation_field_definition.field_name,
                         )
-                        referenced_types.append(create_inline_model_with_relation_model)
-                    elif relation_field_definition.create_inline:
-                        referenced_types.append(concrete_type.View)
+                    )
+                else:
+                    referenced_types.append(concrete_type.ReferenceView)
+            if issubclass(concrete_type, ReifiedRelation):
+                initialise_view_type_for_base(concrete_type)
+                if relation_field_definition.relation_model:
+                    reified_relation_view_model_with_relation_property_model = pydantic.create_model(
+                        f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__View",
+                        __base__=concrete_type.View,
+                        relation_properties=(
+                            relation_field_definition.relation_model,
+                            ...,
+                        ),
+                    )
+                    referenced_types.append(
+                        reified_relation_view_model_with_relation_property_model
+                    )
+                else:
+                    referenced_types.append(concrete_type.View)
 
-                    elif relation_field_definition.relation_model:
-                        referenced_types.append(
-                            create_reference_view_model_with_property_model(
-                                origin_model=cls,
-                                target_model=concrete_type,
-                                relation_model=relation_field_definition.relation_model,
-                                field_name=relation_field_definition.field_name,
-                            )
-                        )
-                    else:
-                        referenced_types.append(concrete_type.ReferenceView)
-                if issubclass(concrete_type, ReifiedRelation):
-                    initialise_view_type_for_base(concrete_type)
-                    if relation_field_definition.relation_model:
-                        reified_relation_view_model_with_relation_property_model = pydantic.create_model(
-                            f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__View",
-                            __base__=concrete_type.View,
-                            relation_properties=(
-                                relation_field_definition.relation_model,
-                                ...,
-                            ),
-                        )
-                        referenced_types.append(
-                            reified_relation_view_model_with_relation_property_model
-                        )
-                    else:
-                        referenced_types.append(concrete_type.View)
-
-            cls.View.model_fields[relation_field_definition.field_name] = (
-                pydantic.fields.FieldInfo.from_annotation(
-                    list[
-                        typing.Union[
-                            *referenced_types  # type: ignore
-                        ]
+        cls.View.model_fields[relation_field_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[
+                    typing.Union[
+                        *referenced_types  # type: ignore
                     ]
-                )
+                ]
             )
+        )
+
+
+def initialise_embedded_fields_on_view_model(
+    cls: type[RootNode] | type[ReifiedRelation],
+):
+    for embedded_field_definition in cls.field_definitions.embedded_fields:
+        embedded_models = []
+        for embedded_type in embedded_field_definition.field_concrete_types:
+            if not getattr(embedded_type, "EmbeddedView", None):
+                embedded_type.EmbeddedView = create_embedded_view_model(embedded_type)
+            embedded_models.append(embedded_type.EmbeddedView)
+
+        cls.View.model_fields[embedded_field_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[
+                    typing.Union[*embedded_models]  # type: ignore
+                ]
+            )
+        )
+
+        cls.View.model_fields[
+            embedded_field_definition.field_name
+        ].metadata = embedded_field_definition.validators
+        cls.View.model_fields[
+            embedded_field_definition.field_name
+        ].discriminator = "type"
+
+
+def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
+    if getattr(cls, "View", None) and cls.View.generated:
+        return
+
+    if not getattr(cls, "View", None):
+        cls.View = pydantic.create_model(
+            f"{cls.__name__}View",
+            __base__=ViewBase,
+            generated=(typing.ClassVar[bool], True),
+        )
+
+    view_is_manual = not cls.View.generated
+
+    # Add property fields
+    for property_field_definition in cls.field_definitions.property_fields:
+        cls.View.model_fields[property_field_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                property_field_definition.field_annotated_type,
+            )
+        )
+        cls.View.model_fields[
+            property_field_definition.field_name
+        ].metadata = property_field_definition.validators
+
+    initialise_relation_fields_on_view_model(cls)
+    initialise_embedded_fields_on_view_model(cls)
 
     cls.View.base_class = cls
     cls.View.model_rebuild(force=True)

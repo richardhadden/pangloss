@@ -526,9 +526,13 @@ def test_initialise_view_type_for_base():
                 reverse_name="has_also_relation_to", relation_model=ToIdentification
             ),
         ]
+        embedded_thing: Embedded[EmbeddedThing]
 
     class RelatedThing(BaseNode):
         pass
+
+    class EmbeddedThing(BaseNode):
+        stuff: str
 
     ModelManager.initialise_models(_defined_in_test=True)
 
@@ -540,15 +544,20 @@ def test_initialise_view_type_for_base():
         == list[RelatedThing.ReferenceView | Identification[RelatedThing].View]
     )
 
-    also_related_to_args = typing.get_args(
-        typing.get_args(Thing.View.model_fields["also_related_to"].annotation)[0]
+    also_related_to_args = set(
+        arg.__name__
+        for arg in typing.get_args(
+            typing.get_args(Thing.View.model_fields["also_related_to"].annotation)[0]
+        )
     )
 
+    assert "Thing__also_related_to__RelatedThing__ReferenceView" in also_related_to_args
     assert (
-        also_related_to_args[0].__name__
-        == "Thing__also_related_to__RelatedThing__ReferenceView"
+        "Thing__also_related_to__Identification[test_initialise_view_type_for_base.<locals>.RelatedThing]__View"
+        in also_related_to_args
     )
-    assert (
-        also_related_to_args[1].__name__
-        == "Thing__also_related_to__Identification[test_initialise_view_type_for_base.<locals>.RelatedThing]__View"
+
+    embedded_thing_args = typing.get_args(
+        Thing.View.model_fields["embedded_thing"].annotation
     )
+    assert embedded_thing_args[0] == EmbeddedThing.EmbeddedView

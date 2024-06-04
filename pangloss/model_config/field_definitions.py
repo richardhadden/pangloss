@@ -12,6 +12,8 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     HeritableTrait,
     NonHeritableTrait,
+    IncomingRelationView,
+    ReferenceViewBase,
 )
 from pangloss.model_config.model_setup_utils import get_concrete_model_types
 
@@ -107,6 +109,11 @@ class RelationFieldDefinition(FieldDefinition):
 
     def __post_init__(self):
         self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
+
+
+class IncomingRelationDefinition(FieldDefinition):
+    source_types: type["RootNode"] | type["ReifiedRelation"]
+    source_concrete_types: type["ReferenceViewBase"] | type["IncomingRelationView"]
 
 
 @dataclasses.dataclass

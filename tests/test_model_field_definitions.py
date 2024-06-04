@@ -352,3 +352,18 @@ def test_field_definition_field_concrete_type_set_up_correctly():
 
     assert isinstance(thing_owned_definition, RelationFieldDefinition)
     assert thing_owned_definition.field_concrete_types == set([Thing, OtherThing])
+
+
+def test_reverse_relation_field_definitions():
+    class Thing(BaseNode):
+        pass
+
+    class OtherThing(BaseNode):
+        pass
+
+    class ThingOwner(BaseNode):
+        thing_owned: typing.Annotated[
+            Thing | OtherThing, RelationConfig(reverse_name="is_owned_by")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
