@@ -1,3 +1,4 @@
+import functools
 import inspect
 import types
 import typing
@@ -246,6 +247,7 @@ def get_non_heritable_traits_as_indirect_ancestors(
     return set(traits_as_indirect_ancestors)
 
 
+@functools.cache
 def create_reference_set_model_with_property_model(
     origin_model: type["RootNode"] | type["ReifiedRelation"],
     target_model: type["RootNode"] | type["ReifiedRelation"],
@@ -260,6 +262,7 @@ def create_reference_set_model_with_property_model(
     )
 
 
+@functools.cache
 def create_reference_view_model_with_property_model(
     origin_model: type["RootNode"] | type["ReifiedRelation"],
     target_model: type["RootNode"] | type["ReifiedRelation"],

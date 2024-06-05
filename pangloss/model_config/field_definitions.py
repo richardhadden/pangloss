@@ -115,10 +115,8 @@ class RelationFieldDefinition(FieldDefinition):
 class IncomingRelationDefinition(FieldDefinition):
     reverse_name: str
     source_type: type["RootNode"] | type["ReifiedRelation"]
+    source_concrete_type: type["ReferenceViewBase"] | type["IncomingRelationView"]
     target_type: type["RootNode"]
-    source_concrete_type: type["ReferenceViewBase"] | type["IncomingRelationView"] = (
-        dataclasses.field(init=False)
-    )
 
     def __hash__(self):
         return hash(self.reverse_name + str(self.source_type) + str(self.target_type))

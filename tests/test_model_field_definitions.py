@@ -21,6 +21,7 @@ from pangloss.models import (
     RelationConfig,
     ReifiedRelation,
     HeritableTrait,
+    RelationPropertiesModel,
 )
 
 
@@ -354,7 +355,7 @@ def test_field_definition_field_concrete_type_set_up_correctly():
     assert thing_owned_definition.field_concrete_types == set([Thing, OtherThing])
 
 
-def test_reverse_relation_field_definitions():
+def test_incoming_relation_field_definitions():
     class Thing(BaseNode):
         pass
 
@@ -374,6 +375,7 @@ def test_reverse_relation_field_definitions():
     assert thing_incoming_definition.field_name == "thing_owned"
     assert thing_incoming_definition.reverse_name == "is_owned_by"
     assert thing_incoming_definition.source_type is ThingOwner
+    assert thing_incoming_definition.source_concrete_type is ThingOwner.ReferenceView
 
     other_thing_incoming_definition = next(
         iter(OtherThing.incoming_relation_definitions["is_owned_by"])
@@ -381,3 +383,34 @@ def test_reverse_relation_field_definitions():
     assert other_thing_incoming_definition.field_name == "thing_owned"
     assert other_thing_incoming_definition.reverse_name == "is_owned_by"
     assert other_thing_incoming_definition.source_type is ThingOwner
+    assert (
+        other_thing_incoming_definition.source_concrete_type is ThingOwner.ReferenceView
+    )
+
+
+def test_create_incoming_relation_definitions_with_relation_model():
+    class Certainty(RelationPropertiesModel):
+        value: int
+
+    class Thing(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing,
+            RelationConfig(reverse_name="has_relation_to", relation_model=Certainty),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert RelatedThing.incoming_relation_definitions["has_relation_to"]
+    related_thing_incoming_definition = next(
+        iter(RelatedThing.incoming_relation_definitions["has_relation_to"])
+    )
+    assert related_thing_incoming_definition.field_name == "related_to"
+    assert related_thing_incoming_definition.reverse_name == "has_relation_to"
+    assert related_thing_incoming_definition.source_type is Thing
+    assert (
+        related_thing_incoming_definition.source_concrete_type.__name__
+        == "Thing__related_to__RelatedThing__ReferenceView"
+    )

@@ -557,10 +557,13 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
     cls.View.model_rebuild(force=True)
 
 
-def initialise_reverse_relations_on_related_models(source_class: type[RootNode]):
+def create_incoming_relation_definitions_from_model(source_class: type[RootNode]):
     for outgoing_relation_definition in source_class.field_definitions.relation_fields:
         for concrete_target_class in outgoing_relation_definition.field_concrete_types:
-            if issubclass(concrete_target_class, RootNode):
+            if (
+                issubclass(concrete_target_class, RootNode)
+                and outgoing_relation_definition.relation_model
+            ):
                 concrete_target_class.incoming_relation_definitions[
                     outgoing_relation_definition.reverse_name
                 ].add(
@@ -568,6 +571,25 @@ def initialise_reverse_relations_on_related_models(source_class: type[RootNode])
                         field_name=outgoing_relation_definition.field_name,
                         reverse_name=outgoing_relation_definition.reverse_name,
                         source_type=source_class,
+                        source_concrete_type=create_reference_view_model_with_property_model(
+                            origin_model=source_class,
+                            target_model=concrete_target_class,
+                            relation_model=outgoing_relation_definition.relation_model,
+                            field_name=outgoing_relation_definition.field_name,
+                        ),
+                        target_type=concrete_target_class,
+                    )
+                )
+
+            elif issubclass(concrete_target_class, RootNode):
+                concrete_target_class.incoming_relation_definitions[
+                    outgoing_relation_definition.reverse_name
+                ].add(
+                    IncomingRelationDefinition(
+                        field_name=outgoing_relation_definition.field_name,
+                        reverse_name=outgoing_relation_definition.reverse_name,
+                        source_type=source_class,
+                        source_concrete_type=source_class.ReferenceView,
                         target_type=concrete_target_class,
                     )
                 )
