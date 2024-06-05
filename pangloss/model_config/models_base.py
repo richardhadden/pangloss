@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import dataclasses
 import datetime
+import functools
 import typing
 import uuid
 
@@ -35,11 +36,24 @@ Required model variations:
     
 """
 
+T = typing.TypeVar("T")
+
+
+class classproperty(typing.Generic[T]):
+    def __init__(self, method: typing.Callable[..., T]):
+        self.method = method
+        functools.update_wrapper(self, method)  # type: ignore
+
+    def __get__(self, obj, cls=None) -> T:
+        if cls is None:
+            cls = type(obj)
+        return self.method(cls)
+
 
 class _SubNodeProxy:
     base_class: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
 
-    @property
+    @classproperty
     def field_definitions(self) -> "ModelFieldDefinitions":
         return self.base_class.field_definitions
 
@@ -59,6 +73,7 @@ class _GenericNode(pydantic.BaseModel):
         "alias_generator": humps.camelize,
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
+        "use_enum_values": True,
     }
 
 
@@ -133,10 +148,24 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
     type: str
 
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+        "use_enum_values": True,
+    }
+
 
 class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
     type: str
     uuid: uuid.UUID
+
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+        "use_enum_values": True,
+    }
 
 
 class RootNode(_GenericNode):

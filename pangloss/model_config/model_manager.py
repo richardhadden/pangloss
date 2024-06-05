@@ -41,6 +41,7 @@ class ModelManager:
             initialise_reference_set_on_base_models(model)
             initialise_reference_view_on_base_models(model)
 
+        for model in cls.registered_models:
             create_incoming_relation_definitions_from_model(model)
 
         for model in cls.registered_models:

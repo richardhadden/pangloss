@@ -23,6 +23,9 @@ from pangloss.models import (
     HeritableTrait,
     RelationPropertiesModel,
 )
+from pangloss.model_config.model_setup_functions import (
+    recurse_embedded_models_for_all_outgoing_relation_field_definitions,
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -414,3 +417,35 @@ def test_create_incoming_relation_definitions_with_relation_model():
         related_thing_incoming_definition.source_concrete_type.__name__
         == "Thing__related_to__RelatedThing__ReferenceView"
     )
+
+
+def test_create_incoming_relation_definitions_via_embedded():
+    class EmbeddedOne(BaseNode):
+        embedded_two: Embedded[EmbeddedTwo]
+
+    class EmbeddedTwo(BaseNode):
+        name: str
+        embedded_three: Embedded[EmbeddedThree]
+
+    class EmbeddedThree(BaseNode):
+        related_to: typing.Annotated[
+            RelatedThing, RelationConfig(reverse_name="has_relation_to")
+        ]
+
+    class Thing(BaseNode):
+        embedded_one: Embedded[EmbeddedOne]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+        Thing
+    ) == [
+        RelationFieldDefinition(
+            field_name="related_to",
+            field_annotated_type=RelatedThing,
+            reverse_name="has_relation_to",
+        )
+    ]

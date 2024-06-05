@@ -235,6 +235,7 @@ def initialise_model_field_definitions(
 ):
     """Creates a model field_definition object for each field
     of a model"""
+    print("initialising mfd", cls)
     cls.field_definitions = ModelFieldDefinitions()
     for field_name, field in cls.model_fields.items():
         cls.field_definitions[field_name] = build_field_definition_from_annotation(
@@ -557,8 +558,31 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
     cls.View.model_rebuild(force=True)
 
 
+def recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+    source_class: type[RootNode],
+) -> list[RelationFieldDefinition]:
+    """Given a model, go through all embedded models to find the target of
+    outgoing relations, and the relation name"""
+
+    relation_definitions: list[RelationFieldDefinition] = []
+    for relation_definition in source_class.field_definitions.relation_fields:
+        relation_definitions.append(relation_definition)
+    for embedded_definition in source_class.field_definitions.embedded_fields:
+        for embedded_concrete_type in embedded_definition.field_concrete_types:
+            relation_definitions.extend(
+                recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+                    embedded_concrete_type
+                )
+            )
+    return relation_definitions
+
+
 def create_incoming_relation_definitions_from_model(source_class: type[RootNode]):
-    for outgoing_relation_definition in source_class.field_definitions.relation_fields:
+    for (
+        outgoing_relation_definition
+    ) in recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+        source_class
+    ):
         for concrete_target_class in outgoing_relation_definition.field_concrete_types:
             if (
                 issubclass(concrete_target_class, RootNode)
@@ -593,3 +617,6 @@ def create_incoming_relation_definitions_from_model(source_class: type[RootNode]
                         target_type=concrete_target_class,
                     )
                 )
+
+    for embedded_definition in source_class.field_definitions.embedded_fields:
+        pass
