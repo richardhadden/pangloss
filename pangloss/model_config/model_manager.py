@@ -28,6 +28,7 @@ class ModelManager:
             initialise_embedded_nodes_on_base_model,
             initialise_view_type_for_base,
             create_incoming_relation_definitions_from_model,
+            initialise_incoming_relations_on_view_model,
         )
 
         for model in cls.registered_models:
@@ -59,3 +60,7 @@ class ModelManager:
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
+
+        for model in cls.registered_models:
+            initialise_incoming_relations_on_view_model(model)
+            model.View.model_rebuild(force=True)

@@ -533,6 +533,22 @@ def initialise_embedded_fields_on_view_model(
         ].discriminator = "type"
 
 
+def initialise_incoming_relations_on_view_model(cls: type[RootNode]):
+    for (
+        incoming_field_name,
+        incoming_field_definitions,
+    ) in cls.incoming_relation_definitions.items():
+        concrete_types = [f.source_concrete_type for f in incoming_field_definitions]
+
+        cls.View.model_fields[incoming_field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                typing.Optional[list[typing.Union[*concrete_types]]]  # type: ignore
+            )
+        )
+
+        cls.View.model_fields[incoming_field_name].default = None
+
+
 def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
     if getattr(cls, "View", None) and cls.View.generated:
         return
@@ -544,7 +560,7 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
             generated=(typing.ClassVar[bool], True),
         )
 
-    view_is_manual = not cls.View.generated
+    # view_is_manual = not cls.View.generated
 
     # Add property fields
     for property_field_definition in cls.field_definitions.property_fields:
@@ -557,6 +573,8 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
             property_field_definition.field_name
         ].metadata = property_field_definition.validators
 
+    # if issubclass(cls, RootNode):
+    #    initialise_incoming_relations_on_view_model(cls)
     initialise_relation_fields_on_view_model(cls)
     initialise_embedded_fields_on_view_model(cls)
 
@@ -643,9 +661,6 @@ def create_incoming_relation_definitions_from_model(source_class: type[RootNode]
                     # Otherwise, if it is bound as a secondary relation to a reified relation,
                     # just add the whole relation chain
                     else:
-                        print("====")
-                        print(target_class)
-                        print(to_target_relation_definition.field_name)
                         add_reverse_pointer_to_reified_relation(
                             source_class=source_class,
                             target_class=target_class,
@@ -717,11 +732,22 @@ def add_reverse_definition_through_reified_relation_model_to_target(
         new_wrapping_model = pydantic.create_model(
             f"{next_wrapping_model.__name__}__ReverseView",
             __base__=next_wrapping_model,
+            type=(
+                typing.Literal[next_wrapping_model.__name__],  # type: ignore
+                next_wrapping_model.__name__,
+            ),
             is_target_of=(current_innermost_class, ...),
             uuid=(uuid.UUID, ...),
         )
         del new_wrapping_model.model_fields["target"]
-        next_wrapping_model.model_rebuild(force=True)
+        if next_relation_definition.relation_model:
+            new_wrapping_model.model_fields["relation_properties"] = (
+                pydantic.fields.FieldInfo(
+                    annotation=next_relation_definition.relation_model
+                )
+            )
+
+        new_wrapping_model.model_rebuild(force=True)
         current_innermost_class = new_wrapping_model
 
     target.incoming_relation_definitions[initial_relation_definition.reverse_name].add(

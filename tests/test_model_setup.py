@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+import types
 import typing
 
 import annotated_types
@@ -561,3 +562,34 @@ def test_initialise_view_type_for_base():
         Thing.View.model_fields["embedded_thing"].annotation
     )
     assert embedded_thing_args[0] == EmbeddedThing.EmbeddedView
+
+    # Test RelatedThing.View for the correctly generated model
+    assert RelatedThing.View.model_fields["has_reverse_relation_to"]
+
+    related_thing_reverse_annotation = RelatedThing.View.model_fields[
+        "has_reverse_relation_to"
+    ].annotation
+
+    assert typing.get_args(related_thing_reverse_annotation)[1] == types.NoneType
+    assert (
+        typing.get_origin(typing.get_args(related_thing_reverse_annotation)[0]) == list
+    )
+    assert (
+        typing.get_origin(
+            typing.get_args(typing.get_args(related_thing_reverse_annotation)[0])[0]
+        )
+        == typing.Union
+    )
+
+    innermost_args = {
+        t.__name__
+        for t in typing.get_args(
+            typing.get_args(typing.get_args(related_thing_reverse_annotation)[0])[0]
+        )
+    }
+    assert (
+        "Identification[test_initialise_view_type_for_base.<locals>.RelatedThing]__ReverseView"
+        in innermost_args
+    )
+
+    assert "ThingReferenceView" in innermost_args

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+import datetime
 import typing
 import uuid
 
@@ -246,4 +247,139 @@ def test_initialise_relation_with_trait():
     assert thing.related_to[1].type == "OtherOtherThing"
     assert thing.related_to[1] == OtherOtherThing.ReferenceSet(
         uuid=other_other_thing_uuid
+    )
+
+
+@typing.no_type_check
+def test_initialisation_of_view_model_with_basic_rel():
+    class Thing(BaseNode):
+        name: str
+        related_to: typing.Annotated[
+            RelatedThing, RelationConfig(reverse_name="has_relation_to")
+        ]
+
+    class RelatedThing(BaseNode):
+        name: str
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    Thing(
+        label="Thing",
+        name="Thing",
+        related_to=[
+            {"type": "RelatedThing", "uuid": uuid.uuid4(), "label": "A Related Thing"}
+        ],
+    )
+
+    Thing.View(
+        type="Thing",
+        uuid=uuid.uuid4(),
+        created_by="User1",
+        created_when=datetime.datetime.now(),
+        modified_by="User1",
+        modified_when=datetime.datetime.now(),
+        label="Thing1",
+        name="Thing",
+        related_to=[
+            {"type": "RelatedThing", "uuid": uuid.uuid4(), "label": "A Related Thing"}
+        ],
+    )
+
+    assert "has_relation_to" in RelatedThing.View.model_fields.keys()
+    # assert RelatedThing.View.model_fields["has_relation_to"] == {}
+
+    rt = RelatedThing.View(
+        type="RelatedThing",
+        uuid=uuid.uuid4(),
+        created_by="User1",
+        created_when=datetime.datetime.now(),
+        modified_by="User1",
+        modified_when=datetime.datetime.now(),
+        label="RelatedThing1",
+        name="RelatedThing1",
+        has_relation_to=[
+            Thing.ReferenceView(type="Thing", label="Thing", uuid=uuid.uuid4())
+        ],
+    )
+
+    assert rt.has_relation_to
+
+    assert rt.has_relation_to[0].label == "Thing"
+
+
+@typing.no_type_check
+def test_initialisation_of_view_model_with_reified_rel():
+    class Certainty(RelationPropertiesModel):
+        certainty: int
+
+    class Person(BaseNode):
+        pass
+
+    class RepresentedByProxy[T](ReifiedRelation[T]):
+        proxy: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="acts_as_proxy_in")
+        ]
+
+    T = typing.TypeVar("T")
+
+    class Identification(ReifiedRelation[T]):
+        target: typing.Annotated[
+            T, RelationConfig(reverse_name="is_target_of", relation_model=Certainty)
+        ]
+
+    class Action(BaseNode):
+        carried_out_by_person: typing.Annotated[
+            RepresentedByProxy[Identification[Person]],
+            RelationConfig("carried_out_action"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    p1_uuid = uuid.uuid4()
+    p2_uuid = uuid.uuid4()
+
+    action = Action(
+        type="Action",
+        label="Action1",
+        carried_out_by_person=[
+            {
+                "target": [
+                    {
+                        "target": [
+                            {
+                                "type": "Person",
+                                "uuid": p1_uuid,
+                                "relation_properties": {"certainty": 1},
+                            }
+                        ]
+                    }
+                ],
+                "proxy": [
+                    {
+                        "target": [
+                            {
+                                "type": "Person",
+                                "uuid": p2_uuid,
+                                "relation_properties": {"certainty": 2},
+                            }
+                        ]
+                    }
+                ],
+            },
+        ],
+    )
+
+    assert action.carried_out_by_person[0].target[0].target[0].uuid == p1_uuid
+    assert (
+        action.carried_out_by_person[0]
+        .target[0]
+        .target[0]
+        .relation_properties.certainty
+        == 1
+    )
+
+    assert action.carried_out_by_person[0].proxy[0].target[0].uuid == p2_uuid
+    assert (
+        action.carried_out_by_person[0].proxy[0].target[0].relation_properties.certainty
+        == 2
     )
