@@ -78,7 +78,6 @@ class EmbeddedFieldDefinition(FieldDefinition):
 
     def __post_init__(self):
         self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
-        print(self.field_concrete_types)
         if not self.validators:
             self.validators = [annotated_types.MinLen(1), annotated_types.MaxLen(1)]
 
@@ -115,7 +114,9 @@ class RelationFieldDefinition(FieldDefinition):
 class IncomingRelationDefinition(FieldDefinition):
     reverse_name: str
     source_type: type["RootNode"] | type["ReifiedRelation"]
-    source_concrete_type: type["ReferenceViewBase"] | type["IncomingRelationView"]
+    source_concrete_type: (
+        type["ReferenceViewBase"] | type["IncomingRelationView"] | type
+    )
     target_type: type["RootNode"]
 
     def __hash__(self):
@@ -136,20 +137,20 @@ class ModelFieldDefinitions:
         return key in self.fields
 
     def __iter__(self) -> typing.Generator[FieldDefinition, None, None]:
-        for key, field in self.fields.items():
+        for field in self.fields.values():
             yield field
 
     @property
     def relation_fields(
         self,
     ) -> typing.Generator[RelationFieldDefinition, None, None]:
-        for key, field in self.fields.items():
+        for field in self.fields.values():
             if isinstance(field, RelationFieldDefinition):
                 yield field
 
     @property
     def embedded_fields(self) -> typing.Generator[EmbeddedFieldDefinition, None, None]:
-        for key, field in self.fields.items():
+        for field in self.fields.values():
             if isinstance(field, EmbeddedFieldDefinition):
                 yield field
 
@@ -157,6 +158,6 @@ class ModelFieldDefinitions:
     def property_fields(
         self,
     ) -> typing.Generator[LiteralFieldDefinition | ListFieldDefinition, None, None]:
-        for key, field in self.fields.items():
+        for field in self.fields.values():
             if isinstance(field, (LiteralFieldDefinition, ListFieldDefinition)):
                 yield field

@@ -10,10 +10,12 @@ from pangloss.model_config.models_base import (
     RelationPropertiesModel,
     ReferenceSetBase,
 )
+
 from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import RootNode
+    from pangloss.model_config.field_definitions import RelationFieldDefinition
 
 
 def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
@@ -127,6 +129,7 @@ def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
             origin = subclass.__pydantic_generic_metadata__.get("origin", False)
             args = subclass.__pydantic_generic_metadata__.get("args", False)
             # ... and, checking the wrapped type is something real...
+
             if (
                 args
                 and inspect.isclass(args[0])
@@ -134,7 +137,7 @@ def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
                     args[0],
                     (BaseNode, ReifiedRelation, HeritableTrait, NonHeritableTrait),
                 )
-            ):
+            ) or (args and (type(args[0]) is types.UnionType)):
                 # ...get the subclasses of that type which are generic (i.e. have "parameters")
                 subclasses.add(subclass)
                 # ... get all the subclasses of that, and construct types out of that
@@ -275,3 +278,74 @@ def create_reference_view_model_with_property_model(
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         relation_properties=(relation_model, ...),
     )
+
+
+def get_paths_to_target_node(
+    cls: type[ReifiedRelation], relation_definition: "RelationFieldDefinition"
+):
+    trees = recurse_reified_relation_definitions_into_tree(
+        cls, ReifiedRelationTree((cls, relation_definition))
+    )
+
+    paths = get_paths(trees)
+
+    return [PathToTargetRootNode(path) for path in paths]
+
+
+class PathToTargetRootNode:
+    def __init__(self, path: list):
+        self.target: tuple[type[RootNode], "RelationFieldDefinition"] = path[-1]
+        self.path_items: list[
+            tuple[type[ReifiedRelation], "RelationFieldDefinition"]
+        ] = path[:-1]
+
+
+def get_paths(t: "ReifiedRelationTree", paths=None, current_path=None):
+    if paths is None:
+        paths = []
+    if current_path is None:
+        current_path = []
+
+    current_path.append(t.value)
+    if len(t.children) == 0:
+        paths.append(current_path)
+    else:
+        for child in t.children:
+            get_paths(child, paths, list(current_path))
+    return paths
+
+
+class ReifiedRelationTree:
+    def __init__(
+        self,
+        value: tuple[
+            type["RootNode"] | type["ReifiedRelation"], "RelationFieldDefinition"
+        ],
+    ):
+        self.value = value
+        self.children: list[ReifiedRelationTree] = []
+
+
+def recurse_reified_relation_definitions_into_tree(cls: type[ReifiedRelation], ttree):
+    from pangloss.model_config.models_base import (
+        RootNode,
+        ReifiedRelation,
+    )
+
+    for outgoing_relation_definition in cls.field_definitions.relation_fields:
+        for concrete_related_type in outgoing_relation_definition.field_concrete_types:
+            if issubclass(concrete_related_type, RootNode):
+                ttree.children.append(
+                    ReifiedRelationTree(
+                        (concrete_related_type, outgoing_relation_definition)
+                    )
+                )
+            if issubclass(concrete_related_type, ReifiedRelation):
+                tree = ReifiedRelationTree(
+                    (concrete_related_type, outgoing_relation_definition)
+                )
+                recurse_reified_relation_definitions_into_tree(
+                    concrete_related_type, tree
+                )
+                ttree.children.append(tree)
+    return ttree

@@ -2,6 +2,7 @@ import dataclasses
 import inspect
 import types
 import typing
+import uuid
 
 import pydantic
 
@@ -22,6 +23,7 @@ from pangloss.model_config.models_base import (
     Embedded,
     RelationConfig,
     ReifiedRelation,
+    ReifiedRelationNonTargetPointer,
     HeritableTrait,
     NonHeritableTrait,
     ReferenceSetBase,
@@ -29,9 +31,11 @@ from pangloss.model_config.models_base import (
     ViewBase,
 )
 from pangloss.model_config.model_setup_utils import (
+    PathToTargetRootNode,
     create_reference_view_model_with_property_model,
     get_non_heritable_traits_as_indirect_ancestors,
     create_reference_set_model_with_property_model,
+    get_paths_to_target_node,
 )
 
 
@@ -150,7 +154,6 @@ def build_field_definition_from_annotation(
 
         relation_config_dict = dataclasses.asdict(relation_config)
         del relation_config_dict["validators"]
-
         return RelationFieldDefinition(
             field_name=field_name,
             field_annotated_type=field.annotation,
@@ -235,8 +238,9 @@ def initialise_model_field_definitions(
 ):
     """Creates a model field_definition object for each field
     of a model"""
-    print("initialising mfd", cls)
+
     cls.field_definitions = ModelFieldDefinitions()
+
     for field_name, field in cls.model_fields.items():
         cls.field_definitions[field_name] = build_field_definition_from_annotation(
             model=cls, field_name=field_name, field=field
@@ -431,9 +435,11 @@ def initialise_embedded_nodes_on_base_model(
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
-    set_type_to_literal_on_base_model(reified_relation)
-    initialise_model_field_definitions(reified_relation)
-    initialise_outgoing_relation_types_on_base_model(reified_relation)
+    if not getattr(reified_relation, "field_definitions", None):
+        set_type_to_literal_on_base_model(reified_relation)
+        initialise_model_field_definitions(reified_relation)
+        initialise_outgoing_relation_types_on_base_model(reified_relation)
+        initialise_view_type_for_base(reified_relation)
 
 
 def initialise_relation_fields_on_view_model(
@@ -617,6 +623,113 @@ def create_incoming_relation_definitions_from_model(source_class: type[RootNode]
                         target_type=concrete_target_class,
                     )
                 )
+            elif issubclass(concrete_target_class, ReifiedRelation):
+                initialise_reified_relation(concrete_target_class)
 
-    for embedded_definition in source_class.field_definitions.embedded_fields:
-        pass
+                paths_to_target_node = get_paths_to_target_node(
+                    concrete_target_class, outgoing_relation_definition
+                )
+
+                for path in paths_to_target_node:
+                    target_class, to_target_relation_definition = path.target
+
+                    # If the "target" class is bound to a reified relation as the direct
+                    # target, add an inside-out reverse definition model
+                    if to_target_relation_definition.field_name == "target":
+                        add_reverse_definition_through_reified_relation_model_to_target(
+                            path, source_class, outgoing_relation_definition
+                        )
+
+                    # Otherwise, if it is bound as a secondary relation to a reified relation,
+                    # just add the whole relation chain
+                    else:
+                        print("====")
+                        print(target_class)
+                        print(to_target_relation_definition.field_name)
+                        add_reverse_pointer_to_reified_relation(
+                            source_class=source_class,
+                            target_class=target_class,
+                            outgoing_relation_definition=outgoing_relation_definition,
+                            to_target_relation_definition=to_target_relation_definition,
+                            reified_relation_model=concrete_target_class,
+                        )
+
+
+def add_reverse_pointer_to_reified_relation(
+    source_class: type[RootNode],
+    target_class: type[RootNode],
+    outgoing_relation_definition: "RelationFieldDefinition",
+    to_target_relation_definition: "RelationFieldDefinition",
+    reified_relation_model: type[ReifiedRelation],
+):
+    """Builds and adds an incoming relation to a model when it is referenced
+    by a refied relation."""
+
+    # The starting model is a ReferenceView type, that contains in addition
+    # the particular reified relation field
+    starting_model = pydantic.create_model(
+        f"{source_class.__name__}With{reified_relation_model.__name__}",
+        __base__=source_class.ReferenceView,
+    )
+
+    starting_model.model_fields[outgoing_relation_definition.field_name] = (
+        source_class.model_fields[outgoing_relation_definition.field_name]
+    )
+    starting_model.model_rebuild(force=True)
+
+    target_class.incoming_relation_definitions[
+        to_target_relation_definition.reverse_name
+    ].add(
+        IncomingRelationDefinition(
+            field_name=to_target_relation_definition.field_name,
+            reverse_name=to_target_relation_definition.reverse_name,
+            source_type=reified_relation_model,
+            source_concrete_type=ReifiedRelationNonTargetPointer[starting_model],
+            target_type=target_class,
+        )
+    )
+
+
+def add_reverse_definition_through_reified_relation_model_to_target(
+    path: PathToTargetRootNode,
+    source_model: type[RootNode],
+    initial_relation_definition: "RelationFieldDefinition",
+):
+    """Builds and adds an incoming relation to a model when it is the target
+    of a reified relation"""
+
+    target, to_target_relation_definition = path.target
+
+    # THIS is what we need to set
+    # target.incoming_relation_definitions[relation_definition.reverse_name]
+
+    # _, last_relation_definition = path.path_items[-1]
+
+    current_innermost_class = source_model.ReferenceView
+
+    path.path_items.reverse()
+    key = None
+
+    while path.path_items:
+        next_wrapping_model, next_relation_definition = path.path_items.pop()
+        if not key:
+            key = next_relation_definition.reverse_name
+        new_wrapping_model = pydantic.create_model(
+            f"{next_wrapping_model.__name__}__ReverseView",
+            __base__=next_wrapping_model,
+            is_target_of=(current_innermost_class, ...),
+            uuid=(uuid.UUID, ...),
+        )
+        del new_wrapping_model.model_fields["target"]
+        next_wrapping_model.model_rebuild(force=True)
+        current_innermost_class = new_wrapping_model
+
+    target.incoming_relation_definitions[initial_relation_definition.reverse_name].add(
+        IncomingRelationDefinition(
+            field_name=initial_relation_definition.field_name,
+            reverse_name=initial_relation_definition.reverse_name,
+            source_type=source_model,
+            source_concrete_type=current_innermost_class,
+            target_type=target,
+        )
+    )

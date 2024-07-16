@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import typing
+import uuid
 
 import annotated_types
 import pytest
@@ -426,6 +427,9 @@ def test_create_incoming_relation_definitions_via_embedded():
     class EmbeddedTwo(BaseNode):
         name: str
         embedded_three: Embedded[EmbeddedThree]
+        related_to: typing.Annotated[
+            OtherRelatedThing, RelationConfig("has_other_relation_to")
+        ]
 
     class EmbeddedThree(BaseNode):
         related_to: typing.Annotated[
@@ -438,6 +442,9 @@ def test_create_incoming_relation_definitions_via_embedded():
     class RelatedThing(BaseNode):
         pass
 
+    class OtherRelatedThing(BaseNode):
+        pass
+
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert recurse_embedded_models_for_all_outgoing_relation_field_definitions(
@@ -445,7 +452,117 @@ def test_create_incoming_relation_definitions_via_embedded():
     ) == [
         RelationFieldDefinition(
             field_name="related_to",
+            field_annotated_type=OtherRelatedThing,
+            reverse_name="has_other_relation_to",
+        ),
+        RelationFieldDefinition(
+            field_name="related_to",
             field_annotated_type=RelatedThing,
             reverse_name="has_relation_to",
-        )
+        ),
     ]
+
+    assert RelatedThing.incoming_relation_definitions["has_relation_to"]
+    assert len(RelatedThing.incoming_relation_definitions["has_relation_to"]) == 4
+
+    assert set(
+        definition.source_type
+        for definition in RelatedThing.incoming_relation_definitions["has_relation_to"]
+    ) == set([Thing, EmbeddedOne, EmbeddedTwo, EmbeddedThree])
+
+
+def test_create_incoming_relation_definitions_with_reified_relation():
+    class ReifiedOne[T](ReifiedRelation[T]):
+        other_related_to: typing.Annotated[
+            OtherFieldRelatedThing, RelationConfig(reverse_name="is_other_related_to")
+        ]
+        pass
+
+    class ReifiedTwoA[T](ReifiedRelation[T]):
+        pass
+
+    class ReifiedTwoB[T](ReifiedRelation[T]):
+        other_other_related_to: typing.Annotated[
+            OtherOtherFieldRelatedThing,
+            RelationConfig(reverse_name="has_other_other_related_to"),
+        ]
+
+    class ReifiedThree[T](ReifiedRelation[T]):
+        pass
+
+    class Thing(BaseNode):
+        relation_to: typing.Annotated[
+            ReifiedOne[
+                ReifiedTwoA[ReifiedThree[RelatedThing]]
+                | ReifiedTwoB[ReifiedThree[RelatedThing]]
+            ],
+            RelationConfig("has_related_to"),
+        ]
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class OtherFieldRelatedThing(BaseNode):
+        pass
+
+    class OtherOtherFieldRelatedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+    assert RelatedThing.incoming_relation_definitions["has_related_to"]
+
+    incoming_relation_definition = next(
+        iter(RelatedThing.incoming_relation_definitions["has_related_to"])
+    )
+    assert (
+        incoming_relation_definition.source_concrete_type.__name__
+        == "ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]__ReverseView"
+    )
+    next_class = incoming_relation_definition.source_concrete_type.model_fields[
+        "is_target_of"
+    ].annotation
+    assert next_class
+    assert next_class.__name__ in {
+        "ReifiedTwoA[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]]__ReverseView",
+        "ReifiedTwoB[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]]__ReverseView",
+    }
+
+    next_class = next_class.model_fields["is_target_of"].annotation
+    assert next_class
+    assert (
+        next_class.__name__
+        == "ReifiedOne[Union[ReifiedTwoA[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]], ReifiedTwoB[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]]]]__ReverseView"
+    )
+
+    next_class = next_class.model_fields["is_target_of"].annotation
+    assert next_class
+    assert next_class.__name__ == "ThingReferenceView"
+    # assert False
+
+    connected_relation_definition = next(
+        iter(
+            OtherFieldRelatedThing.incoming_relation_definitions["is_other_related_to"]
+        )
+    )
+
+    assert connected_relation_definition.field_name == "other_related_to"
+    assert connected_relation_definition.reverse_name == "is_other_related_to"
+    assert connected_relation_definition.target_type == OtherFieldRelatedThing
+
+    assert (
+        connected_relation_definition.source_concrete_type.model_fields[
+            "reified_relation_uuid"
+        ].annotation
+        == uuid.UUID
+    )
+
+    assert connected_relation_definition.source_concrete_type.model_fields[
+        "reified_relation_model"
+    ].annotation
+
+    assert (
+        connected_relation_definition.source_concrete_type.model_fields[
+            "reified_relation_model"
+        ].annotation.__name__
+        == "ThingWithReifiedOne[Union[ReifiedTwoA[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]], ReifiedTwoB[ReifiedThree[test_create_incoming_relation_definitions_with_reified_relation.<locals>.RelatedThing]]]]"
+    )

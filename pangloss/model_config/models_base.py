@@ -96,6 +96,20 @@ class ReifiedRelation[T](pydantic.BaseModel):
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
 
+class ReifiedRelationNonTargetPointer[T](pydantic.BaseModel):
+    reified_relation_uuid: uuid.UUID
+    reified_relation_model: T
+
+
+"""
+class ReifiedRelationReverseView[T](pydantic.BaseModel):
+    is_target_of: T
+    type: str
+
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+"""
+
+
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for getting model to edit"""
 
