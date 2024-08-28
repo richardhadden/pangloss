@@ -120,7 +120,12 @@ class IncomingRelationDefinition(FieldDefinition):
     target_type: type["RootNode"]
 
     def __hash__(self):
-        return hash(self.reverse_name + str(self.source_type) + str(self.target_type))
+        return hash(
+            self.reverse_name
+            + str(self.source_type)
+            + str(self.target_type)
+            + str(self.source_concrete_type)
+        )
 
 
 @dataclasses.dataclass

@@ -651,22 +651,38 @@ def create_incoming_relation_definitions_from_model(source_class: type[RootNode]
                 for path in paths_to_target_node:
                     target_class, to_target_relation_definition = path.target
 
-                    # If the "target" class is bound to a reified relation as the direct
-                    # target, add an inside-out reverse definition model
-                    if to_target_relation_definition.field_name == "target":
+                    path_field_names = [
+                        path_item.field_name for _, path_item in path.path_items[1:]
+                    ]
+                    path_field_names.append(path.target[1].field_name)
+                    path_is_all_target = all(r == "target" for r in path_field_names)
+
+                    # If the path is all "targets", create an inside-out relation
+                    # model
+                    if path_is_all_target:
                         add_reverse_definition_through_reified_relation_model_to_target(
                             path, source_class, outgoing_relation_definition
                         )
 
                     # Otherwise, if it is bound as a secondary relation to a reified relation,
-                    # just add the whole relation chain
+                    # just add the whole relation chain wrapped with a pointer class
                     else:
+                        # Determine the field name for this reverse relation
+                        # Working backwards through the path, find the first binding
+                        # that is not "target", and use its reverse name
+                        binding_reverse_name = [
+                            path_item.reverse_name
+                            for _, path_item in reversed(path.path_items)
+                            if path_item.field_name != "target"
+                        ][0]
+
                         add_reverse_pointer_to_reified_relation(
                             source_class=source_class,
                             target_class=target_class,
                             outgoing_relation_definition=outgoing_relation_definition,
                             to_target_relation_definition=to_target_relation_definition,
                             reified_relation_model=concrete_target_class,
+                            binding_reverse_name=binding_reverse_name,
                         )
 
 
@@ -676,9 +692,10 @@ def add_reverse_pointer_to_reified_relation(
     outgoing_relation_definition: "RelationFieldDefinition",
     to_target_relation_definition: "RelationFieldDefinition",
     reified_relation_model: type[ReifiedRelation],
+    binding_reverse_name: str,
 ):
     """Builds and adds an incoming relation to a model when it is referenced
-    by a refied relation."""
+    by a refied relation, not as target."""
 
     # The starting model is a ReferenceView type, that contains in addition
     # the particular reified relation field
@@ -692,12 +709,10 @@ def add_reverse_pointer_to_reified_relation(
     )
     starting_model.model_rebuild(force=True)
 
-    target_class.incoming_relation_definitions[
-        to_target_relation_definition.reverse_name
-    ].add(
+    target_class.incoming_relation_definitions[binding_reverse_name].add(
         IncomingRelationDefinition(
             field_name=to_target_relation_definition.field_name,
-            reverse_name=to_target_relation_definition.reverse_name,
+            reverse_name=binding_reverse_name,
             source_type=reified_relation_model,
             source_concrete_type=ReifiedRelationNonTargetPointer[starting_model],
             target_type=target_class,
@@ -725,6 +740,8 @@ def add_reverse_definition_through_reified_relation_model_to_target(
     path.path_items.reverse()
     key = None
 
+    current_relation_definition = to_target_relation_definition
+
     while path.path_items:
         next_wrapping_model, next_relation_definition = path.path_items.pop()
         if not key:
@@ -733,22 +750,24 @@ def add_reverse_definition_through_reified_relation_model_to_target(
             f"{next_wrapping_model.__name__}__ReverseView",
             __base__=next_wrapping_model,
             type=(
-                typing.Literal[next_wrapping_model.__name__],  # type: ignore
-                next_wrapping_model.__name__,
+                typing.Literal[next_wrapping_model.base_model_name],  # type: ignore
+                next_wrapping_model.base_model_name,
             ),
             is_target_of=(current_innermost_class, ...),
             uuid=(uuid.UUID, ...),
         )
         del new_wrapping_model.model_fields["target"]
-        if next_relation_definition.relation_model:
+
+        if current_relation_definition.relation_model:
             new_wrapping_model.model_fields["relation_properties"] = (
                 pydantic.fields.FieldInfo(
-                    annotation=next_relation_definition.relation_model
+                    annotation=current_relation_definition.relation_model
                 )
             )
 
         new_wrapping_model.model_rebuild(force=True)
         current_innermost_class = new_wrapping_model
+        current_relation_definition = next_relation_definition
 
     target.incoming_relation_definitions[initial_relation_definition.reverse_name].add(
         IncomingRelationDefinition(

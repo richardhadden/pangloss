@@ -95,10 +95,16 @@ class ReifiedRelation[T](pydantic.BaseModel):
     View: typing.ClassVar[type[ViewBase]]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
+    base_model_name: typing.ClassVar[str]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        cls.base_model_name = cls.__name__.split("[")[0]
+
 
 class ReifiedRelationNonTargetPointer[T](pydantic.BaseModel):
     reified_relation_uuid: uuid.UUID
-    reified_relation_model: T
+    reified_relation_data: T
 
 
 """

@@ -383,3 +383,101 @@ def test_initialisation_of_view_model_with_reified_rel():
         action.carried_out_by_person[0].proxy[0].target[0].relation_properties.certainty
         == 2
     )
+
+    # TODO: test reverse relation initialisation on Person.View
+    assert "carried_out_action" in Person.View.model_fields.keys()
+    assert "acts_as_proxy_in" in Person.View.model_fields.keys()
+
+    a = Person.incoming_relation_definitions["carried_out_action"].pop()
+
+    keys = a.source_concrete_type.model_fields.keys()
+
+    p = Person.View(
+        type="Person",
+        label="Person1",
+        uuid=uuid.uuid4(),
+        created_by="User1",
+        created_when=datetime.datetime.now(),
+        modified_by="User1",
+        modified_when=datetime.datetime.now(),
+        carried_out_action=[
+            {
+                "type": "Identification",
+                "uuid": uuid.uuid4(),
+                "is_target_of": {
+                    "relation_properties": {"certainty": 1},
+                    "type": "RepresentedByProxy",
+                    "uuid": uuid.uuid4(),
+                    "is_target_of": {
+                        "type": "Action",
+                        "label": "Action1",
+                        "uuid": uuid.uuid4(),
+                        #
+                    },
+                    "proxy": [
+                        {
+                            "target": [
+                                {
+                                    "type": "Person",
+                                    "uuid": p2_uuid,
+                                    "relation_properties": {"certainty": 2},
+                                }
+                            ]
+                        }
+                    ],
+                },
+            }
+        ],
+    )
+
+    assert p.carried_out_action[0].uuid
+    assert p.carried_out_action[0].is_target_of.uuid
+
+    Person.View(
+        type="Person",
+        label="Person1",
+        uuid=uuid.uuid4(),
+        created_by="User1",
+        created_when=datetime.datetime.now(),
+        modified_by="User1",
+        modified_when=datetime.datetime.now(),
+        acts_as_proxy_in=[
+            {
+                "reified_relation_uuid": uuid.uuid4(),
+                "reified_relation_data": {
+                    "type": "Action",
+                    "label": "Action1",
+                    "uuid": uuid.uuid4(),
+                    "carried_out_by_person": [
+                        {
+                            "type": "RepresentedByProxy",
+                            "target": [
+                                {
+                                    "type": "Identification",
+                                    "target": [
+                                        {
+                                            "type": "Person",
+                                            "uuid": p1_uuid,
+                                            "relation_properties": {"certainty": 1},
+                                        }
+                                    ],
+                                }
+                            ],
+                            "proxy": [
+                                {
+                                    "type": "Identification",
+                                    "target": [
+                                        {
+                                            "type": "Person",
+                                            "uuid": p2_uuid,
+                                            "relation_properties": {"certainty": 2},
+                                        }
+                                    ],
+                                }
+                            ],
+                        },
+                    ],
+                },
+            }
+        ],
+    )
