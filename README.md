@@ -23,7 +23,7 @@ class Thing(BaseNode):
 - fields can only have a single type (no union types)
 
 #### Validation:
-The preferred method for validation is via the (`annotated_types` library)[https://github.com/annotated-types/annotated-types] and `typing.Annotated`, e.g.
+The preferred method for validation is via the [`annotated_types` library](https://github.com/annotated-types/annotated-types) and `typing.Annotated`, e.g.
 
 ```python
 from typing import Annotated
