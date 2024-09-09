@@ -34,6 +34,28 @@ class Adult(Base):
 
 ```
 
+## Embedded Nodes
+
+Nodes can be embedded within other nodes attached to a named key. These are stored in the database as separate nodes, but are treated by Pangloss as if they are fully contained within the parent node (e.g. they do not require a `label` field; reverse relations from an Embedded node will point to the parent; they are deleted automatically along with the parent node).
+
+These can be used to group together sets of fields of different types, by using 
+
+
+```python
+from pangloss import BaseNode, Embedded
+
+class Stuff(BaseNode):
+    some_value: str
+
+class OtherStuff(BaseNode):
+    some_other_value: str
+
+class Thing(BaseNode):
+    embedded_stuff: Embedded[Stuff | OtherStuff]
+```
+
+
+
 
 
 ### To note so far
