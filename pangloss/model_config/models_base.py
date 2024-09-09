@@ -36,6 +36,9 @@ Required model variations:
 
 
 class _SubNodeProxy:
+    """Internal mixin class to proxy methods/fields from Node additional types (View, EditView)
+    to the BaseNode type"""
+
     base_class: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
 
     @property
@@ -51,6 +54,8 @@ STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
 
 
 class _GenericNode(pydantic.BaseModel):
+    """Standard fields for node types"""
+
     type: str
     label: str
 
@@ -72,12 +77,28 @@ class _ExtantNodeMixin:
     is_deleted: bool = False
 
 
-class ReifiedRelation[T](pydantic.BaseModel):
+class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
+    """Defines a model for a Reified Relation (a relation through a node)
+
+    `target` parameter must be present, either defined using generic class
+    or explicitly overridden by subclass
+
+    """
+
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
     type: str
 
     View: typing.ClassVar[type[ViewBase]]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
+    model_config = STANDARD_MODEL_CONFIG
+
+
+class ReifiedRelationNode[T](ReifiedRelation[T]):
+    """Subclass of Reified Relation with full BaseNode-type behaviour, i.e.
+    can be viewable separately, having own label etc."""
+
+    label: str
 
 
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
@@ -130,6 +151,8 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
 
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
+    """Model for setting an embedded node"""
+
     type: str
 
 
@@ -166,6 +189,10 @@ class NonHeritableTrait:
 
 
 class Embedded[T]:
+    """Embed a BaseNode type within another node, so that it is functionally
+    part of the container node.
+    """
+
     pass
 
 

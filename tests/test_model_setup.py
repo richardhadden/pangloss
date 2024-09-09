@@ -425,6 +425,40 @@ def test_initialise_reified_relation_model_with_double_reified():
     )
 
 
+def test_initialise_reified_relation_with_overridden_type_t():
+    class Identification[T](ReifiedRelation[T]):
+        certainty: int
+
+    class ForwardedIdentification[T, U](ReifiedRelation[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        other: typing.Annotated[U, RelationConfig(reverse_name="is_other_of")]
+
+    class IdentifiedThing(BaseNode):
+        pass
+
+    class OtherIdentifiedThing(BaseNode):
+        pass
+
+    reified_relation = Identification[
+        ForwardedIdentification[IdentifiedThing, OtherIdentifiedThing]
+    ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    initialise_reified_relation(reified_relation)
+
+    assert reified_relation.model_fields["target"].annotation
+    assert typing.get_args(reified_relation.model_fields["target"].annotation)[0]
+    assert (
+        typing.get_args(
+            typing.get_args(reified_relation.model_fields["target"].annotation)[0]
+            .model_fields["target"]
+            .annotation
+        )[0]
+        == IdentifiedThing.ReferenceSet
+    )
+
+
 def test_initialise_reified_relation_with_relation_property_model():
     class ThingIdentificationRelationProperties(RelationPropertiesModel):
         type_of_thing: str

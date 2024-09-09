@@ -214,6 +214,50 @@ def test_create_with_reified_relation():
 
 
 @typing.no_type_check
+def test_create_with_generic_reified():
+    class Identification[T](ReifiedRelation[T]):
+        certainty: int
+
+    class ForwardedIdentification[T, U](ReifiedRelation[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        other: typing.Annotated[U, RelationConfig(reverse_name="is_other_of")]
+
+    class IdentifiedThing(BaseNode):
+        pass
+
+    class OtherIdentifiedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        identified_thing: typing.Annotated[
+            Identification[
+                ForwardedIdentification[IdentifiedThing, OtherIdentifiedThing]
+            ],
+            RelationConfig("is_identified_thing_of"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+    print(Thing.model_json_schema())
+    t = Thing(
+        type="Thing",
+        label="A Thing",
+        identified_thing=[
+            {
+                "target": [
+                    {
+                        "target": [{"uuid": uuid.uuid4(), "type": "IdentifiedThing"}],
+                        "other": [
+                            {"uuid": uuid.uuid4(), "type": "OtherIdentifiedThing"}
+                        ],
+                    }
+                ],
+                "certainty": 1,
+            }
+        ],
+    )
+
+
+@typing.no_type_check
 def test_initialise_relation_with_trait():
     class Thing(BaseNode):
         related_to: typing.Annotated[
@@ -247,3 +291,109 @@ def test_initialise_relation_with_trait():
     assert thing.related_to[1] == OtherOtherThing.ReferenceSet(
         uuid=other_other_thing_uuid
     )
+
+
+{
+    "$defs": {
+        "ForwardedIdentification_IdentifiedThing_OtherIdentifiedThing_": {
+            "properties": {
+                "target": {
+                    "items": {"$ref": "#/$defs/IdentifiedThingReferenceSet"},
+                    "title": "Target",
+                    "type": "array",
+                },
+                "type": {
+                    "const": "ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]",
+                    "default": "ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]",
+                    "enum": [
+                        "ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]"
+                    ],
+                    "title": "Type",
+                    "type": "string",
+                },
+                "other": {
+                    "items": {"$ref": "#/$defs/OtherIdentifiedThingReferenceSet"},
+                    "title": "Other",
+                    "type": "array",
+                },
+            },
+            "required": ["target", "other"],
+            "title": "ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]",
+            "type": "object",
+        },
+        "Identification_ForwardedIdentification_IdentifiedThing_OtherIdentifiedThing__": {
+            "properties": {
+                "target": {
+                    "items": {
+                        "$ref": "#/$defs/ForwardedIdentification_IdentifiedThing_OtherIdentifiedThing_"
+                    },
+                    "title": "Target",
+                    "type": "array",
+                },
+                "type": {
+                    "const": "Identification[ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]]",
+                    "default": "Identification[ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]]",
+                    "enum": [
+                        "Identification[ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]]"
+                    ],
+                    "title": "Type",
+                    "type": "string",
+                },
+                "certainty": {"title": "Certainty", "type": "integer"},
+            },
+            "required": ["target", "certainty"],
+            "title": "Identification[ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]]",
+            "type": "object",
+        },
+        "IdentifiedThingReferenceSet": {
+            "properties": {
+                "type": {
+                    "const": "IdentifiedThing",
+                    "default": "IdentifiedThing",
+                    "enum": ["IdentifiedThing"],
+                    "title": "Type",
+                    "type": "string",
+                },
+                "uuid": {"format": "uuid", "title": "Uuid", "type": "string"},
+            },
+            "required": ["uuid"],
+            "title": "IdentifiedThingReferenceSet",
+            "type": "object",
+        },
+        "OtherIdentifiedThingReferenceSet": {
+            "properties": {
+                "type": {
+                    "const": "OtherIdentifiedThing",
+                    "default": "OtherIdentifiedThing",
+                    "enum": ["OtherIdentifiedThing"],
+                    "title": "Type",
+                    "type": "string",
+                },
+                "uuid": {"format": "uuid", "title": "Uuid", "type": "string"},
+            },
+            "required": ["uuid"],
+            "title": "OtherIdentifiedThingReferenceSet",
+            "type": "object",
+        },
+    },
+    "properties": {
+        "type": {
+            "const": "Thing",
+            "default": "Thing",
+            "enum": ["Thing"],
+            "title": "Type",
+            "type": "string",
+        },
+        "label": {"title": "Label", "type": "string"},
+        "identifiedThing": {
+            "items": {
+                "$ref": "#/$defs/Identification_ForwardedIdentification_IdentifiedThing_OtherIdentifiedThing__"
+            },
+            "title": "Identifiedthing",
+            "type": "array",
+        },
+    },
+    "required": ["label", "identifiedThing"],
+    "title": "Thing",
+    "type": "object",
+}

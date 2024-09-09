@@ -364,7 +364,7 @@ def initialise_outgoing_relation_types_on_base_model(
                 *reference_types  # type: ignore
             ]
         ]
-        cls.model_fields[field.field_name].discriminator = "type"
+        # cls.model_fields[field.field_name].discriminator = "type"
 
         cls.model_fields[field.field_name].metadata = field.validators
 
@@ -425,7 +425,7 @@ def initialise_embedded_nodes_on_base_model(
         cls.model_fields[
             embedded_field_definition.field_name
         ].metadata = embedded_field_definition.validators
-        cls.model_fields[embedded_field_definition.field_name].discriminator = "type"
+        # cls.model_fields[embedded_field_definition.field_name].discriminator = "type"
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
@@ -520,9 +520,9 @@ def initialise_embedded_fields_on_view_model(
         cls.View.model_fields[
             embedded_field_definition.field_name
         ].metadata = embedded_field_definition.validators
-        cls.View.model_fields[
+        """ cls.View.model_fields[
             embedded_field_definition.field_name
-        ].discriminator = "type"
+        ].discriminator = "type" """
 
 
 def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
