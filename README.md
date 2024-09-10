@@ -92,7 +92,23 @@ class Thing(BaseNode):
 
 All relations require annotation with a `RelationConfig` model, which at a minimum provides a `reverse_name` value.
 
+#### `EdgePropertiesModel`
 
+Properties can also be added to the Edge (relation) between two nodes. These should be defined by subclassing `EdgeProperties`:
+
+```python
+from typing import Annotated
+from pangloss import BaseNode, EdgeProperties, RelationConfig
+
+class EdgeWithAdditionalNotes(EdgeProperties):
+    notes: str
+
+class RelatedThing(BaseNode):
+    pass
+
+class Thing(BaseNode):
+    related_to: Annotated[RelatedThing, RelationConfig(reverse_name="is_related_thing_of", edge_model=EdgeWithAdditionalNotes)]
+```
 
 ### To note so far
 
