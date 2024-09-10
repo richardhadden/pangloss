@@ -77,9 +77,16 @@ from pangloss import BaseNode, RelationConfig
 class RelatedThing(BaseNode):
     pass
 
+class ParticularRelatedThing(RelatedThing):
+    pass
+
 class Thing(BaseNode):
     related_to: Annotated[RelatedThing, RelationConfig(reverse_name="is_related_thing_of")]
 ```
+
+#### Relation behaviours
+
+- Relations to a particular type also allow relations to all subclasses of this type (in the example above, `Thing.related_to` allows both `RelatedThing` and its subclass, `ParticularRelatedThing`)
 
 #### The `RelationConfig` object
 
