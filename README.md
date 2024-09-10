@@ -3,6 +3,17 @@
 
 ## NOTE: this is a rewrite of the core functionality of Pangloss; it is not currently working. Documentation below is to illustrate API
 
+
+### Premise
+
+_Pangloss_ intends to provide a JSON-based REST API (and, separately, a decoupled JavaScript-based frontend) for modelling data in graph relationships.
+
+The fundamental insight is drawn from the Factoid approach to Prosopography, in which many nodes and edges (between Statement types and Entities) are wrapped in a single Factoid. As such, the Factoid is an _entity_ in a database (thus a node), but also a _subgraph_.
+
+_Pangloss_ aims to generalise this model. While, at the database level, there are only nodes and edges, the models themselves distinguish various kinds of behaviour for the API and interface.
+
+
+
 ### Basic modelling
 
 Models are defined by subclassing `BaseNode`, using native Python types.
@@ -38,7 +49,7 @@ class Adult(Base):
 
 Nodes can be embedded within other nodes attached to a named key. These are stored in the database as separate nodes, but are treated by Pangloss as if they are fully contained within the parent node (e.g. they do not require a `label` field; reverse relations from an Embedded node will point to the parent; they are deleted automatically along with the parent node).
 
-These can be used to group together sets of fields of different types, by using 
+These can be used to group together sets of fields of different types, by using Union of types.
 
 
 ```python
@@ -54,7 +65,25 @@ class Thing(BaseNode):
     embedded_stuff: Embedded[Stuff | OtherStuff]
 ```
 
+### Relations
 
+Relations are defined on the _source_ node model, and point to a target node model. Relation definitions comprise two parts, the _type_ to be pointed at, and an annotation comprising a `RelationConfig` instance.
+
+```python
+from typing import Annotated
+
+from pangloss import BaseNode, RelationConfig
+
+class RelatedThing(BaseNode):
+    pass
+
+class Thing(BaseNode):
+    related_to: Annotated[RelatedThing, RelationConfig(reverse_name="is_related_thing_of")]
+```
+
+#### The `RelationConfig` object
+
+All relations require annotation with a `RelationConfig` model, which at a minimum provides a `reverse_name` value.
 
 
 
