@@ -65,7 +65,7 @@ class Thing(BaseNode):
     embedded_stuff: Embedded[Stuff | OtherStuff]
 ```
 
-### Relations
+## Relations
 
 Relations are defined on the _source_ node model, and point to a target node model. Relation definitions comprise two parts, the _type_ to be pointed at, and an annotation comprising a `RelationConfig` instance.
 
@@ -161,6 +161,32 @@ class Person(BaseNode):
 In the above example, `Person.owns_thing` can point to all subclasses of `Purchaseable` (i.e. `Vegetable`, `Cow` and `SmallCow` — `SmallCow` inherits its `Purchaseable` trait from `Cow`)
 
 `NonHeritableTrait` functions in the same way as `HeritableTrait`, with exception that it is applied _only_ to the classes to which it is _directly_ applied (not subclasses of those classes). This allows arbitrary cross-cutting of the principal object hierarchy.
+
+### Reified Relations
+
+Reified relations introduce an additional node between the subject and object, allowing complex data (including additional relations) to be added.
+
+```python
+from pangloss import BaseNode, RelationConfig, ReifiedRelation
+
+class Person(BaseNode):
+    pass
+
+class PersonRepresentsOtherPerson(ReifiedRelation):
+    target: Annotated[
+        Person, 
+        relation_config(reverse_name="is_target_of")]
+
+    representative: Annotated[
+        Person, 
+        relation_config(reverse_name="acts_as_representative_in")]
+
+class LegalCase(BaseNode):
+    plaintiff: Annotated[
+        PersonRepresentsOtherPerson, 
+        RelationConfig("is_plaintiff_in")]
+
+```
 
 ### To note so far
 
