@@ -97,7 +97,6 @@ class Cat(BaseNode):
 class Dog(BaseNode):
     pass
 
-
 class Person(BaseNode):
     has_pet: Annotated[
         Cat | Dog, 
@@ -131,6 +130,37 @@ class Thing(BaseNode):
         )
     ]
 ```
+
+### Traits
+
+Traits (`HeritableTrait` and `NonHeritableTrait`) are mixin-like classes that can be applied to `BaseNode` types. Traits can be the _object_ of a relation, and can be viewed independently. 
+
+```python
+from typing import Annotated
+
+from pangloss import BaseNode, HeritableTrait, RelationConfig
+
+class Purchaseable(HeritableTrait):
+    cost: int
+
+class Vegetable(BaseNode, Purchaseable):
+    pass
+
+class Cow(BaseNode, Purchaseable):
+    pass
+
+class SmallCow(Cow):
+    pass
+
+class Person(BaseNode):
+    owns_thing: Annotated[
+        Purchaseable, 
+        RelationConfig(reverse_name="has_owner")]
+```
+
+In the above example, `Person.owns_thing` can point to all subclasses of `Purchaseable` (i.e. `Vegetable`, `Cow` and `SmallCow` — `SmallCow` inherits its `Purchaseable` trait from `Cow`)
+
+`NonHeritableTrait` functions in the same way as `HeritableTrait`, with exception that it is applied _only_ to the classes to which it is _directly_ applied (not subclasses of those classes). This allows arbitrary cross-cutting of the principal object hierarchy.
 
 ### To note so far
 
