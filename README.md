@@ -87,6 +87,23 @@ class Thing(BaseNode):
 #### Relation behaviours
 
 - Relations to a particular type also allow relations to all subclasses of this type (in the example above, `Thing.related_to` allows both `RelatedThing` and its subclass, `ParticularRelatedThing`)
+- Relations can also declared to `typing.Union` types, e.g.:
+
+```python
+
+class Cat(BaseNode):
+    pass
+
+class Dog(BaseNode):
+    pass
+
+
+class Person(BaseNode):
+    has_pet: Annotated[
+        Cat | Dog, 
+        RelationConfig(reverse_name="is_pet_of")
+    ]
+```
 
 #### The `RelationConfig` object
 
