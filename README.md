@@ -107,7 +107,12 @@ class RelatedThing(BaseNode):
     pass
 
 class Thing(BaseNode):
-    related_to: Annotated[RelatedThing, RelationConfig(reverse_name="is_related_thing_of", edge_model=EdgeWithAdditionalNotes)]
+    related_to: Annotated[
+        RelatedThing, 
+        RelationConfig(
+            reverse_name="is_related_thing_of", edge_model=EdgeWithAdditionalNotes
+        )
+    ]
 ```
 
 ### To note so far
