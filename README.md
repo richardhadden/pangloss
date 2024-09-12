@@ -188,6 +188,26 @@ class LegalCase(BaseNode):
 
 ```
 
+`target` is a required field of a `ReifiedRelation` object. This allows the full relationship (from `LegalCase.plaintiff` to the object, `Person`) to be followed as a single relation.
+
+`ReifiedRelation` can also be defined as a Generic type, which will be automatically be applied as a type of `target`. (The example below uses)
+
+```python
+from typing import Annotated
+from pangloss import BaseNode, RelationConfig, ReifiedRelation
+
+class Identification[T](ReifiedRelation[T]):
+    reason_for_identification: str
+    other_possible_person: Annotated[Person, RelationConfig(reverse_name="other_possible_person_in")]
+
+class Person(BaseNode):
+    pass
+
+class Event(BaseNode):
+    participant: Annotated[Identification[Person], RelationConfig(reverse_name="participant_in")]
+```
+
+
 ### To note so far
 
 
