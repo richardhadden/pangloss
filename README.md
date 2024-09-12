@@ -198,13 +198,17 @@ from pangloss import BaseNode, RelationConfig, ReifiedRelation
 
 class Identification[T](ReifiedRelation[T]):
     reason_for_identification: str
-    other_possible_person: Annotated[Person, RelationConfig(reverse_name="other_possible_person_in")]
+    other_possible_person: Annotated[
+        Person, 
+        RelationConfig(reverse_name="other_possible_person_in")]
 
 class Person(BaseNode):
     pass
 
 class Event(BaseNode):
-    participant: Annotated[Identification[Person], RelationConfig(reverse_name="participant_in")]
+    participant: Annotated[
+        Identification[Person], 
+        RelationConfig(reverse_name="participant_in")]
 ```
 
 
