@@ -238,14 +238,22 @@ def test_create_with_generic_reified():
 
     ModelManager.initialise_models(_defined_in_test=True)
     print(Thing.model_json_schema())
+
     t = Thing(
         type="Thing",
         label="A Thing",
         identified_thing=[
             {
+                "type": "Identification[ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]]",
                 "target": [
                     {
-                        "target": [{"uuid": uuid.uuid4(), "type": "IdentifiedThing"}],
+                        "type": "ForwardedIdentification[test_create_with_generic_reified.<locals>.IdentifiedThing, test_create_with_generic_reified.<locals>.OtherIdentifiedThing]",
+                        "target": [
+                            {
+                                "uuid": uuid.uuid4(),
+                                "type": "IdentifiedThing",
+                            }
+                        ],
                         "other": [
                             {"uuid": uuid.uuid4(), "type": "OtherIdentifiedThing"}
                         ],
@@ -356,6 +364,26 @@ def test_initialise_model_with_reified_node_in_relation():
                 ],
             },
         ],
+    )
+
+
+@typing.no_type_check
+def test_basic_discriminator():
+    class Cat(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        has_pet: typing.Annotated[Cat | Dog, RelationConfig(reverse_name="is_pet_of")]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    Person(
+        type="Person",
+        label="John Smith",
+        has_pet=[{"type": "Cat", "uuid": uuid.uuid4()}],
     )
 
 

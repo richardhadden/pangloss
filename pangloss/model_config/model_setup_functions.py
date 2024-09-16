@@ -365,14 +365,20 @@ def initialise_outgoing_relation_types_on_base_model(
                     initialise_reified_relation(concrete_type)
                     reference_types.append(concrete_type)
 
-        cls.model_fields[field.field_name].annotation = list[
+        discriminated_type = typing.Annotated[
             typing.Union[
                 *reference_types  # type: ignore
-            ]
+            ],
+            pydantic.Field(discriminator="type"),
         ]
-        # cls.model_fields[field.field_name].discriminator = "type"
 
-        cls.model_fields[field.field_name].metadata = field.validators
+        cls.model_fields[field.field_name].annotation = list[discriminated_type]
+        # cls.model_fields[field.field_name].discriminator = "type"
+        cls.model_fields[field.field_name].from_annotation(
+            typing.Annotated[
+                discriminated_type, *cls.model_fields[field.field_name].metadata
+            ]
+        )
 
 
 def create_embedded_set_model(cls: type[RootNode]):
