@@ -108,11 +108,10 @@ def build_field_definition_from_annotation(
     field_name: str,
     field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
-    print("====")
-    print(model)
     # If the model is a Generic, the field annotation will be a TypeVar;
     # in this case, we need to extract the type arguments to the origin class and
     # change the field.annotation to be the right index of the model arg
+
     if type(field.annotation) is typing.TypeVar:
         origin = typing.cast(
             type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
@@ -122,7 +121,6 @@ def build_field_definition_from_annotation(
         field.annotation = model.__pydantic_generic_metadata__["args"][typevar_index]
 
     type_origin = typing.get_origin(field.annotation)
-    print(type_origin)
 
     # Guard clauses:
     #   If it is a relation and no RelationConfig provided, die

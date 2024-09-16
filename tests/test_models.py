@@ -9,7 +9,7 @@ import annotated_types
 import pydantic
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.model_config.models_base import Embedded
+from pangloss.model_config.models_base import Embedded, ReifiedRelationNode
 from pangloss.models import (
     BaseNode,
     RelationConfig,
@@ -290,6 +290,72 @@ def test_initialise_relation_with_trait():
     assert thing.related_to[1].type == "OtherOtherThing"
     assert thing.related_to[1] == OtherOtherThing.ReferenceSet(
         uuid=other_other_thing_uuid
+    )
+
+
+@typing.no_type_check
+def test_initialise_model_with_reified_node_in_relation():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(RelationPropertiesModel):
+        certainty: int
+
+    IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+
+    class Identification(ReifiedRelation[IdentificationTargetT]):
+        target: typing.Annotated[
+            IdentificationTargetT,
+            RelationConfig(
+                reverse_name="is_target_of", relation_model=IdentificationCertainty
+            ),
+        ]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        carried_out_by=[
+            {
+                "label": "Smith acts as proxy for Jones",
+                "type": "WithProxyActor[Identification[test_initialise_model_with_reified_node_in_relation.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_initialise_model_with_reified_node_in_relation.<locals>.Person]",
+                        "target": [
+                            {
+                                "relation_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_initialise_model_with_reified_node_in_relation.<locals>.Person]",
+                        "target": [
+                            {
+                                "relation_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
     )
 
 

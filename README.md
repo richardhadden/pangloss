@@ -235,8 +235,6 @@ _Pangloss_ makes extensive use of auto-generated classes, with the intention of 
 
 #### Reified Relations
 
-##### CHECK: is this still a requirement with Pydantic 2.9?
-
 "Automatic" reifications can use the Python 3.12 typevar syntax:
 
 ```python
@@ -247,11 +245,11 @@ class Identification[T](ReifiedRelation[T]):
 However, due to some Pydantic requirement, if you wish to *override* the `target` annotation *with a generic*, the generic value must be created as a a `typing.TypeVar`.
 
 ```python
-T = typing.TypeVar("T")
+IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
 
-class Identification(ReifiedRelation[T]):
+class Identification(ReifiedRelation[IdentificationTargetT]):
     target: typing.Annotated[
-        T,
+        IdentificationTargetT,
         RelationConfig(
             "is_target_of_identification",
             relation_model=IdentificationCertainty,

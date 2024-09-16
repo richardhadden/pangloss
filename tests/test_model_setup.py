@@ -19,6 +19,7 @@ from pangloss.model_config.model_setup_functions import (
 from pangloss.model_config.models_base import (
     ReferenceSetBase,
     ReferenceViewBase,
+    ReifiedRelationNode,
     RelationPropertiesModel,
     ReifiedRelation,
     Embedded,
@@ -456,6 +457,38 @@ def test_initialise_reified_relation_with_overridden_type_t():
             .annotation
         )[0]
         == IdentifiedThing.ReferenceSet
+    )
+
+
+def test_initialise_reified_relation_with_reified_node():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(RelationPropertiesModel):
+        certainty: int
+
+    class Identification[T](ReifiedRelation[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event_carried_out_by = Event.model_fields["carried_out_by"]
+    assert event_carried_out_by
+    assert typing.get_origin(event_carried_out_by.annotation) == list
+    assert typing.get_args(event_carried_out_by.annotation)[0]
+
+    assert issubclass(
+        typing.get_args(event_carried_out_by.annotation)[0], WithProxyActor
     )
 
 

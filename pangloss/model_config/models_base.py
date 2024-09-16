@@ -90,10 +90,16 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
 
     View: typing.ClassVar[type[ViewBase]]
 
-    field_definitions_initialised: typing.ClassVar[bool] = False
+    field_definitions_initialised: typing.ClassVar[bool]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
     model_config = STANDARD_MODEL_CONFIG
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        # Needs to be set on a per-class basis on subclassing, not
+        # inherited for each class
+        cls.field_definitions_initialised = False
 
 
 class ReifiedRelationNode[T](ReifiedRelation[T]):
@@ -174,13 +180,18 @@ class RootNode(_GenericNode):
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
     EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
 
-    field_definitions_initialised: typing.ClassVar[bool] = False
+    field_definitions_initialised: typing.ClassVar[bool]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
     incoming_relation_definitions: typing.ClassVar[
         dict[str, "IncomingRelationDefinition"]
     ]
 
     __abstract__: typing.ClassVar[bool] = True
+
+    def __init_subclass__(cls):
+        # Needs to be set on a per-class basis on subclassing, not
+        # inherited for each class
+        cls.field_definitions_initialised = False
 
 
 class HeritableTrait:
