@@ -206,7 +206,7 @@ def get_concrete_model_types(
                 get_all_subclasses(classes, include_abstract=include_abstract)
             )
 
-    return set(concrete_model_types)
+    return typing.cast(set[type[BaseNode]], set(concrete_model_types))
 
 
 def get_non_heritable_traits_as_direct_ancestors(

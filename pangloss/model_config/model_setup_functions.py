@@ -108,6 +108,8 @@ def build_field_definition_from_annotation(
     field_name: str,
     field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
+    print("====")
+    print(model)
     # If the model is a Generic, the field annotation will be a TypeVar;
     # in this case, we need to extract the type arguments to the origin class and
     # change the field.annotation to be the right index of the model arg
@@ -120,6 +122,7 @@ def build_field_definition_from_annotation(
         field.annotation = model.__pydantic_generic_metadata__["args"][typevar_index]
 
     type_origin = typing.get_origin(field.annotation)
+    print(type_origin)
 
     # Guard clauses:
     #   If it is a relation and no RelationConfig provided, die
@@ -234,11 +237,16 @@ def initialise_model_field_definitions(
 ):
     """Creates a model field_definition object for each field
     of a model"""
+
+    if cls.field_definitions_initialised:
+        return
+
     cls.field_definitions = ModelFieldDefinitions()
     for field_name, field in cls.model_fields.items():
         cls.field_definitions[field_name] = build_field_definition_from_annotation(
             model=cls, field_name=field_name, field=field
         )
+    cls.field_definitions_initialised = True
 
 
 def delete_indirect_non_heritable_trait_fields(

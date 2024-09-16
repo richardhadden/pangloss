@@ -14,7 +14,11 @@ from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     RelationFieldDefinition,
 )
-from pangloss.model_config.models_base import NonHeritableTrait
+from pangloss.model_config.models_base import (
+    NonHeritableTrait,
+    ReifiedRelationNode,
+    RelationPropertiesModel,
+)
 from pangloss.models import (
     BaseNode,
     Embedded,
@@ -259,6 +263,58 @@ def test_model_field_definition_with_union_of_reified_relations():
         field_annotated_type=Identification[RelatedThing]
         | ActsOnBehalfOf[Identification[RelatedThing]],
     )
+
+
+def test_model_field_definition_with_reified_node():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(RelationPropertiesModel):
+        certainty: int
+
+    class Identification[T](ReifiedRelation[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Event.field_definitions["carried_out_by"]
+    carried_out_by_definition = Event.field_definitions["carried_out_by"]
+    assert isinstance(carried_out_by_definition, RelationFieldDefinition)
+
+    with_proxy_actor = carried_out_by_definition.field_concrete_types.pop()
+
+    assert issubclass(with_proxy_actor, WithProxyActor)
+
+    assert with_proxy_actor.field_definitions["target"]
+    with_proxy_actor_target_definition = with_proxy_actor.field_definitions["target"]
+
+    assert isinstance(with_proxy_actor_target_definition, RelationFieldDefinition)
+
+    identification = with_proxy_actor_target_definition.field_concrete_types.pop()
+
+    assert identification
+    assert issubclass(identification, Identification)
+
+    assert identification.field_definitions["target"]
+
+    identification_target_definition = identification.field_definitions["target"]
+
+    assert isinstance(identification_target_definition, RelationFieldDefinition)
+
+    person = identification_target_definition.field_concrete_types.pop()
+
+    assert person
+    assert issubclass(person, Person)
 
 
 def test_model_field_definition_with_heritable_trait():

@@ -211,6 +211,24 @@ class Event(BaseNode):
         RelationConfig(reverse_name="participant_in")]
 ```
 
+### Viewing/Creating/Editing Inline
+
+_Pangloss_ moves away from the simple graph paradigm of nodes representing entities, connected by typed edges.
+
+While this approach is useful in places (a node represents a Person, for example), it is useful to consider conceptually – and to create data pragmatically — directed subgraphs. 
+
+A Factoid is one such case: as an "entity", a Factoid is a node — but it is (logically) a container for all the statements contained within it.
+
+Pangloss therefore allows the viewing, creating and editing "inline" of nested objects. The "inline" objects are nevertheless standalone nodes and may be viewed as such (this differs from Embedded Nodes — see above — which are fully dependent on the parent node).
+
+A relation to a node type allows the creation of a complete node of that type "inline", rather than being provided as a reference.
+
+Inline viewing/creation/editing therefore serves as the abstract model for the implementation of directed subgraphs that function as "entities" in their own right.
+
+
+## Generated Classes
+
+_Pangloss_ makes extensive use of auto-generated classes, with the intention of fulfilling CRUD operations via the API.
 
 ### To note so far
 

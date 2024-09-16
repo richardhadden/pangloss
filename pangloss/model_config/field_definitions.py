@@ -102,13 +102,18 @@ class RelationFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
-    field_concrete_types: typing.Iterable[
-        type["RootNode"] | type["ReifiedRelation"]
-    ] = dataclasses.field(default_factory=set)
+    field_concrete_types: set[type["RootNode"] | type["ReifiedRelation"]] = (
+        dataclasses.field(default_factory=set)
+    )
     field_metatype: typing.Literal["Relation"] = "Relation"
 
     def __post_init__(self):
-        self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
+        # Type checker is confused by return type of get_concrete_model_types
+        # Use typing.cast to ensure it's typed as a set
+        self.field_concrete_types = typing.cast(
+            set[type["RootNode"] | type["ReifiedRelation"]],
+            get_concrete_model_types(self.field_annotated_type),
+        )
 
 
 class IncomingRelationDefinition(FieldDefinition):

@@ -89,6 +89,8 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
     type: str
 
     View: typing.ClassVar[type[ViewBase]]
+
+    field_definitions_initialised: typing.ClassVar[bool] = False
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
     model_config = STANDARD_MODEL_CONFIG
@@ -172,6 +174,7 @@ class RootNode(_GenericNode):
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
     EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
 
+    field_definitions_initialised: typing.ClassVar[bool] = False
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
     incoming_relation_definitions: typing.ClassVar[
         dict[str, "IncomingRelationDefinition"]
