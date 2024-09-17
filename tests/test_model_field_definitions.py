@@ -502,3 +502,66 @@ def test_incoming_relation_type_with_edge_model():
         is_involved_in.source_concrete_type.__name__
         == "Event__person_involved__Person__ReferenceView"
     )
+
+
+def test_incoming_relation_definition_through_embedded():
+    """Test that incoming relations (on Person) from an embedded node (Invitation embedded in Event) has
+    relation from containing type (Event) as well as embedded type (Invitation)
+    """
+
+    class Person(BaseNode):
+        pass
+
+    class Invitation(BaseNode):
+        invited_person: typing.Annotated[
+            Person, RelationConfig(reverse_name="was_invited_to")
+        ]
+
+    class Event(BaseNode):
+        invitations: Embedded[Invitation]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    # Incoming relation is defined to both Event and Invitation
+    assert len(Person.incoming_relation_definitions["was_invited_to"]) == 2
+
+    was_invited_to_event = [
+        rel_def
+        for rel_def in Person.incoming_relation_definitions["was_invited_to"]
+        if rel_def.source_type == Event
+    ][0]
+
+    assert was_invited_to_event
+    assert was_invited_to_event.field_name == "invited_person"
+    assert was_invited_to_event.reverse_name == "was_invited_to"
+    assert was_invited_to_event.target_type == Person
+    assert was_invited_to_event.source_type == Event
+    assert was_invited_to_event.source_concrete_type == Event.ReferenceView
+
+    was_invited_to_invitation = [
+        rel_def
+        for rel_def in Person.incoming_relation_definitions["was_invited_to"]
+        if rel_def.source_type == Invitation
+    ][0]
+
+    assert was_invited_to_invitation
+    assert was_invited_to_invitation.field_name == "invited_person"
+    assert was_invited_to_invitation.reverse_name == "was_invited_to"
+    assert was_invited_to_invitation.target_type == Person
+    assert was_invited_to_invitation.source_type == Invitation
+    assert was_invited_to_invitation.source_concrete_type == Invitation.ReferenceView
+
+
+def test_incoming_relation_definition_through_simple_reified_relation():
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
