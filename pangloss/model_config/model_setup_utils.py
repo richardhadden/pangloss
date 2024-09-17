@@ -13,6 +13,7 @@ from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, Reified
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import RootNode
+    from pangloss.model_config.field_definitions import RelationFieldDefinition
 
 
 def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
@@ -272,3 +273,22 @@ def create_reference_view_model_with_property_model(
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         relation_properties=(relation_model, ...),
     )
+
+
+def recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+    source_class: type["RootNode"],
+) -> list["RelationFieldDefinition"]:
+    """Given a model, go through all embedded models to find the target of
+    outgoing relations, and the relation name"""
+
+    relation_definitions: list["RelationFieldDefinition"] = []
+    for relation_definition in source_class.field_definitions.relation_fields:
+        relation_definitions.append(relation_definition)
+    for embedded_definition in source_class.field_definitions.embedded_fields:
+        for embedded_concrete_type in embedded_definition.field_concrete_types:
+            relation_definitions.extend(
+                recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+                    embedded_concrete_type
+                )
+            )
+    return relation_definitions

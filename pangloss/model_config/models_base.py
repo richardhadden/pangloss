@@ -183,7 +183,7 @@ class RootNode(_GenericNode):
     field_definitions_initialised: typing.ClassVar[bool]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
     incoming_relation_definitions: typing.ClassVar[
-        dict[str, "IncomingRelationDefinition"]
+        dict[str, set["IncomingRelationDefinition"]]
     ]
 
     __abstract__: typing.ClassVar[bool] = True
@@ -215,6 +215,7 @@ class IncomingRelationView(pydantic.BaseModel):
 
 
 class RelationPropertiesModel(pydantic.BaseModel):
+    show_in_reverse_relation: typing.ClassVar[bool] = False
     model_config = STANDARD_MODEL_CONFIG
 
 

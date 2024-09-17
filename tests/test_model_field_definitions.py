@@ -410,16 +410,78 @@ def test_field_definition_field_concrete_type_set_up_correctly():
     assert thing_owned_definition.field_concrete_types == set([Thing, OtherThing])
 
 
-def test_reverse_relation_field_definitions():
-    class Thing(BaseNode):
+def test_incoming_relation_definition_for_simple_relation():
+    class Person(BaseNode):
         pass
 
-    class OtherThing(BaseNode):
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.incoming_relation_definitions["is_involved_in"]
+
+    is_involved_in = Person.incoming_relation_definitions["is_involved_in"].pop()
+
+    assert is_involved_in.field_name == "person_involved"
+    assert is_involved_in.reverse_name == "is_involved_in"
+
+    assert is_involved_in.target_type == Person
+    assert is_involved_in.source_type == Event
+    assert is_involved_in.source_concrete_type == Event.ReferenceView
+
+
+def test_incoming_relation_definition_with_relation_from_multiple():
+    class Person(BaseNode):
         pass
 
-    class ThingOwner(BaseNode):
-        thing_owned: typing.Annotated[
-            Thing | OtherThing, RelationConfig(reverse_name="is_owned_by")
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    class Party(BaseNode):
+        person_partying: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.incoming_relation_definitions["is_involved_in"]
+
+    assert len(Person.incoming_relation_definitions["is_involved_in"]) == 2
+
+    involved_in_event = [
+        rel_def
+        for rel_def in Person.incoming_relation_definitions["is_involved_in"]
+        if rel_def.source_type == Event
+    ][0]
+    assert involved_in_event.field_name == "person_involved"
+    assert involved_in_event.reverse_name == "is_involved_in"
+    assert involved_in_event.target_type == Person
+    assert involved_in_event.source_concrete_type == Event.ReferenceView
+
+    involved_in_party = [
+        rel_def
+        for rel_def in Person.incoming_relation_definitions["is_involved_in"]
+        if rel_def.source_type == Party
+    ][0]
+    assert involved_in_party
+    assert involved_in_party.field_name == "person_partying"
+    assert involved_in_party.reverse_name == "is_involved_in"
+    assert involved_in_party.target_type == Person
+    assert involved_in_party.source_concrete_type == Party.ReferenceView
+
+
+def test_incoming_relation_type_with_reified_relation():
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)

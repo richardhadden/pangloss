@@ -1,3 +1,4 @@
+import collections
 import typing
 
 
@@ -21,6 +22,7 @@ class ModelManager:
         from pangloss.model_config.model_setup_functions import (
             set_type_to_literal_on_base_model,
             initialise_model_field_definitions,
+            build_incoming_relation_definitions,
             delete_indirect_non_heritable_trait_fields,
             initialise_reference_set_on_base_models,
             initialise_reference_view_on_base_models,
@@ -39,6 +41,7 @@ class ModelManager:
 
             initialise_reference_set_on_base_models(model)
             initialise_reference_view_on_base_models(model)
+            model.incoming_relation_definitions = collections.defaultdict(set)
 
         for model in cls.registered_models:
             initialise_outgoing_relation_types_on_base_model(model)
@@ -49,6 +52,9 @@ class ModelManager:
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
+
+        for model in cls.registered_models:
+            build_incoming_relation_definitions(model)
 
         for model in cls.registered_models:
             initialise_view_type_for_base(model)

@@ -7,6 +7,7 @@ import pydantic
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
+    IncomingRelationDefinition,
     ModelFieldDefinitions,
     FieldDefinition,
     LiteralFieldDefinition,
@@ -31,6 +32,7 @@ from pangloss.model_config.model_setup_utils import (
     create_reference_view_model_with_property_model,
     get_non_heritable_traits_as_indirect_ancestors,
     create_reference_set_model_with_property_model,
+    recurse_embedded_models_for_all_outgoing_relation_field_definitions,
 )
 
 
@@ -228,6 +230,49 @@ def build_field_definition_from_annotation(
         )
 
     raise Exception("Field type not caught")
+
+
+def build_incoming_relation_definitions(source_class: type[RootNode]):
+    # Add relation fields
+    for (
+        outgoing_relation_definition
+    ) in recurse_embedded_models_for_all_outgoing_relation_field_definitions(
+        source_class
+    ):
+        for concrete_target_class in outgoing_relation_definition.field_concrete_types:
+            if (
+                issubclass(concrete_target_class, RootNode)
+                and outgoing_relation_definition.relation_model
+            ):
+                concrete_target_class.incoming_relation_definitions[
+                    outgoing_relation_definition.reverse_name
+                ].add(
+                    IncomingRelationDefinition(
+                        field_name=outgoing_relation_definition.field_name,
+                        reverse_name=outgoing_relation_definition.reverse_name,
+                        source_type=source_class,
+                        source_concrete_type=create_reference_view_model_with_property_model(
+                            origin_model=source_class,
+                            target_model=concrete_target_class,
+                            relation_model=outgoing_relation_definition.relation_model,
+                            field_name=outgoing_relation_definition.field_name,
+                        ),
+                        target_type=concrete_target_class,
+                    )
+                )
+
+            elif issubclass(concrete_target_class, RootNode):
+                concrete_target_class.incoming_relation_definitions[
+                    outgoing_relation_definition.reverse_name
+                ].add(
+                    IncomingRelationDefinition(
+                        field_name=outgoing_relation_definition.field_name,
+                        reverse_name=outgoing_relation_definition.reverse_name,
+                        source_type=source_class,
+                        source_concrete_type=source_class.ReferenceView,
+                        target_type=concrete_target_class,
+                    )
+                )
 
 
 def initialise_model_field_definitions(

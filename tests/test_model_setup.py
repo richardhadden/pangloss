@@ -628,3 +628,42 @@ def test_initialise_view_type_for_base():
         Thing.View.model_fields["embedded_thing"].annotation
     )
     assert embedded_thing_args[0] == EmbeddedThing.EmbeddedView
+
+
+def test_view_initialisation_of_reverse_relation():
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    # assert Person.View.model_fields["is_involved_in"]
+
+
+def test_view_initialisation_of_reverse_relation_with_reified_relation():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(RelationPropertiesModel):
+        certainty: int
+
+    class Identification[T](ReifiedRelation[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+
+    class WithProxyActor[T, U](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[U, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person], Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    # assert Person.View.model_fields["is_carried_out_by"]
