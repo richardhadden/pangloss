@@ -275,13 +275,13 @@ def test_model_field_definition_with_reified_node():
     class Identification[T](ReifiedRelation[T]):
         target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
 
-    class WithProxyActor[T](ReifiedRelationNode[T]):
+    class WithProxyActor[T, U](ReifiedRelationNode[T]):
         target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
-        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+        proxy: typing.Annotated[U, RelationConfig(reverse_name="acts_as_proxy_in")]
 
     class Event(BaseNode):
         carried_out_by: typing.Annotated[
-            WithProxyActor[Identification[Person]],
+            WithProxyActor[Identification[Person], Identification[Person]],
             RelationConfig(reverse_name="is_carried_out_by"),
         ]
 
