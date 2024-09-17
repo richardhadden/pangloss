@@ -8,7 +8,7 @@ import annotated_types
 
 from pangloss.model_config.models_base import (
     RootNode,
-    RelationPropertiesModel,
+    EdgePropertiesModel,
     ReifiedRelation,
     HeritableTrait,
     NonHeritableTrait,
@@ -94,7 +94,7 @@ class RelationFieldDefinition(FieldDefinition):
     )
 
     reverse_name: str
-    relation_model: typing.Optional[type["RelationPropertiesModel"]] = None
+    edge_model: typing.Optional[type["EdgePropertiesModel"]] = None
     subclasses_relation: typing.Optional[str] = None
     create_inline: bool = False
     edit_inline: bool = False

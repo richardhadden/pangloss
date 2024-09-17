@@ -214,7 +214,7 @@ class IncomingRelationView(pydantic.BaseModel):
     pass
 
 
-class RelationPropertiesModel(pydantic.BaseModel):
+class EdgePropertiesModel(pydantic.BaseModel):
     show_in_reverse_relation: typing.ClassVar[bool] = False
     model_config = STANDARD_MODEL_CONFIG
 
@@ -222,7 +222,7 @@ class RelationPropertiesModel(pydantic.BaseModel):
 @dataclasses.dataclass
 class RelationConfig:
     reverse_name: str
-    relation_model: typing.Optional[type["RelationPropertiesModel"]] = None
+    edge_model: typing.Optional[type["EdgePropertiesModel"]] = None
     validators: typing.Sequence[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )

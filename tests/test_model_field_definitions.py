@@ -17,7 +17,7 @@ from pangloss.model_config.field_definitions import (
 from pangloss.model_config.models_base import (
     NonHeritableTrait,
     ReifiedRelationNode,
-    RelationPropertiesModel,
+    EdgePropertiesModel,
 )
 from pangloss.models import (
     BaseNode,
@@ -269,7 +269,7 @@ def test_model_field_definition_with_reified_node():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(RelationPropertiesModel):
+    class IdentificationCertainty(EdgePropertiesModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):

@@ -13,7 +13,7 @@ from pangloss.model_config.models_base import Embedded, ReifiedRelationNode
 from pangloss.models import (
     BaseNode,
     RelationConfig,
-    RelationPropertiesModel,
+    EdgePropertiesModel,
     ReifiedRelation,
     HeritableTrait,
 )
@@ -129,7 +129,7 @@ def test_create_with_embedded_node():
 
 @typing.no_type_check
 def test_create_with_relation_property_model():
-    class ThingRelatedThingRelation(RelationPropertiesModel):
+    class ThingRelatedThingRelation(EdgePropertiesModel):
         certainty: int
 
     class RelatedThing(BaseNode):
@@ -139,7 +139,7 @@ def test_create_with_relation_property_model():
         related_to: typing.Annotated[
             RelatedThing,
             RelationConfig(
-                reverse_name="has_relation_to", relation_model=ThingRelatedThingRelation
+                reverse_name="has_relation_to", edge_model=ThingRelatedThingRelation
             ),
         ]
 
@@ -159,10 +159,10 @@ def test_create_with_relation_property_model():
 
 @typing.no_type_check
 def test_create_with_reified_relation():
-    class IdentificationCertainty(RelationPropertiesModel):
+    class IdentificationCertainty(EdgePropertiesModel):
         certainty: int
 
-    class ThingToIdentifcation(RelationPropertiesModel):
+    class ThingToIdentifcation(EdgePropertiesModel):
         something: str
 
     T = typing.TypeVar("T")
@@ -172,7 +172,7 @@ def test_create_with_reified_relation():
             T,
             RelationConfig(
                 "is_target_of_identification",
-                relation_model=IdentificationCertainty,
+                edge_model=IdentificationCertainty,
                 validators=[annotated_types.MinLen(1)],
             ),
         ]
@@ -185,7 +185,7 @@ def test_create_with_reified_relation():
         related_to: typing.Annotated[
             Identification[RelatedThing],
             RelationConfig(
-                reverse_name="is_related_to", relation_model=ThingToIdentifcation
+                reverse_name="is_related_to", edge_model=ThingToIdentifcation
             ),
         ]
 
@@ -298,7 +298,7 @@ def test_initialise_model_with_reified_node_in_relation():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(RelationPropertiesModel):
+    class IdentificationCertainty(EdgePropertiesModel):
         certainty: int
 
     IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
@@ -307,7 +307,7 @@ def test_initialise_model_with_reified_node_in_relation():
         target: typing.Annotated[
             IdentificationTargetT,
             RelationConfig(
-                reverse_name="is_target_of", relation_model=IdentificationCertainty
+                reverse_name="is_target_of", edge_model=IdentificationCertainty
             ),
         ]
 

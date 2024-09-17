@@ -4,7 +4,7 @@ import typing
 
 import pytest
 
-from pangloss.model_config.models_base import RelationPropertiesModel
+from pangloss.model_config.models_base import EdgePropertiesModel
 from pangloss.models import (
     BaseNode,
     HeritableTrait,
@@ -353,7 +353,7 @@ def test_get_non_heritable_traits_as_indirect_ancestors():
 
 
 def test_create_reference_set_with_relation_property_model():
-    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+    class ThingToRelatedThingPropertiesModel(EdgePropertiesModel):
         type_of_relation: str
 
     class Thing(BaseNode):
@@ -361,7 +361,7 @@ def test_create_reference_set_with_relation_property_model():
             RelatedThing,
             RelationConfig(
                 reverse_name="is_related_to",
-                relation_model=ThingToRelatedThingPropertiesModel,
+                edge_model=ThingToRelatedThingPropertiesModel,
             ),
         ]
 

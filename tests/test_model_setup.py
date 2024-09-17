@@ -20,7 +20,7 @@ from pangloss.model_config.models_base import (
     ReferenceSetBase,
     ReferenceViewBase,
     ReifiedRelationNode,
-    RelationPropertiesModel,
+    EdgePropertiesModel,
     ReifiedRelation,
     Embedded,
 )
@@ -218,7 +218,7 @@ def test_initialise_basic_relation_field_on_model():
 
 
 def test_construct_specialised_reference_set_model_with_relation_properties():
-    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+    class ThingToRelatedThingPropertiesModel(EdgePropertiesModel):
         type_of_relation: str
 
     class Thing(BaseNode):
@@ -226,7 +226,7 @@ def test_construct_specialised_reference_set_model_with_relation_properties():
             RelatedThing,
             RelationConfig(
                 reverse_name="is_related_to",
-                relation_model=ThingToRelatedThingPropertiesModel,
+                edge_model=ThingToRelatedThingPropertiesModel,
             ),
         ]
 
@@ -267,7 +267,7 @@ def test_initialise_relation_field_on_model_with_create_inline():
 
 
 def test_initialise_relation_field_on_model_with_create_inline_with_relation_properties():
-    class ThingToRelatedThingPropertiesModel(RelationPropertiesModel):
+    class ThingToRelatedThingPropertiesModel(EdgePropertiesModel):
         type_of_relation: str
 
     class Thing(BaseNode):
@@ -276,7 +276,7 @@ def test_initialise_relation_field_on_model_with_create_inline_with_relation_pro
             RelationConfig(
                 reverse_name="is_related_to",
                 create_inline=True,
-                relation_model=ThingToRelatedThingPropertiesModel,
+                edge_model=ThingToRelatedThingPropertiesModel,
             ),
         ]
 
@@ -291,7 +291,7 @@ def test_initialise_relation_field_on_model_with_create_inline_with_relation_pro
     )
 
 
-def test_initialise_reified_relation_model():
+def test_initialise_reified_edge_model():
     class Identification[T](ReifiedRelation[T]):
         certainty: int
         points_to_other_thing: typing.Annotated[
@@ -342,7 +342,7 @@ def test_initialise_reified_relation_model():
     """
 
 
-def test_initialise_reified_relation_model_with_dual_generic():
+def test_initialise_reified_edge_model_with_dual_generic():
     class Identification[T](ReifiedRelation[T]):
         certainty: int
 
@@ -382,7 +382,7 @@ def test_initialise_reified_relation_model_with_dual_generic():
     )
 
 
-def test_initialise_reified_relation_model_with_double_reified():
+def test_initialise_reified_edge_model_with_double_reified():
     class Identification[T](ReifiedRelation[T]):
         certainty: int
 
@@ -464,7 +464,7 @@ def test_initialise_reified_relation_with_reified_node():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(RelationPropertiesModel):
+    class IdentificationCertainty(EdgePropertiesModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):
@@ -493,7 +493,7 @@ def test_initialise_reified_relation_with_reified_node():
 
 
 def test_initialise_reified_relation_with_relation_property_model():
-    class ThingIdentificationRelationProperties(RelationPropertiesModel):
+    class ThingIdentificationRelationProperties(EdgePropertiesModel):
         type_of_thing: str
 
     class Identification[T](ReifiedRelation[T]):
@@ -504,7 +504,7 @@ def test_initialise_reified_relation_with_relation_property_model():
             Identification[RelatedThing],
             RelationConfig(
                 reverse_name="is_related_to",
-                relation_model=ThingIdentificationRelationProperties,
+                edge_model=ThingIdentificationRelationProperties,
             ),
         ]
 
@@ -577,7 +577,7 @@ def test_initialise_view_type_for_base():
     class Identification[T](ReifiedRelation[T]):
         pass
 
-    class ToIdentification(RelationPropertiesModel):
+    class ToIdentification(EdgePropertiesModel):
         something: str
 
     class Thing(BaseNode):
@@ -590,7 +590,7 @@ def test_initialise_view_type_for_base():
         also_related_to: typing.Annotated[
             RelatedThing | Identification[RelatedThing],
             RelationConfig(
-                reverse_name="has_also_relation_to", relation_model=ToIdentification
+                reverse_name="has_also_relation_to", edge_model=ToIdentification
             ),
         ]
         embedded_thing: Embedded[EmbeddedThing]
@@ -648,7 +648,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(RelationPropertiesModel):
+    class IdentificationCertainty(EdgePropertiesModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):

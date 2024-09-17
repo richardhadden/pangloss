@@ -242,7 +242,7 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
         for concrete_target_class in outgoing_relation_definition.field_concrete_types:
             if (
                 issubclass(concrete_target_class, RootNode)
-                and outgoing_relation_definition.relation_model
+                and outgoing_relation_definition.edge_model
             ):
                 concrete_target_class.incoming_relation_definitions[
                     outgoing_relation_definition.reverse_name
@@ -254,7 +254,7 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                         source_concrete_type=create_reference_view_model_with_property_model(
                             origin_model=source_class,
                             target_model=concrete_target_class,
-                            relation_model=outgoing_relation_definition.relation_model,
+                            edge_model=outgoing_relation_definition.edge_model,
                             field_name=outgoing_relation_definition.field_name,
                         ),
                         target_type=concrete_target_class,
@@ -374,21 +374,21 @@ def initialise_outgoing_relation_types_on_base_model(
         reference_types = []
         for concrete_type in field.field_concrete_types:
             if issubclass(concrete_type, RootNode):
-                if field.create_inline and field.relation_model:
-                    create_inline_model_with_relation_model = pydantic.create_model(
+                if field.create_inline and field.edge_model:
+                    create_inline_model_with_edge_model = pydantic.create_model(
                         f"{cls.__name__}__{field.field_name}__{concrete_type.__name__}__CreateInline",
                         __base__=concrete_type,
-                        relation_properties=(field.relation_model, ...),
+                        relation_properties=(field.edge_model, ...),
                     )
-                    reference_types.append(create_inline_model_with_relation_model)
+                    reference_types.append(create_inline_model_with_edge_model)
                 elif field.create_inline:
                     reference_types.append(concrete_type)
-                elif field.relation_model:
+                elif field.edge_model:
                     reference_types.append(
                         create_reference_set_model_with_property_model(
                             origin_model=cls,
                             target_model=concrete_type,
-                            relation_model=field.relation_model,
+                            edge_model=field.edge_model,
                             field_name=field.field_name,
                         )
                     )
@@ -396,15 +396,15 @@ def initialise_outgoing_relation_types_on_base_model(
                     reference_types.append(concrete_type.ReferenceSet)
 
             if issubclass(concrete_type, ReifiedRelation):
-                if field.relation_model:
+                if field.edge_model:
                     initialise_reified_relation(concrete_type)
-                    reified_relation_model_with_relation_property_model = pydantic.create_model(
+                    reified_edge_model_with_relation_property_model = pydantic.create_model(
                         f"{cls.__name__}__{field.field_name}__{concrete_type.__name__}",
                         __base__=concrete_type,
-                        relation_properties=(field.relation_model, ...),
+                        relation_properties=(field.edge_model, ...),
                     )
                     reference_types.append(
-                        reified_relation_model_with_relation_property_model
+                        reified_edge_model_with_relation_property_model
                     )
                 else:
                     initialise_reified_relation(concrete_type)
@@ -497,26 +497,26 @@ def initialise_relation_fields_on_view_model(
 
                 if (
                     relation_field_definition.create_inline
-                    and relation_field_definition.relation_model
+                    and relation_field_definition.edge_model
                 ):
-                    create_inline_model_with_relation_model = pydantic.create_model(
+                    create_inline_model_with_edge_model = pydantic.create_model(
                         f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__ViewInline",
                         __base__=concrete_type.View,
                         relation_properties=(
-                            relation_field_definition.relation_model,
+                            relation_field_definition.edge_model,
                             ...,
                         ),
                     )
-                    referenced_types.append(create_inline_model_with_relation_model)
+                    referenced_types.append(create_inline_model_with_edge_model)
                 elif relation_field_definition.create_inline:
                     referenced_types.append(concrete_type.View)
 
-                elif relation_field_definition.relation_model:
+                elif relation_field_definition.edge_model:
                     referenced_types.append(
                         create_reference_view_model_with_property_model(
                             origin_model=cls,
                             target_model=concrete_type,
-                            relation_model=relation_field_definition.relation_model,
+                            edge_model=relation_field_definition.edge_model,
                             field_name=relation_field_definition.field_name,
                         )
                     )
@@ -524,12 +524,12 @@ def initialise_relation_fields_on_view_model(
                     referenced_types.append(concrete_type.ReferenceView)
             if issubclass(concrete_type, ReifiedRelation):
                 initialise_view_type_for_base(concrete_type)
-                if relation_field_definition.relation_model:
+                if relation_field_definition.edge_model:
                     reified_relation_view_model_with_relation_property_model = pydantic.create_model(
                         f"{cls.__name__}__{relation_field_definition.field_name}__{concrete_type.__name__}__View",
                         __base__=concrete_type.View,
                         relation_properties=(
-                            relation_field_definition.relation_model,
+                            relation_field_definition.edge_model,
                             ...,
                         ),
                     )

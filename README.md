@@ -252,7 +252,7 @@ class Identification(ReifiedRelation[IdentificationTargetT]):
         IdentificationTargetT,
         RelationConfig(
             "is_target_of_identification",
-            relation_model=IdentificationCertainty,
+            edge_model=IdentificationCertainty,
             validators=[annotated_types.MinLen(1)],
         ),
     ]
