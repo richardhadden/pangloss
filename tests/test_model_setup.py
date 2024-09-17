@@ -20,7 +20,7 @@ from pangloss.model_config.models_base import (
     ReferenceSetBase,
     ReferenceViewBase,
     ReifiedRelationNode,
-    EdgePropertiesModel,
+    EdgeModel,
     ReifiedRelation,
     Embedded,
 )
@@ -218,7 +218,7 @@ def test_initialise_basic_relation_field_on_model():
 
 
 def test_construct_specialised_reference_set_model_with_relation_properties():
-    class ThingToRelatedThingPropertiesModel(EdgePropertiesModel):
+    class ThingToRelatedThingPropertiesModel(EdgeModel):
         type_of_relation: str
 
     class Thing(BaseNode):
@@ -267,7 +267,7 @@ def test_initialise_relation_field_on_model_with_create_inline():
 
 
 def test_initialise_relation_field_on_model_with_create_inline_with_relation_properties():
-    class ThingToRelatedThingPropertiesModel(EdgePropertiesModel):
+    class ThingToRelatedThingPropertiesModel(EdgeModel):
         type_of_relation: str
 
     class Thing(BaseNode):
@@ -464,7 +464,7 @@ def test_initialise_reified_relation_with_reified_node():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(EdgePropertiesModel):
+    class IdentificationCertainty(EdgeModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):
@@ -493,7 +493,7 @@ def test_initialise_reified_relation_with_reified_node():
 
 
 def test_initialise_reified_relation_with_relation_property_model():
-    class ThingIdentificationRelationProperties(EdgePropertiesModel):
+    class ThingIdentificationRelationProperties(EdgeModel):
         type_of_thing: str
 
     class Identification[T](ReifiedRelation[T]):
@@ -577,7 +577,7 @@ def test_initialise_view_type_for_base():
     class Identification[T](ReifiedRelation[T]):
         pass
 
-    class ToIdentification(EdgePropertiesModel):
+    class ToIdentification(EdgeModel):
         something: str
 
     class Thing(BaseNode):
@@ -648,7 +648,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(EdgePropertiesModel):
+    class IdentificationCertainty(EdgeModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):

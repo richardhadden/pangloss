@@ -17,7 +17,7 @@ from pangloss.model_config.field_definitions import (
 from pangloss.model_config.models_base import (
     NonHeritableTrait,
     ReifiedRelationNode,
-    EdgePropertiesModel,
+    EdgeModel,
 )
 from pangloss.models import (
     BaseNode,
@@ -269,7 +269,7 @@ def test_model_field_definition_with_reified_node():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(EdgePropertiesModel):
+    class IdentificationCertainty(EdgeModel):
         certainty: int
 
     class Identification[T](ReifiedRelation[T]):
@@ -475,13 +475,30 @@ def test_incoming_relation_definition_with_relation_from_multiple():
     assert involved_in_party.source_concrete_type == Party.ReferenceView
 
 
-def test_incoming_relation_type_with_reified_relation():
+def test_incoming_relation_type_with_edge_model():
+    class Notes(EdgeModel):
+        note: str
+
     class Person(BaseNode):
         pass
 
     class Event(BaseNode):
         person_involved: typing.Annotated[
-            Person, RelationConfig(reverse_name="is_involved_in")
+            Person, RelationConfig(reverse_name="is_involved_in", edge_model=Notes)
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.incoming_relation_definitions["is_involved_in"]
+
+    is_involved_in = Person.incoming_relation_definitions["is_involved_in"].pop()
+
+    assert is_involved_in
+    assert is_involved_in.field_name == "person_involved"
+    assert is_involved_in.reverse_name == "is_involved_in"
+    assert is_involved_in.target_type == Person
+    assert is_involved_in.source_type == Event
+    assert (
+        is_involved_in.source_concrete_type.__name__
+        == "Event__person_involved__Person__ReferenceView"
+    )

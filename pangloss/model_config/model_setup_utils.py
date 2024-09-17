@@ -6,7 +6,7 @@ import pydantic
 
 from pangloss.model_config.models_base import (
     ReferenceViewBase,
-    EdgePropertiesModel,
+    EdgeModel,
     ReferenceSetBase,
 )
 from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
@@ -250,7 +250,7 @@ def get_non_heritable_traits_as_indirect_ancestors(
 def create_reference_set_model_with_property_model(
     origin_model: type["RootNode"] | type["ReifiedRelation"],
     target_model: type["RootNode"] | type["ReifiedRelation"],
-    edge_model: type[EdgePropertiesModel],
+    edge_model: type[EdgeModel],
     field_name: str,
 ) -> type[ReferenceSetBase]:
     return pydantic.create_model(
@@ -264,7 +264,7 @@ def create_reference_set_model_with_property_model(
 def create_reference_view_model_with_property_model(
     origin_model: type["RootNode"] | type["ReifiedRelation"],
     target_model: type["RootNode"] | type["ReifiedRelation"],
-    edge_model: type[EdgePropertiesModel],
+    edge_model: type[EdgeModel],
     field_name: str,
 ) -> type[ReferenceViewBase]:
     return pydantic.create_model(

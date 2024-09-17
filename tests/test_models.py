@@ -13,7 +13,7 @@ from pangloss.model_config.models_base import Embedded, ReifiedRelationNode
 from pangloss.models import (
     BaseNode,
     RelationConfig,
-    EdgePropertiesModel,
+    EdgeModel,
     ReifiedRelation,
     HeritableTrait,
 )
@@ -129,7 +129,7 @@ def test_create_with_embedded_node():
 
 @typing.no_type_check
 def test_create_with_relation_property_model():
-    class ThingRelatedThingRelation(EdgePropertiesModel):
+    class ThingRelatedThingRelation(EdgeModel):
         certainty: int
 
     class RelatedThing(BaseNode):
@@ -159,10 +159,10 @@ def test_create_with_relation_property_model():
 
 @typing.no_type_check
 def test_create_with_reified_relation():
-    class IdentificationCertainty(EdgePropertiesModel):
+    class IdentificationCertainty(EdgeModel):
         certainty: int
 
-    class ThingToIdentifcation(EdgePropertiesModel):
+    class ThingToIdentifcation(EdgeModel):
         something: str
 
     T = typing.TypeVar("T")
@@ -298,7 +298,7 @@ def test_initialise_model_with_reified_node_in_relation():
     class Person(BaseNode):
         pass
 
-    class IdentificationCertainty(EdgePropertiesModel):
+    class IdentificationCertainty(EdgeModel):
         certainty: int
 
     IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
