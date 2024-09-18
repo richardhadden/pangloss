@@ -285,6 +285,7 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                     if path.path_is_all_target:
                         # Flip path
                         path.path_items.reverse()
+
                         # If path is all target, attach using the reverse field name
                         # of the source class
                         target_node, to_target_definition = path.target
@@ -292,22 +293,18 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                         final_path_node, final_to_path_node_definition = (
                             path.path_items[-1]
                         )
-                        print("Intermediate path items", len(path.path_items))
+
                         reverse_name = final_to_path_node_definition.reverse_name
                         field_name = final_to_path_node_definition.field_name
-                        print(source_class)
-                        print(field_name, reverse_name)
-
-                        for path_item in path.path_items:
-                            print(">", path_item[0], path_item[1].field_name)
 
                         source_concrete_class = pydantic.create_model(
-                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}",
+                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
                             __base__=ViewBase,
+                            base_class=source_class,
                         )
                         source_concrete_class.model_fields[field_name] = (
                             source_class.model_fields[field_name]
-                        )
+                        )  # TODO: this seems unlikely to work — needs to be initialised
                         source_concrete_class.model_rebuild(force=True)
 
                         target_node.incoming_relation_definitions[reverse_name].add(
@@ -656,3 +653,22 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
 
     cls.View.base_class = cls
     cls.View.model_rebuild(force=True)
+
+
+def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):
+    for (
+        incoming_field_name,
+        incoming_relation_definitions,
+    ) in cls.incoming_relation_definitions.items():
+        incoming_relation_types = []
+
+        for incoming_relation_definition in incoming_relation_definitions:
+            incoming_relation_types.append(
+                incoming_relation_definition.source_concrete_type
+            )
+
+        cls.View.model_fields[incoming_field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[typing.Union[*incoming_relation_types]]  # type: ignore
+            )
+        )

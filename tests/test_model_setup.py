@@ -23,6 +23,7 @@ from pangloss.model_config.models_base import (
     EdgeModel,
     ReifiedRelation,
     Embedded,
+    ViewBase,
 )
 from pangloss.model_config.field_definitions import (
     LiteralFieldDefinition,
@@ -641,7 +642,82 @@ def test_view_initialisation_of_reverse_relation():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    # assert Person.View.model_fields["is_involved_in"]
+    assert Person.View.model_fields["is_involved_in"]
+
+    is_involved_in_model = Person.View.model_fields["is_involved_in"]
+
+    assert is_involved_in_model.annotation == list[Event.ReferenceView]
+
+
+def test_view_initialisation_of_reverse_relation_with_multiple_sources():
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    class Party(BaseNode):
+        person_partying: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.View.model_fields["is_involved_in"]
+
+    is_involved_in_model = Person.View.model_fields["is_involved_in"]
+
+    assert (
+        is_involved_in_model.annotation
+        == list[Event.ReferenceView | Party.ReferenceView]
+    )
+
+
+def test_view_initialisation_with_reverse_relation_with_reified_relation_simple():
+    class IgnorableThing(BaseNode):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification[Person],
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
+        should_not_be_there: str
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.View.model_fields["is_involved_in"]
+
+    is_involved_in = Person.View.model_fields["is_involved_in"]
+
+    assert typing.get_origin(is_involved_in.annotation) == list
+
+    assert (
+        typing.get_args(is_involved_in.annotation)[0].__name__
+        == "Event__from__person_involved__Person__View"
+    )
+
+    source_class = typing.get_args(is_involved_in.annotation)[0]
+
+    assert issubclass(source_class, ViewBase)
+
+    assert "person_involved" in source_class.model_fields.keys()
+    assert "should_not_be_there" not in source_class.model_fields.keys()
+
+    event_person_involved = source_class.model_fields["person_involved"]
+
+    assert typing.get_origin(event_person_involved.annotation) == list
+    assert (
+        typing.get_args(event_person_involved.annotation)[0] == Identification[Person]
+    )
 
 
 def test_view_initialisation_of_reverse_relation_with_reified_relation():

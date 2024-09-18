@@ -29,6 +29,7 @@ class ModelManager:
             initialise_outgoing_relation_types_on_base_model,
             initialise_embedded_nodes_on_base_model,
             initialise_view_type_for_base,
+            initialise_incoming_relations_on_view_types_for_base,
         )
 
         for model in cls.registered_models:
@@ -54,10 +55,15 @@ class ModelManager:
             )
 
         for model in cls.registered_models:
-            build_incoming_relation_definitions(model)
-
-        for model in cls.registered_models:
             initialise_view_type_for_base(model)
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
+
+        # New strategy... initialise View type first, then build incoming relations and
+        # initialise incoming relations on View type
+        for model in cls.registered_models:
+            build_incoming_relation_definitions(model)
+
+        for model in cls.registered_models:
+            initialise_incoming_relations_on_view_types_for_base(model)

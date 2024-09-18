@@ -568,6 +568,25 @@ def test_incoming_relation_definition_through_simple_reified_relation():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert Person.incoming_relation_definitions["is_involved_in"]
+    assert len(Person.incoming_relation_definitions["is_involved_in"]) == 1
+
+    is_involved_in_definition = Person.incoming_relation_definitions[
+        "is_involved_in"
+    ].pop()
+
+    assert is_involved_in_definition
+    assert is_involved_in_definition.field_name == "person_involved"
+    assert is_involved_in_definition.reverse_name == "is_involved_in"
+    assert is_involved_in_definition.target_type == Person
+    assert is_involved_in_definition.source_type == Event
+    assert (
+        is_involved_in_definition.source_concrete_type.__name__
+        == "Event__from__person_involved__Person__View"
+    )
+
+    source_concrete_type = is_involved_in_definition.source_concrete_type
+
+    assert "person_involved" in source_concrete_type.model_fields.keys()
 
 
 def test_incoming_relation_definition_through_double_reified_relation():
@@ -589,3 +608,21 @@ def test_incoming_relation_definition_through_double_reified_relation():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert Person.incoming_relation_definitions["is_involved_in"]
+    assert len(Person.incoming_relation_definitions["is_involved_in"]) == 1
+
+    is_involved_in_definition = Person.incoming_relation_definitions[
+        "is_involved_in"
+    ].pop()
+    assert is_involved_in_definition
+    assert is_involved_in_definition.field_name == "person_involved"
+    assert is_involved_in_definition.reverse_name == "is_involved_in"
+    assert is_involved_in_definition.target_type == Person
+    assert is_involved_in_definition.source_type == Event
+    assert (
+        is_involved_in_definition.source_concrete_type.__name__
+        == "Event__from__person_involved__Person__View"
+    )
+
+    source_concrete_type = is_involved_in_definition.source_concrete_type
+
+    assert "person_involved" in source_concrete_type.model_fields.keys()
