@@ -32,6 +32,7 @@ from pangloss.model_config.model_setup_utils import (
     create_reference_view_model_with_property_model,
     get_non_heritable_traits_as_indirect_ancestors,
     create_reference_set_model_with_property_model,
+    get_paths_to_target_node,
     recurse_embedded_models_for_all_outgoing_relation_field_definitions,
 )
 
@@ -273,6 +274,56 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                         target_type=concrete_target_class,
                     )
                 )
+
+            elif issubclass(concrete_target_class, ReifiedRelation):
+                initialise_reified_relation(concrete_target_class)
+
+                paths_to_target_node = get_paths_to_target_node(
+                    concrete_target_class, outgoing_relation_definition
+                )
+                for path in paths_to_target_node:
+                    if path.path_is_all_target:
+                        # Flip path
+                        path.path_items.reverse()
+                        # If path is all target, attach using the reverse field name
+                        # of the source class
+                        target_node, to_target_definition = path.target
+
+                        final_path_node, final_to_path_node_definition = (
+                            path.path_items[-1]
+                        )
+                        print("Intermediate path items", len(path.path_items))
+                        reverse_name = final_to_path_node_definition.reverse_name
+                        field_name = final_to_path_node_definition.field_name
+                        print(source_class)
+                        print(field_name, reverse_name)
+
+                        for path_item in path.path_items:
+                            print(">", path_item[0], path_item[1].field_name)
+
+                        source_concrete_class = pydantic.create_model(
+                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}",
+                            __base__=ViewBase,
+                        )
+                        source_concrete_class.model_fields[field_name] = (
+                            source_class.model_fields[field_name]
+                        )
+                        source_concrete_class.model_rebuild(force=True)
+
+                        target_node.incoming_relation_definitions[reverse_name].add(
+                            IncomingRelationDefinition(
+                                field_name=field_name,
+                                reverse_name=reverse_name,
+                                source_type=source_class,
+                                source_concrete_type=source_concrete_class,
+                                target_type=target_node,
+                            )
+                        )
+
+                    else:
+                        # It's at some intermediate point, so use the intermediate point
+                        # name to bind
+                        pass
 
 
 def initialise_model_field_definitions(

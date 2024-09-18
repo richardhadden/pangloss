@@ -561,7 +561,31 @@ def test_incoming_relation_definition_through_simple_reified_relation():
 
     class Event(BaseNode):
         person_involved: typing.Annotated[
-            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+            Identification[Person],
+            RelationConfig(reverse_name="is_involved_in"),
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.incoming_relation_definitions["is_involved_in"]
+
+
+def test_incoming_relation_definition_through_double_reified_relation():
+    class Identification1[T](ReifiedRelation[T]):
+        pass
+
+    class Identification2[T](ReifiedRelation[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification2[Identification1[Person]],
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.incoming_relation_definitions["is_involved_in"]
