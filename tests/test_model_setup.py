@@ -218,7 +218,7 @@ def test_initialise_basic_relation_field_on_model():
     assert annotated_types.MaxLen(10) in Thing.model_fields["related_to"].metadata
 
 
-def test_construct_specialised_reference_set_model_with_relation_properties():
+def test_construct_specialised_reference_set_model_with_edge_properties():
     class ThingToRelatedThingPropertiesModel(EdgeModel):
         type_of_relation: str
 
@@ -246,7 +246,7 @@ def test_construct_specialised_reference_set_model_with_relation_properties():
     assert issubclass(typing.get_args(related_to_annotation)[0], pydantic.BaseModel)
     assert (
         typing.get_args(related_to_annotation)[0]
-        .model_fields["relation_properties"]
+        .model_fields["edge_properties"]
         .annotation
         == ThingToRelatedThingPropertiesModel
     )
@@ -267,7 +267,7 @@ def test_initialise_relation_field_on_model_with_create_inline():
     assert Thing.model_fields["related_to"].annotation == list[RelatedThing]
 
 
-def test_initialise_relation_field_on_model_with_create_inline_with_relation_properties():
+def test_initialise_relation_field_on_model_with_create_inline_with_edge_properties():
     class ThingToRelatedThingPropertiesModel(EdgeModel):
         type_of_relation: str
 
@@ -521,10 +521,10 @@ def test_initialise_reified_relation_with_relation_property_model():
         == "Thing__related_to__Identification[test_initialise_reified_relation_with_relation_property_model.<locals>.RelatedThing]"
     )
 
-    assert typing.get_args(related_to_annotation)[0].model_fields["relation_properties"]
+    assert typing.get_args(related_to_annotation)[0].model_fields["edge_properties"]
     assert (
         typing.get_args(related_to_annotation)[0]
-        .model_fields["relation_properties"]
+        .model_fields["edge_properties"]
         .annotation
         == ThingIdentificationRelationProperties
     )
@@ -949,4 +949,6 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex_w
     )[0]
     assert issubclass(is_carried_out_by, ViewBase)
 
-    # TODO: test for relation data
+    assert is_carried_out_by.model_fields["edge_properties"]
+
+    assert is_carried_out_by.model_fields["edge_properties"].annotation == Certainty

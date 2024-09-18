@@ -379,8 +379,8 @@ def test_create_reference_set_with_relation_property_model():
         reference_set_model.model_fields["type"].annotation
         == typing.Literal["RelatedThing"]
     )
-    assert reference_set_model.model_fields["relation_properties"]
+    assert reference_set_model.model_fields["edge_properties"]
     assert (
-        reference_set_model.model_fields["relation_properties"].annotation
+        reference_set_model.model_fields["edge_properties"].annotation
         == ThingToRelatedThingPropertiesModel
     )

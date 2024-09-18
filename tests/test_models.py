@@ -151,7 +151,7 @@ def test_create_with_relation_property_model():
             {
                 "type": "RelatedThing",
                 "uuid": uuid.uuid4(),
-                "relation_properties": {"certainty": 1},
+                "edge_properties": {"certainty": 1},
             }
         ],
     )
@@ -200,17 +200,17 @@ def test_create_with_reified_relation():
                     {
                         "type": "RelatedThing",
                         "uuid": uuid.uuid4(),
-                        "relation_properties": {"certainty": 1},
+                        "edge_properties": {"certainty": 1},
                     }
                 ],
                 "identification_description": "not bad",
-                "relation_properties": {"something": "some thing"},
+                "edge_properties": {"something": "some thing"},
             }
         ],
     )
 
     assert thing.related_to[0].target[0].type == "RelatedThing"
-    assert thing.related_to[0].target[0].relation_properties.certainty == 1
+    assert thing.related_to[0].target[0].edge_properties.certainty == 1
 
 
 @typing.no_type_check
@@ -335,7 +335,7 @@ def test_initialise_model_with_reified_node_in_relation():
                         "type": "Identification[test_initialise_model_with_reified_node_in_relation.<locals>.Person]",
                         "target": [
                             {
-                                "relation_properties": {"certainty": 1},
+                                "edge_properties": {"certainty": 1},
                                 "type": "Person",
                                 "uuid": uuid.uuid4(),
                             }
@@ -347,7 +347,7 @@ def test_initialise_model_with_reified_node_in_relation():
                         "type": "Identification[test_initialise_model_with_reified_node_in_relation.<locals>.Person]",
                         "target": [
                             {
-                                "relation_properties": {"certainty": 1},
+                                "edge_properties": {"certainty": 1},
                                 "type": "Person",
                                 "uuid": uuid.uuid4(),
                             }
