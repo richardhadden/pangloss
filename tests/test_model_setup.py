@@ -913,3 +913,40 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
     person_type = typing.get_args(identification)[0]
 
     assert person_type == Person.ReferenceView
+
+
+def test_view_initialisation_of_reverse_relation_with_reified_relation_complex_with_edge_model():
+    class Certainty(EdgeModel):
+        certainty: int
+
+    class Person(BaseNode):
+        pass
+
+    T = typing.TypeVar("T")
+    U = typing.TypeVar("U")
+
+    class Identification(ReifiedRelation[T]):
+        target: typing.Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+        ]
+
+    class WithProxyActor(ReifiedRelationNode[T], typing.Generic[T, U]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[U, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person], Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.View.model_fields["is_carried_out_by"]
+
+    is_carried_out_by = typing.get_args(
+        Person.View.model_fields["is_carried_out_by"].annotation
+    )[0]
+    assert issubclass(is_carried_out_by, ViewBase)
+
+    # TODO: test for relation data
