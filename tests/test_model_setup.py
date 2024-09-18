@@ -574,6 +574,49 @@ def test_initialise_embedded_node_on_base_model():
     ]
 
 
+def test_initialise_view_type_for_base_with_reified_relation_is_all_view_types():
+    """Go through all the `target` arguments to check that they are all view types"""
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Event.View.model_fields["person_involved"]
+
+    origin_type = typing.get_origin(
+        Event.View.model_fields["person_involved"].annotation
+    )
+    assert origin_type == list
+
+    arg_type = typing.get_args(Event.View.model_fields["person_involved"].annotation)[0]
+    assert issubclass(arg_type, pydantic.BaseModel)
+    assert (
+        arg_type.__name__
+        == "Identification[test_initialise_view_type_for_base_with_reified_relation_is_all_view_types.<locals>.Person]View"
+    )
+    assert issubclass(arg_type, ViewBase)
+
+    assert arg_type.model_fields["target"].annotation
+
+    target_origin_type = typing.get_origin(arg_type.model_fields["target"].annotation)
+    assert target_origin_type == list
+
+    target_arg_type = typing.get_args(arg_type.model_fields["target"].annotation)[0]
+
+    assert issubclass(target_arg_type, ReferenceViewBase)
+
+    assert target_arg_type == Person.ReferenceView
+
+
 def test_initialise_view_type_for_base():
     class Identification[T](ReifiedRelation[T]):
         pass
@@ -612,17 +655,20 @@ def test_initialise_view_type_for_base():
         == list[RelatedThing.ReferenceView | Identification[RelatedThing].View]
     )
 
-    also_related_to_args = set(
+    also_related_to_args_names = set(
         arg.__name__
         for arg in typing.get_args(
             typing.get_args(Thing.View.model_fields["also_related_to"].annotation)[0]
         )
     )
 
-    assert "Thing__also_related_to__RelatedThing__ReferenceView" in also_related_to_args
+    assert (
+        "Thing__also_related_to__RelatedThing__ReferenceView"
+        in also_related_to_args_names
+    )
     assert (
         "Thing__also_related_to__Identification[test_initialise_view_type_for_base.<locals>.RelatedThing]__View"
-        in also_related_to_args
+        in also_related_to_args_names
     )
 
     embedded_thing_args = typing.get_args(
@@ -708,24 +754,31 @@ def test_view_initialisation_with_reverse_relation_with_reified_relation_simple(
     source_class = typing.get_args(is_involved_in.annotation)[0]
 
     assert issubclass(source_class, ViewBase)
+    assert source_class.__name__ == "Event__from__person_involved__Person__View"
 
     assert "person_involved" in source_class.model_fields.keys()
     assert "should_not_be_there" not in source_class.model_fields.keys()
 
     event_person_involved = source_class.model_fields["person_involved"]
+    # TODO: verify properly here...
 
     assert typing.get_origin(event_person_involved.annotation) == list
-    assert (
-        typing.get_args(event_person_involved.annotation)[0] == Identification[Person]
-    )
+
+    assert typing.get_args(event_person_involved.annotation)[0]
+
+    identification_person = typing.get_args(event_person_involved.annotation)[0]
+
+    assert issubclass(identification_person, ViewBase)
 
 
-def test_view_initialisation_of_reverse_relation_with_reified_relation():
+def test_view_initialisation_of_reverse_relation_with_reified_relation_complex():
+    """Test initialisation of model with reverse relations, so that reverse
+    relation points to target or otherwise point of attachment to chain;
+
+    and, that everything all the way down is a View type"""
+
     class Person(BaseNode):
         pass
-
-    class IdentificationCertainty(EdgeModel):
-        certainty: int
 
     class Identification[T](ReifiedRelation[T]):
         target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
@@ -742,4 +795,121 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    # assert Person.View.model_fields["is_carried_out_by"]
+    assert Person.View.model_fields["is_carried_out_by"]
+
+    is_carried_out_by = Person.View.model_fields["is_carried_out_by"].annotation
+
+    # Check type is wrapped in a list
+    assert typing.get_origin(is_carried_out_by) == list
+
+    # Get inner type and check it has correct name
+    is_carried_out_by_type = typing.get_args(is_carried_out_by)[0]
+
+    assert (
+        is_carried_out_by_type.__name__ == "Event__from__carried_out_by__Person__View"
+    )
+
+    assert issubclass(is_carried_out_by_type, ViewBase)
+
+    assert "carried_out_by" in is_carried_out_by_type.model_fields.keys()
+
+    # Now check the carried_out_by field to check it's also a View type
+    assert is_carried_out_by_type.model_fields["carried_out_by"].annotation
+
+    event_carried_out_by = is_carried_out_by_type.model_fields[
+        "carried_out_by"
+    ].annotation
+
+    assert typing.get_origin(event_carried_out_by) == list
+
+    event_carried_out_by_type = typing.get_args(event_carried_out_by)[0]
+
+    assert issubclass(event_carried_out_by_type, ViewBase)
+
+    with_proxy_actor = event_carried_out_by_type
+
+    assert with_proxy_actor.model_fields["target"]
+
+    # Quickly check the "proxy" path here
+    assert with_proxy_actor.model_fields["proxy"]
+    with_proxy_proxy = typing.get_args(
+        with_proxy_actor.model_fields["proxy"].annotation
+    )[0]
+    assert issubclass(with_proxy_proxy, ViewBase)
+
+    with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
+
+    assert typing.get_origin(with_proxy_actor_target) == list
+
+    with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
+
+    assert issubclass(with_proxy_actor_target_type, ViewBase)
+
+    assert with_proxy_actor_target_type.model_fields["target"]
+
+    identification = with_proxy_actor_target_type.model_fields["target"].annotation
+
+    assert typing.get_origin(identification) == list
+
+    person_type = typing.get_args(identification)[0]
+
+    assert person_type == Person.ReferenceView
+
+    # Now check the "acts_as_proxy" field, which should also be an event
+    assert Person.View.model_fields["acts_as_proxy_in"]
+
+    assert Person.View.model_fields["acts_as_proxy_in"].annotation
+
+    assert (
+        typing.get_origin(Person.View.model_fields["acts_as_proxy_in"].annotation)
+        == list
+    )
+
+    acts_as_proxy_in_type = typing.get_args(
+        Person.View.model_fields["acts_as_proxy_in"].annotation
+    )[0]
+
+    assert acts_as_proxy_in_type.__name__ == "Event__from__proxy__Person__View"
+
+    assert issubclass(acts_as_proxy_in_type, ViewBase)
+
+    assert acts_as_proxy_in_type.model_fields["carried_out_by"]
+
+    event_carried_out_by = acts_as_proxy_in_type.model_fields[
+        "carried_out_by"
+    ].annotation
+
+    assert typing.get_origin(event_carried_out_by) == list
+
+    event_carried_out_by_type = typing.get_args(event_carried_out_by)[0]
+
+    assert issubclass(event_carried_out_by_type, ViewBase)
+
+    with_proxy_actor = event_carried_out_by_type
+
+    assert with_proxy_actor.model_fields["target"]
+
+    # Quickly check the "proxy" path here
+    assert with_proxy_actor.model_fields["proxy"]
+    with_proxy_proxy = typing.get_args(
+        with_proxy_actor.model_fields["proxy"].annotation
+    )[0]
+    assert issubclass(with_proxy_proxy, ViewBase)
+
+    with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
+
+    assert typing.get_origin(with_proxy_actor_target) == list
+
+    with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
+
+    assert issubclass(with_proxy_actor_target_type, ViewBase)
+
+    assert with_proxy_actor_target_type.model_fields["target"]
+
+    identification = with_proxy_actor_target_type.model_fields["target"].annotation
+
+    assert typing.get_origin(identification) == list
+
+    person_type = typing.get_args(identification)[0]
+
+    assert person_type == Person.ReferenceView

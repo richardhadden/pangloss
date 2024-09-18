@@ -320,6 +320,7 @@ class PathToTargetRootNode:
         ]
         path_field_names.append(self.target[1].field_name)
         self.path_is_all_target = all(r == "target" for r in path_field_names)
+        self.selected_reverse_name: None | str = None
 
 
 def get_paths(t: "ReifiedRelationTree", paths=None, current_path=None):

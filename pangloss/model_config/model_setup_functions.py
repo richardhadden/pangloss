@@ -303,8 +303,8 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                             base_class=source_class,
                         )
                         source_concrete_class.model_fields[field_name] = (
-                            source_class.model_fields[field_name]
-                        )  # TODO: this seems unlikely to work — needs to be initialised
+                            source_class.View.model_fields[field_name]
+                        )
                         source_concrete_class.model_rebuild(force=True)
 
                         target_node.incoming_relation_definitions[reverse_name].add(
@@ -320,7 +320,52 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                     else:
                         # It's at some intermediate point, so use the intermediate point
                         # name to bind
-                        pass
+                        path.path_items.reverse()
+
+                        # If path is all target, attach using the reverse field name
+                        # of the source class
+                        target_node, to_target_definition = path.target
+
+                        field_name = ""
+                        reverse_name = ""
+
+                        for path_field_definition in [
+                            to_target_definition,
+                            *[path_item[1] for path_item in path.path_items],
+                        ]:
+                            if path_field_definition.field_name != "target":
+                                field_name = path_field_definition.field_name
+                                reverse_name = path_field_definition.reverse_name
+                                break
+
+                        source_concrete_class = pydantic.create_model(
+                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
+                            __base__=ViewBase,
+                            base_class=source_class,
+                        )
+
+                        final_path_node, final_to_path_node_definition = (
+                            path.path_items[-1]
+                        )
+
+                        final_field_name = field_name = (
+                            final_to_path_node_definition.field_name
+                        )
+
+                        source_concrete_class.model_fields[final_field_name] = (
+                            source_class.View.model_fields[final_field_name]
+                        )
+                        source_concrete_class.model_rebuild(force=True)
+
+                        target_node.incoming_relation_definitions[reverse_name].add(
+                            IncomingRelationDefinition(
+                                field_name=field_name,
+                                reverse_name=reverse_name,
+                                source_type=source_class,
+                                source_concrete_type=source_concrete_class,
+                                target_type=target_node,
+                            )
+                        )
 
 
 def initialise_model_field_definitions(
@@ -672,3 +717,4 @@ def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):
                 list[typing.Union[*incoming_relation_types]]  # type: ignore
             )
         )
+        cls.View.model_rebuild(force=True)
