@@ -357,3 +357,6 @@ def test_initialise_model_with_reified_node_in_relation():
             },
         ],
     )
+
+
+# TODO: write test to initialise models with reverse relations
