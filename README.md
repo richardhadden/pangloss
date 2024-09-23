@@ -257,3 +257,10 @@ class Identification(ReifiedRelation[IdentificationTargetT]):
         ),
     ]
 ```
+
+
+# TODO:
+- `ExpandedField[str]` (e.g. `Certainty[str]`)
+- EditView/EditSet types
+- DB layer
+- API layer

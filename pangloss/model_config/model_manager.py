@@ -3,11 +3,12 @@ import typing
 
 
 if typing.TYPE_CHECKING:
-    from pangloss.model_config.models_base import RootNode
+    from pangloss.model_config.models_base import RootNode, ReifiedRelationNode
 
 
 class ModelManager:
     registered_models: list[type["RootNode"]] = []
+    registered_reified_relation_nodes: list[type["ReifiedRelationNode"]] = []
 
     @classmethod
     def register_model(cls, model: type["RootNode"]):
@@ -16,6 +17,11 @@ class ModelManager:
     @classmethod
     def _reset(cls):
         cls.registered_models = []
+        cls.registered_reified_relation_nodes = []
+
+    @classmethod
+    def register_reified_relation_nodes(cls, model: type["ReifiedRelationNode"]):
+        cls.registered_reified_relation_nodes.append(model)
 
     @classmethod
     def initialise_models(cls, _defined_in_test=False):
