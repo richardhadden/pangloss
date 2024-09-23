@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import inspect
 import types
@@ -27,6 +28,7 @@ from pangloss.model_config.models_base import (
     ReferenceSetBase,
     ReferenceViewBase,
     ViewBase,
+    EditViewBase,
 )
 from pangloss.model_config.model_setup_utils import (
     create_reference_view_model_with_property_model,
@@ -734,3 +736,18 @@ def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):
             )
         )
         cls.View.model_rebuild(force=True)
+
+
+def initialise_edit_view_type(cls: type[RootNode]):
+    """Initialises EditView on a RootModel
+
+    The cls.EditView should be the same as cls.View, without the incoming relations.
+    To do this, we can just copy cls.View, as long as the incoming relations
+    have not yet been initialised on the View class
+    """
+    cls.EditView = pydantic.create_model(
+        f"{cls.__name__}EditView", __base__=EditViewBase
+    )
+    cls.EditView.model_fields = copy.copy(cls.View.model_fields)
+    cls.EditView.model_rebuild(force=True)
+    cls.EditView.base_class = cls

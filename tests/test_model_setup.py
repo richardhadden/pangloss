@@ -952,3 +952,33 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex_w
     assert is_carried_out_by.model_fields["edge_properties"]
 
     assert is_carried_out_by.model_fields["edge_properties"].annotation == Certainty
+
+
+def test_initialise_edit_view():
+    class Person(BaseNode):
+        age: int
+
+    class Event(BaseNode):
+        type: str
+        involves_person: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Event.EditView
+    assert "type" in Event.EditView.model_fields
+
+    assert "involves_person" in Event.EditView.model_fields
+    assert (
+        Event.EditView.model_fields["involves_person"].annotation
+        == list[Person.ReferenceView]
+    )
+
+    assert "age" in Person.EditView.model_fields
+    assert "is_involved_in" not in Person.EditView.model_fields
+
+    assert "is_involved_in" in Person.View.model_fields
+
+    assert Person.EditView.base_class == Person
+    assert Event.EditView.base_class == Event

@@ -36,6 +36,7 @@ class ModelManager:
             initialise_embedded_nodes_on_base_model,
             initialise_view_type_for_base,
             initialise_incoming_relations_on_view_types_for_base,
+            initialise_edit_view_type,
         )
 
         for model in cls.registered_models:
@@ -66,8 +67,12 @@ class ModelManager:
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
 
-        # New strategy... initialise View type first, then build incoming relations and
-        # initialise incoming relations on View type
+        # The order of this is important. As initialise_edit_view copies the current
+        # definition of model.View, it is important that it is run before calling
+        # `initialise_incoming_relations_on_view_types_for_base` on the model
+        for model in cls.registered_models:
+            initialise_edit_view_type(model)
+
         for model in cls.registered_models:
             build_incoming_relation_definitions(model)
 
