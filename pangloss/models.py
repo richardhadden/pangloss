@@ -6,6 +6,7 @@ from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     EdgeModel,
+    ReifiedRelationNode,
 )
 from pangloss.model_config.model_manager import ModelManager
 
@@ -20,6 +21,7 @@ import typing
     HeritableTrait,
     NonHeritableTrait,
     EdgeModel,
+    ReifiedRelationNode,
 )  # type: ignore
 
 
