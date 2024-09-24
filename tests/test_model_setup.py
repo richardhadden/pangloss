@@ -1067,7 +1067,7 @@ def test_initialise_edit_set_type_with_cyclical_relation():
     ]
 
 
-def test_initialise_edit_with_embedded_node():
+def test_initialise_edit_set_with_embedded_node():
     class Thing(BaseNode):
         embedded: Embedded[EmbeddedThing]
 
@@ -1085,3 +1085,79 @@ def test_initialise_edit_with_embedded_node():
         annotated_types.MinLen(1),
         annotated_types.MaxLen(1),
     ]
+
+
+def test_initialise_edit_set_with_reified_relation():
+    class Person(BaseNode):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person_involved = Event.EditSet.model_fields["person_involved"]
+    assert person_involved
+    assert (
+        person_involved.annotation
+        == list[typing.Union[Identification[Person], Identification[Person].EditSet]]
+    )
+
+
+def test_initialise_edit_set_with_reified_relation_with_overridden_target():
+    class Person(BaseNode):
+        pass
+
+    T = typing.TypeVar("T")
+
+    class Identification(ReifiedRelation[T]):
+        target: typing.Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edit_inline=True)
+        ]
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person_involved = Event.EditSet.model_fields["person_involved"]
+    assert person_involved
+    assert (
+        person_involved.annotation
+        == list[typing.Union[Identification[Person], Identification[Person].EditSet]]
+    )
+
+
+def test_initialisation_of_edit_set_with_inherited_type_works():
+    class Person(BaseNode):
+        pass
+
+    class Dude(Person):
+        dudeness: int
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person_involved = Event.EditSet.model_fields["person_involved"]
+
+    assert person_involved
+    assert (
+        person_involved.annotation
+        == list[typing.Union[Person.ReferenceSet, Dude.ReferenceSet]]
+    )
+
+    assert Dude.EditSet.__name__ == "DudeEditSet"
+
+    assert "dudeness" in Dude.EditSet.model_fields
+    assert "dudeness" not in Person.EditSet.model_fields

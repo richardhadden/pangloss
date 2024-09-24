@@ -112,9 +112,10 @@ class RelationFieldDefinition(FieldDefinition):
         # Use typing.cast to ensure it's typed as a set
         self.field_concrete_types = typing.cast(
             set[type["RootNode"] | type["ReifiedRelation"]],
-            get_concrete_model_types(self.field_annotated_type),
+            get_concrete_model_types(
+                self.field_annotated_type, include_subclasses=True
+            ),
         )
-        print(self.field_concrete_types)
 
 
 @dataclasses.dataclass

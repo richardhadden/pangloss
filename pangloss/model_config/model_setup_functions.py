@@ -770,7 +770,7 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
 
     for relation_definition in cls.field_definitions.relation_fields:
         allowed_relation_types = []
-
+        print(relation_definition.field_concrete_types)
         for concrete_type in relation_definition.field_concrete_types:
             if issubclass(concrete_type, RootNode):
                 if relation_definition.edit_inline:
@@ -789,6 +789,7 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
                 if not concrete_type.__dict__.get("EditSet", None):
                     initialise_edit_set_type(concrete_type)
                 allowed_relation_types.append(concrete_type.EditSet)
+
         cls.EditSet.model_fields[relation_definition.field_name] = (
             pydantic.fields.FieldInfo.from_annotation(
                 list[typing.Union[*allowed_relation_types]]  # type: ignore
