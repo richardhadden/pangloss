@@ -37,6 +37,7 @@ class ModelManager:
             initialise_view_type_for_base,
             initialise_incoming_relations_on_view_types_for_base,
             initialise_edit_view_type,
+            initialise_edit_set_type,
         )
 
         for model in cls.registered_models:
@@ -72,6 +73,12 @@ class ModelManager:
         # `initialise_incoming_relations_on_view_types_for_base` on the model
         for model in cls.registered_models:
             initialise_edit_view_type(model)
+
+        for model in cls.registered_models:
+            initialise_edit_set_type(model)
+
+        for model in cls.registered_models:
+            model.EditSet.model_rebuild(force=True)
 
         for model in cls.registered_models:
             build_incoming_relation_definitions(model)

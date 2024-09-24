@@ -161,7 +161,10 @@ def get_concrete_model_types(
 ) -> set[type[BaseNode]]:
     concrete_model_types = []
 
-    if typing.get_origin(classes) is types.UnionType:
+    if (
+        typing.get_origin(classes) is types.UnionType
+        or typing.get_origin(classes) == typing.Union
+    ):
         for cl in typing.get_args(classes):
             concrete_model_types.extend(
                 get_concrete_model_types(

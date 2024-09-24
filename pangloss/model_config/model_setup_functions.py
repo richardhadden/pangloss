@@ -17,6 +17,7 @@ from pangloss.model_config.field_definitions import (
     RelationFieldDefinition,
 )
 from pangloss.model_config.models_base import (
+    EditSetBase,
     EmbeddedSetBase,
     EmbeddedViewBase,
     RootNode,
@@ -67,7 +68,9 @@ def is_relation_field(
     relation_config = get_relation_config_from_field_metadata(field_metadata)
 
     # If annotation type is a Union
-    if type_origin is types.UnionType and relation_config:
+    if (
+        type_origin is types.UnionType or type_origin == typing.Union
+    ) and relation_config:
         union_types = typing.get_args(field_annotation)
 
         # Check all args to Union are RootNode or ReifiedRelation subclasses
@@ -751,3 +754,65 @@ def initialise_edit_view_type(cls: type[RootNode]):
     cls.EditView.model_fields = copy.copy(cls.View.model_fields)
     cls.EditView.model_rebuild(force=True)
     cls.EditView.base_class = cls
+
+
+def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
+    if not cls.__dict__.get("EditSet", None):
+        cls.EditSet = pydantic.create_model(
+            f"{cls.__name__}EditSet", __base__=EditSetBase
+        )
+        cls.EditSet.base_class = cls
+
+    for property_field_definition in cls.field_definitions.property_fields:
+        cls.EditSet.model_fields[property_field_definition.field_name] = (
+            cls.model_fields[property_field_definition.field_name]
+        )
+
+    for relation_definition in cls.field_definitions.relation_fields:
+        allowed_relation_types = []
+
+        for concrete_type in relation_definition.field_concrete_types:
+            if issubclass(concrete_type, RootNode):
+                if relation_definition.edit_inline:
+                    allowed_relation_types.append(concrete_type)
+
+                    if not concrete_type.__dict__.get("EditSet", None):
+                        initialise_edit_set_type(concrete_type)
+                    allowed_relation_types.append(concrete_type.EditSet)
+
+                else:
+                    allowed_relation_types.append(concrete_type.ReferenceSet)
+
+            if issubclass(concrete_type, ReifiedRelation):
+                allowed_relation_types.append(concrete_type)
+
+                if not concrete_type.__dict__.get("EditSet", None):
+                    initialise_edit_set_type(concrete_type)
+                allowed_relation_types.append(concrete_type.EditSet)
+        cls.EditSet.model_fields[relation_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[typing.Union[*allowed_relation_types]]  # type: ignore
+            )
+        )
+        cls.EditSet.model_fields[
+            relation_definition.field_name
+        ].metadata = relation_definition.validators
+
+    for embedded_definition in cls.field_definitions.embedded_fields:
+        allowed_embedded_types = []
+        for embedded_type in embedded_definition.field_concrete_types:
+            allowed_embedded_types.append(embedded_type)
+
+            if not embedded_type.__dict__.get("EditSet", None):
+                initialise_edit_set_type(embedded_type)
+            allowed_embedded_types.append(embedded_type.EditSet)
+
+        cls.EditSet.model_fields[embedded_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[typing.Union[*allowed_embedded_types]]  # type: ignore
+            )
+        )
+
+        cls.EditSet.model_fields[
+            embedded_definition.field_name
+        ].metadata = embedded_definition.validators

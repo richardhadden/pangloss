@@ -626,3 +626,28 @@ def test_incoming_relation_definition_through_double_reified_relation():
     source_concrete_type = is_involved_in_definition.source_concrete_type
 
     assert "person_involved" in source_concrete_type.model_fields.keys()
+
+
+def test_outgoing_relation_with_literal_union():
+    """Test to figure out why typing.Union[A, B] is different to A | B"""
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            # Person | Organisation,
+            typing.Union[Person, Organisation],
+            RelationConfig(reverse_name="carried_out_event"),
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Organisation(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    carried_out_by = Event.field_definitions["carried_out_by"]
+
+    assert isinstance(carried_out_by, RelationFieldDefinition)
+
+    assert carried_out_by.field_concrete_types == {Person, Organisation}

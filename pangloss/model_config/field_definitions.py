@@ -114,6 +114,7 @@ class RelationFieldDefinition(FieldDefinition):
             set[type["RootNode"] | type["ReifiedRelation"]],
             get_concrete_model_types(self.field_annotated_type),
         )
+        print(self.field_concrete_types)
 
 
 @dataclasses.dataclass

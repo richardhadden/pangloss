@@ -90,6 +90,7 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
     type: str
 
     View: typing.ClassVar[type[ViewBase]]
+    EditSet: typing.ClassVar[type[EditSetBase]]
 
     field_definitions_initialised: typing.ClassVar[bool]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]

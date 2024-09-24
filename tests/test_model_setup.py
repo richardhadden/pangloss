@@ -959,7 +959,7 @@ def test_initialise_edit_view():
         age: int
 
     class Event(BaseNode):
-        type: str
+        event_type: str
         involves_person: typing.Annotated[
             Person, RelationConfig(reverse_name="is_involved_in")
         ]
@@ -967,7 +967,7 @@ def test_initialise_edit_view():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert Event.EditView
-    assert "type" in Event.EditView.model_fields
+    assert "event_type" in Event.EditView.model_fields
 
     assert "involves_person" in Event.EditView.model_fields
     assert (
@@ -982,3 +982,106 @@ def test_initialise_edit_view():
 
     assert Person.EditView.base_class == Person
     assert Event.EditView.base_class == Event
+
+
+def test_initialise_edit_set_type_basic():
+    class Event(BaseNode):
+        event_type: str
+        involves_person: typing.Annotated[
+            Person,
+            RelationConfig(reverse_name="is_involved_in"),
+            annotated_types.MaxLen(1),
+        ]
+        involves_person_edit_inline: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in", edit_inline=True)
+        ]
+
+    class Person(BaseNode):
+        age: int
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Event.EditSet
+
+    assert "event_type" in Event.EditSet.model_fields
+
+    assert "involves_person" in Event.EditSet.model_fields
+
+    assert (
+        Event.EditSet.model_fields["involves_person"].annotation
+        == list[Person.ReferenceSet]
+    )
+    assert Event.EditSet.model_fields["involves_person"].metadata == [
+        annotated_types.MaxLen(1)
+    ]
+
+
+def test_initialise_edit_set_type_with_cyclical_relation():
+    class DoubleIntermediate(BaseNode):
+        double_intermediate_target: typing.Annotated[
+            Intermediate,
+            Order,
+            DoubleIntermediate,
+            RelationConfig(
+                reverse_name="is_invovled_in_double_intermediate", edit_inline=True
+            ),
+        ]
+
+    class Order(BaseNode):
+        thing_ordered: typing.Annotated[
+            typing.Union[Payment, Intermediate, DoubleIntermediate],
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                edit_inline=True,
+                validators=[annotated_types.MaxLen(2)],
+            ),
+        ]
+
+    class Intermediate(BaseNode):
+        intermediate_target: typing.Annotated[
+            Order,
+            RelationConfig(reverse_name="is_person_in", edit_inline=True),
+        ]
+
+    class Payment(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert (
+        Order.EditSet.model_fields["thing_ordered"].annotation
+        == list[
+            typing.Union[
+                DoubleIntermediate,
+                DoubleIntermediate.EditSet,
+                Payment,
+                Payment.EditSet,
+                Intermediate,
+                Intermediate.EditSet,
+            ]
+        ]
+    )
+
+    assert Order.EditSet.model_fields["thing_ordered"].metadata == [
+        annotated_types.MaxLen(2)
+    ]
+
+
+def test_initialise_edit_with_embedded_node():
+    class Thing(BaseNode):
+        embedded: Embedded[EmbeddedThing]
+
+    class EmbeddedThing(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert (
+        Thing.EditSet.model_fields["embedded"].annotation
+        == list[typing.Union[EmbeddedThing, EmbeddedThing.EditSet]]
+    )
+
+    assert Thing.EditSet.model_fields["embedded"].metadata == [
+        annotated_types.MinLen(1),
+        annotated_types.MaxLen(1),
+    ]

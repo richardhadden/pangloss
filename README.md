@@ -264,3 +264,7 @@ class Identification(ReifiedRelation[IdentificationTargetT]):
 - EditView/EditSet types
 - DB layer
 - API layer
+
+## Bugs:
+
+- Different behaviour between `typing.Union[Thing, OtherThing]` and `Thing | OtherThing`

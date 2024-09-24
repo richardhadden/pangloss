@@ -384,3 +384,7 @@ def test_create_reference_set_with_relation_property_model():
         reference_set_model.model_fields["edge_properties"].annotation
         == ThingToRelatedThingPropertiesModel
     )
+
+
+def test_find_cyclical_relation_references():
+    pass
