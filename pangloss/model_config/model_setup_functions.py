@@ -20,6 +20,7 @@ from pangloss.model_config.models_base import (
     EditSetBase,
     EmbeddedSetBase,
     EmbeddedViewBase,
+    ReifiedRelationNode,
     RootNode,
     Embedded,
     RelationConfig,
@@ -30,6 +31,7 @@ from pangloss.model_config.models_base import (
     ReferenceViewBase,
     ViewBase,
     EditViewBase,
+    ReifiedRelationViewBase,
 )
 from pangloss.model_config.model_setup_utils import (
     create_reference_view_model_with_property_model,
@@ -302,11 +304,22 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                         reverse_name = final_to_path_node_definition.reverse_name
                         field_name = final_to_path_node_definition.field_name
 
-                        source_concrete_class = pydantic.create_model(
-                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
-                            __base__=ViewBase,
-                            base_class=source_class,
-                        )
+                        if issubclass(source_class, ReifiedRelation) and not issubclass(
+                            source_class, ReifiedRelationNode
+                        ):
+                            source_concrete_class = pydantic.create_model(
+                                f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
+                                __base__=ReifiedRelationViewBase,
+                                base_class=source_class,
+                            )
+
+                        else:
+                            source_concrete_class = pydantic.create_model(
+                                f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
+                                __base__=ViewBase,
+                                base_class=source_class,
+                            )
+
                         source_concrete_class.model_fields[field_name] = (
                             source_class.View.model_fields[field_name]
                         )
@@ -351,11 +364,21 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                                 reverse_name = path_field_definition.reverse_name
                                 break
 
-                        source_concrete_class = pydantic.create_model(
-                            f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
-                            __base__=ViewBase,
-                            base_class=source_class,
-                        )
+                        if issubclass(source_class, ReifiedRelation) and not issubclass(
+                            source_class, ReifiedRelationNode
+                        ):
+                            source_concrete_class = pydantic.create_model(
+                                f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
+                                __base__=ReifiedRelationViewBase,
+                                base_class=source_class,
+                            )
+
+                        else:
+                            source_concrete_class = pydantic.create_model(
+                                f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
+                                __base__=ViewBase,
+                                base_class=source_class,
+                            )
 
                         final_path_node, final_to_path_node_definition = (
                             path.path_items[-1]
@@ -695,13 +718,20 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
         return
 
     if not getattr(cls, "View", None):
-        cls.View = pydantic.create_model(
-            f"{cls.__name__}View",
-            __base__=ViewBase,
-            generated=(typing.ClassVar[bool], True),
-        )
-
-    view_is_manual = not cls.View.generated
+        if issubclass(cls, ReifiedRelation) and not issubclass(
+            cls, ReifiedRelationNode
+        ):
+            cls.View = pydantic.create_model(
+                f"{cls.__name__}View",
+                __base__=ReifiedRelationViewBase,
+                generated=(typing.ClassVar[bool], True),
+            )
+        else:
+            cls.View = pydantic.create_model(
+                f"{cls.__name__}View",
+                __base__=ViewBase,
+                generated=(typing.ClassVar[bool], True),
+            )
 
     # Add property fields
     for property_field_definition in cls.field_definitions.property_fields:

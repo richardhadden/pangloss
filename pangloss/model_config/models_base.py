@@ -89,7 +89,7 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
     type: str
 
-    View: typing.ClassVar[type[ViewBase]]
+    View: typing.ClassVar[type[ReifiedRelationViewBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]
 
     field_definitions_initialised: typing.ClassVar[bool]
@@ -109,6 +109,19 @@ class ReifiedRelationNode[T](ReifiedRelation[T]):
     can be viewable separately, having own label etc."""
 
     label: str
+    View: typing.ClassVar[type[ViewBase]]
+
+
+class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
+    """Base model for getting ReifiedRelation"""
+
+    type: str
+    generated: typing.ClassVar[bool] = True
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+    }
 
 
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):

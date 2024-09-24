@@ -23,6 +23,7 @@ from pangloss.model_config.models_base import (
     EdgeModel,
     ReifiedRelation,
     Embedded,
+    ReifiedRelationViewBase,
     ViewBase,
 )
 from pangloss.model_config.field_definitions import (
@@ -603,7 +604,7 @@ def test_initialise_view_type_for_base_with_reified_relation_is_all_view_types()
         arg_type.__name__
         == "Identification[test_initialise_view_type_for_base_with_reified_relation_is_all_view_types.<locals>.Person]View"
     )
-    assert issubclass(arg_type, ViewBase)
+    assert issubclass(arg_type, ReifiedRelationViewBase)
 
     assert arg_type.model_fields["target"].annotation
 
@@ -768,7 +769,7 @@ def test_view_initialisation_with_reverse_relation_with_reified_relation_simple(
 
     identification_person = typing.get_args(event_person_involved.annotation)[0]
 
-    assert issubclass(identification_person, ViewBase)
+    assert issubclass(identification_person, ReifiedRelationViewBase)
 
 
 def test_view_initialisation_of_reverse_relation_with_reified_relation_complex():
@@ -835,7 +836,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
     with_proxy_proxy = typing.get_args(
         with_proxy_actor.model_fields["proxy"].annotation
     )[0]
-    assert issubclass(with_proxy_proxy, ViewBase)
+    assert issubclass(with_proxy_proxy, ReifiedRelationViewBase)
 
     with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
 
@@ -843,7 +844,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
 
-    assert issubclass(with_proxy_actor_target_type, ViewBase)
+    assert issubclass(with_proxy_actor_target_type, ReifiedRelationViewBase)
 
     assert with_proxy_actor_target_type.model_fields["target"]
 
@@ -894,7 +895,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
     with_proxy_proxy = typing.get_args(
         with_proxy_actor.model_fields["proxy"].annotation
     )[0]
-    assert issubclass(with_proxy_proxy, ViewBase)
+    assert issubclass(with_proxy_proxy, ReifiedRelationViewBase)
 
     with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
 
@@ -902,7 +903,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
 
-    assert issubclass(with_proxy_actor_target_type, ViewBase)
+    assert issubclass(with_proxy_actor_target_type, ReifiedRelationViewBase)
 
     assert with_proxy_actor_target_type.model_fields["target"]
 
