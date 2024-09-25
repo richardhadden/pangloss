@@ -117,11 +117,7 @@ class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
 
     type: str
     generated: typing.ClassVar[bool] = True
-    model_config = {
-        "alias_generator": humps.camelize,
-        "populate_by_name": True,
-        "arbitrary_types_allowed": True,
-    }
+    model_config = STANDARD_MODEL_CONFIG
 
 
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):

@@ -518,3 +518,139 @@ def test_initialise_model_edit_view():
             },
         ],
     )
+
+
+@typing.no_type_check
+def test_initialise_model_edit_set():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(EdgeModel):
+        certainty: int
+
+    IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+
+    class Identification(ReifiedRelation[IdentificationTargetT]):
+        target: typing.Annotated[
+            IdentificationTargetT,
+            RelationConfig(
+                reverse_name="is_target_of", edge_model=IdentificationCertainty
+            ),
+        ]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event.EditSet(
+        uuid=uuid.uuid4(),
+        type="Event",
+        label="An Event",
+        created_by="editor",
+        created_when=datetime.datetime.now(),
+        modified_by="editor",
+        modified_when=datetime.datetime.now(),
+        carried_out_by=[
+            {
+                "uuid": uuid.uuid4(),
+                "label": "Smith acts as proxy for Jones",
+                "type": "WithProxyActor[Identification[test_initialise_model_edit_set.<locals>.Person]]",
+                "created_by": "editor",
+                "created_when": datetime.datetime.now(),
+                "modified_by": "editor",
+                "modified_when": datetime.datetime.now(),
+                "target": [
+                    # Previous version can be posted
+                    {
+                        "uuid": uuid.uuid4(),
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Smith",
+                            }
+                        ],
+                    },
+                    # New version without UUID
+                    {
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Smith Two",
+                            }
+                        ],
+                    },
+                ],
+                "proxy": [
+                    {
+                        "uuid": uuid.uuid4(),
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Jones",
+                            }
+                        ],
+                    },
+                    {
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Jones Two",
+                            }
+                        ],
+                    },
+                ],
+            },
+            # And add an extra new Proxy
+            {
+                "label": "Foo acts as proxy for Bar",
+                "type": "WithProxyActor[Identification[test_initialise_model_edit_set.<locals>.Person]]",
+                "target": [
+                    # Previous version can be posted
+                    {
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Bar",
+                            }
+                        ],
+                    },
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_initialise_model_edit_set.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": uuid.uuid4(),
+                                "label": "Foo",
+                            }
+                        ],
+                    },
+                ],
+            },
+        ],
+    )
