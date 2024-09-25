@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import dataclasses
 import datetime
 import typing
@@ -11,7 +12,10 @@ import pydantic
 
 
 if typing.TYPE_CHECKING:
-    from field_definitions import ModelFieldDefinitions, IncomingRelationDefinition
+    from field_definitions import (
+        ModelFieldDefinitions,
+        IncomingRelationDefinition,
+    )
 
 """
 Required model variations:
@@ -78,6 +82,10 @@ class _ExtantNodeMixin:
     is_deleted: bool = False
 
 
+class MultiKeyField[T](pydantic.BaseModel):
+    value: T
+
+
 class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
     """Defines a model for a Reified Relation (a relation through a node)
 
@@ -120,10 +128,25 @@ class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
     model_config = STANDARD_MODEL_CONFIG
 
 
+def collect_multi_key_field_to_dict(kwargs: dict) -> dict:
+    # Transform MultiKeyField from `field_name____subfield_name = value`
+    # into `field_name: {subfield_name: value}` by splitting on
+    grouped_multi_key_fields = collections.defaultdict(dict)
+    for key, value in kwargs.items():
+        if "____" in key:
+            field_name, subfield_name = key.split("____")
+            grouped_multi_key_fields[field_name][subfield_name] = value
+
+    kwargs = {**kwargs, **grouped_multi_key_fields}
+    return kwargs
+
+
 class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for getting model to edit"""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        kwargs = collect_multi_key_field_to_dict(kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
@@ -136,6 +159,10 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for viewing model"""
 
     generated: typing.ClassVar[bool] = True
+
+    def __init__(self, *args, **kwargs):
+        kwargs = collect_multi_key_field_to_dict(kwargs)
+        super().__init__(*args, **kwargs)
 
 
 # Reference types need to be separated, so that additional fields for viewing

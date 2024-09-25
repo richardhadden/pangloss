@@ -14,6 +14,7 @@ from pangloss.model_config.models_base import (
     NonHeritableTrait,
     IncomingRelationView,
     ReferenceViewBase,
+    MultiKeyField,
 )
 from pangloss.model_config.model_setup_utils import get_concrete_model_types
 
@@ -54,6 +55,12 @@ class LiteralFieldDefinition(FieldDefinition):
         default_factory=list
     )
     field_metatype: typing.Literal["Literal"] = "Literal"
+
+
+@dataclasses.dataclass
+class MultiKeyFieldDefinition(LiteralFieldDefinition):
+    field_annotated_type: type[MultiKeyField[MappedCypherTypes]]
+    field_metatype: typing.Literal["MultiKeyField"] = "MultiKeyField"
 
 
 @dataclasses.dataclass

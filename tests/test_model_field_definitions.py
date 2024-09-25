@@ -12,12 +12,14 @@ from pangloss.model_config.field_definitions import (
     LiteralFieldDefinition,
     ListFieldDefinition,
     EmbeddedFieldDefinition,
+    MultiKeyFieldDefinition,
     RelationFieldDefinition,
 )
 from pangloss.model_config.models_base import (
     NonHeritableTrait,
     ReifiedRelationNode,
     EdgeModel,
+    MultiKeyField,
 )
 from pangloss.models import (
     BaseNode,
@@ -651,3 +653,24 @@ def test_outgoing_relation_with_literal_union():
     assert isinstance(carried_out_by, RelationFieldDefinition)
 
     assert carried_out_by.field_concrete_types == {Person, Organisation}
+
+
+def test_multi_key_field_definition():
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Thing(BaseNode):
+        name: WithCertainty[str]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert "name" in Thing.field_definitions
+    assert any(
+        pf.field_name
+        for pf in Thing.field_definitions.property_fields
+        if pf.field_name == "name"
+    )
+
+    name_definition = Thing.field_definitions["name"]
+
+    assert isinstance(name_definition, MultiKeyFieldDefinition)

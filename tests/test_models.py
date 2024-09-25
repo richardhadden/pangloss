@@ -10,7 +10,11 @@ import annotated_types
 import pydantic
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.model_config.models_base import Embedded, ReifiedRelationNode
+from pangloss.model_config.models_base import (
+    Embedded,
+    MultiKeyField,
+    ReifiedRelationNode,
+)
 from pangloss.models import (
     BaseNode,
     RelationConfig,
@@ -654,3 +658,80 @@ def test_initialise_model_edit_set():
             },
         ],
     )
+
+
+@typing.no_type_check
+def test_initialise_base_model_with_multi_key_field():
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Thing(BaseNode):
+        name: WithCertainty[str]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    Thing(label="A Thing", type="Thing", name={"value": "John", "certainty": 1})
+
+
+@typing.no_type_check
+def test_initialise_view_model_with_multi_key_field():
+    """When preparing a view, i.e. from DB, multi-key fields should be collected
+    back into a dict"""
+
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Thing(BaseNode):
+        name: WithCertainty[str]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    t = Thing.View(
+        uuid=uuid.uuid4(),
+        created_by="editor",
+        created_when=datetime.datetime.now(),
+        modified_by="editor",
+        modified_when=datetime.datetime.now(),
+        label="A Thing",
+        type="Thing",
+        name____value="John",
+        name____certainty=1,
+    )
+
+    assert not getattr(t, "name____value", None)
+    assert not getattr(t, "name____certainty", None)
+    assert t.name
+    assert t.name.value == "John"
+    assert t.name.certainty == 1
+
+
+@typing.no_type_check
+def test_initialise_edit_view_model_with_multi_key_field():
+    """When preparing an edit view, i.e. from DB, multi-key fields should be collected
+    back into a dict"""
+
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Thing(BaseNode):
+        name: WithCertainty[str]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    t = Thing.EditView(
+        uuid=uuid.uuid4(),
+        created_by="editor",
+        created_when=datetime.datetime.now(),
+        modified_by="editor",
+        modified_when=datetime.datetime.now(),
+        label="A Thing",
+        type="Thing",
+        name____value="John",
+        name____certainty=1,
+    )
+
+    assert not getattr(t, "name____value", None)
+    assert not getattr(t, "name____certainty", None)
+    assert t.name
+    assert t.name.value == "John"
+    assert t.name.certainty == 1

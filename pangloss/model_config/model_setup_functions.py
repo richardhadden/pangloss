@@ -14,12 +14,14 @@ from pangloss.model_config.field_definitions import (
     LiteralFieldDefinition,
     ListFieldDefinition,
     EmbeddedFieldDefinition,
+    MultiKeyFieldDefinition,
     RelationFieldDefinition,
 )
 from pangloss.model_config.models_base import (
     EditSetBase,
     EmbeddedSetBase,
     EmbeddedViewBase,
+    MultiKeyField,
     ReifiedRelationNode,
     RootNode,
     Embedded,
@@ -229,6 +231,17 @@ def build_field_definition_from_annotation(
             )
 
     # Any other annotation, assume it's a literal type
+
+    elif (
+        field.annotation
+        and inspect.isclass(field.annotation)
+        and issubclass(field.annotation, MultiKeyField)
+    ):
+        return MultiKeyFieldDefinition(
+            field_name=field_name,
+            field_annotated_type=field.annotation,  # type: ignore
+            validators=field.metadata,
+        )
 
     elif field.annotation:
         return LiteralFieldDefinition(
@@ -800,7 +813,7 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
 
     for relation_definition in cls.field_definitions.relation_fields:
         allowed_relation_types = []
-        print(relation_definition.field_concrete_types)
+
         for concrete_type in relation_definition.field_concrete_types:
             if issubclass(concrete_type, RootNode):
                 if relation_definition.edit_inline:
