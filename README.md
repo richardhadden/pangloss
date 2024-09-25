@@ -40,10 +40,34 @@ The preferred method for validation is via the [`annotated_types` library](https
 from typing import Annotated
 from annotated_types import Gt, Lt
 
-class Adult(Base):
+class Adult(BaseNode):
     age: Annotated[int, Gt(18), Lt(120)]
 
 ```
+
+#### Multi-Key Fields
+
+It is possible to create dictionary-like objects as values for a field using `MultiKeyField`. This takes
+a generic type, which is applied to the key `value`, and any other number of literal fields.
+
+```python
+from pangloss import BaseNode, MultiKeyField
+
+class WithCertainty[T](MultiKeyField[T]):
+    certainty: int
+
+class Person(BaseNode):
+    name: WithCertainty[str]
+
+p = Person(label="J Smith", name={"value": "John Smith", "certainty": 1})
+```
+
+At the database level, these fields are flattened into quadruple-underscore-separated 
+keys, i.e. `name____value`, `name____certainty`.
+
+A `MultiKeyField` can only take literal types (`str`, `int`, etc.) or `list[]`, not relations to nodes
+or deeper-nested dictionaries.
+
 
 ## Embedded Nodes
 
