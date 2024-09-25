@@ -238,8 +238,8 @@ def test_create_with_generic_reified():
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
-    print(Thing.model_json_schema())
-    t = Thing(
+
+    Thing(
         type="Thing",
         label="A Thing",
         identified_thing=[
@@ -324,7 +324,7 @@ def test_initialise_model_with_reified_node_in_relation():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    event = Event(
+    Event(
         type="Event",
         label="An Event",
         carried_out_by=[
@@ -390,7 +390,7 @@ def test_initialise_model_view():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    event = Event.View(
+    Event.View(
         uuid=uuid.uuid4(),
         type="Event",
         label="An Event",
@@ -470,7 +470,7 @@ def test_initialise_model_edit_view():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    event = Event.EditView(
+    Event.EditView(
         uuid=uuid.uuid4(),
         type="Event",
         label="An Event",
@@ -550,7 +550,7 @@ def test_initialise_model_edit_set():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    event = Event.EditSet(
+    Event.EditSet(
         uuid=uuid.uuid4(),
         type="Event",
         label="An Event",
