@@ -638,10 +638,8 @@ def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
 def initialise_relation_fields_on_view_model(
     cls: type[RootNode] | type[ReifiedRelation],
 ):
-    print("called INITIRELFIELDS", cls.__name__)
     # Add relation fields
     for relation_field_definition in cls.field_definitions.relation_fields:
-        print(">", relation_field_definition.field_name)
         referenced_types = []
         for concrete_type in relation_field_definition.field_concrete_types:
             if issubclass(concrete_type, RootNode):
@@ -729,10 +727,6 @@ def initialise_embedded_fields_on_view_model(
 
 
 def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
-    print("====")
-    for rfd in cls.field_definitions.relation_fields:
-        print("INITVIEWTOP ", rfd.field_name)
-
     if cls.__dict__.get("View", None) and cls.View.generated:
         return
 
@@ -762,9 +756,6 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
         cls.View.model_fields[
             property_field_definition.field_name
         ].metadata = property_field_definition.validators
-
-    for rfd in cls.field_definitions.relation_fields:
-        print("INITVIEWBOTTOM", rfd.field_name)
 
     initialise_relation_fields_on_view_model(cls)
     initialise_embedded_fields_on_view_model(cls)

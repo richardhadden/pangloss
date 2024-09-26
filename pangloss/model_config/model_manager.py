@@ -70,12 +70,6 @@ class ModelManager:
             )
 
         for model in cls.registered_models:
-            print("----")
-            print(model.__name__)
-            for fd in model.field_definitions.relation_fields:
-                print("MM", fd.field_name)
-
-        for model in cls.registered_models:
             initialise_view_type_for_base(model)
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
