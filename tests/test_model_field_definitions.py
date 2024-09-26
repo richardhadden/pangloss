@@ -674,3 +674,48 @@ def test_multi_key_field_definition():
     name_definition = Thing.field_definitions["name"]
 
     assert isinstance(name_definition, MultiKeyFieldDefinition)
+
+
+def test_override_relation_in_relation_definition():
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        has_subject: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_subject_of")
+        ]
+
+    class Party(Event):
+        has_invitee: typing.Annotated[
+            Person,
+            RelationConfig(
+                reverse_name="is_invited_to", subclasses_relation="has_subject"
+            ),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    has_invitee_definition = Party.field_definitions["has_invitee"]
+
+    assert has_invitee_definition
+    assert isinstance(has_invitee_definition, RelationFieldDefinition)
+    assert has_invitee_definition.subclasses_relation == "has_subject"
+    assert set(has_invitee_definition.relation_labels) == {
+        "has_subject",
+        "has_invitee",
+    }
+
+    assert set(has_invitee_definition.reverse_relation_labels) == {
+        "is_subject_of",
+        "is_invited_to",
+    }
+
+    assert "has_subject" not in Party.field_definitions
+
+    item = [
+        i
+        for i in Party.field_definitions.relation_fields
+        if i.field_name == "has_invitee"
+    ][0]
+
+    assert item.field_name == "has_invitee"

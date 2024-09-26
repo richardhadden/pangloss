@@ -638,8 +638,10 @@ def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
 def initialise_relation_fields_on_view_model(
     cls: type[RootNode] | type[ReifiedRelation],
 ):
+    print("called INITIRELFIELDS", cls.__name__)
     # Add relation fields
     for relation_field_definition in cls.field_definitions.relation_fields:
+        print(">", relation_field_definition.field_name)
         referenced_types = []
         for concrete_type in relation_field_definition.field_concrete_types:
             if issubclass(concrete_type, RootNode):
@@ -727,10 +729,14 @@ def initialise_embedded_fields_on_view_model(
 
 
 def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
-    if getattr(cls, "View", None) and cls.View.generated:
+    print("====")
+    for rfd in cls.field_definitions.relation_fields:
+        print("INITVIEWTOP ", rfd.field_name)
+
+    if cls.__dict__.get("View", None) and cls.View.generated:
         return
 
-    if not getattr(cls, "View", None):
+    if not cls.__dict__.get("View", None):
         if issubclass(cls, ReifiedRelation) and not issubclass(
             cls, ReifiedRelationNode
         ):
@@ -756,6 +762,9 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
         cls.View.model_fields[
             property_field_definition.field_name
         ].metadata = property_field_definition.validators
+
+    for rfd in cls.field_definitions.relation_fields:
+        print("INITVIEWBOTTOM", rfd.field_name)
 
     initialise_relation_fields_on_view_model(cls)
     initialise_embedded_fields_on_view_model(cls)
@@ -860,3 +869,51 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
         cls.EditSet.model_fields[
             embedded_definition.field_name
         ].metadata = embedded_definition.validators
+
+
+def delete_subclassed_relations(cls: type[RootNode]):
+    to_delete = []
+    for relation_definition in cls.field_definitions.relation_fields:
+        if relation_definition.subclasses_relation:
+            if relation_definition.subclasses_relation not in cls.model_fields:
+                raise PanglossConfigError(
+                    f"Relation '{cls.__name__}.{relation_definition.field_name}' "
+                    f"is trying to subclass the relation "
+                    f"'{relation_definition.subclasses_relation}', but this "
+                    f"does not exist on any parent class of '{cls.__name__}'"
+                )
+
+            del cls.model_fields[relation_definition.subclasses_relation]
+
+            to_delete.append(relation_definition.subclasses_relation)
+
+            # cls.model_rebuild(force=True)
+            relation_definition.relation_labels.add(
+                relation_definition.subclasses_relation
+            )
+
+        for cl in cls.mro():
+            if cl is RootNode:
+                break
+            if issubclass(cl, RootNode):
+                if relation_definition.subclasses_relation in cl.model_fields:
+                    # TODO: no idea what this 'extra_label' variable is for
+                    # extra_label = cl.outgoing_relations[
+                    #    relation_definition.relation_config.subclasses_relation
+                    # ].relation_config.relation_labels
+                    # print("extra label")
+                    relation_definition.relation_labels.update(
+                        cl.field_definitions[
+                            relation_definition.subclasses_relation
+                        ].relation_labels  # type: ignore
+                    )
+
+                    relation_definition.reverse_relation_labels.update(
+                        fd.reverse_name
+                        for fd in cl.field_definitions.relation_fields
+                        if fd.field_name == relation_definition.subclasses_relation
+                    )
+
+    for item in to_delete:
+        del cls.field_definitions.fields[item]
+    cls.model_rebuild(force=True)

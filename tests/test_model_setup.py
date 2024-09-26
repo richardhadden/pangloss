@@ -1162,3 +1162,39 @@ def test_initialisation_of_edit_set_with_inherited_type_works():
 
     assert "dudeness" in Dude.EditSet.model_fields
     assert "dudeness" not in Person.EditSet.model_fields
+
+
+def test_override_relation():
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        has_subject: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_subject_of")
+        ]
+
+    class Party(Event):
+        has_invitee: typing.Annotated[
+            Person,
+            RelationConfig(
+                reverse_name="is_invited_to", subclasses_relation="has_subject"
+            ),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert "has_invitee" in Party.model_fields
+    assert "has_subject" not in Party.model_fields
+    assert "has_subject" in Event.model_fields
+
+    assert "has_invitee" in Party.View.model_fields
+    assert "has_subject" not in Party.View.model_fields
+    assert "has_subject" in Event.View.model_fields
+
+    assert "has_invitee" in Party.EditView.model_fields
+    assert "has_subject" not in Party.EditView.model_fields
+    assert "has_subject" in Event.EditView.model_fields
+
+    assert "has_invitee" in Party.EditSet.model_fields
+    assert "has_subject" not in Party.EditSet.model_fields
+    assert "has_subject" in Event.EditSet.model_fields

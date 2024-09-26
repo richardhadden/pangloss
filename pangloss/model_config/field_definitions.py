@@ -101,8 +101,10 @@ class RelationFieldDefinition(FieldDefinition):
     )
 
     reverse_name: str
+
     edge_model: typing.Optional[type["EdgeModel"]] = None
     subclasses_relation: typing.Optional[str] = None
+
     create_inline: bool = False
     edit_inline: bool = False
     delete_related_on_detach: bool = False
@@ -113,6 +115,8 @@ class RelationFieldDefinition(FieldDefinition):
         dataclasses.field(default_factory=set)
     )
     field_metatype: typing.Literal["Relation"] = "Relation"
+    relation_labels: set[str] = dataclasses.field(default_factory=set)
+    reverse_relation_labels: set[str] = dataclasses.field(default_factory=set)
 
     def __post_init__(self):
         # Type checker is confused by return type of get_concrete_model_types
@@ -123,6 +127,8 @@ class RelationFieldDefinition(FieldDefinition):
                 self.field_annotated_type, include_subclasses=True
             ),
         )
+        self.relation_labels = {self.field_name}
+        self.reverse_relation_labels = {self.reverse_name}
 
 
 @dataclasses.dataclass
@@ -163,10 +169,15 @@ class ModelFieldDefinitions:
     @property
     def relation_fields(
         self,
-    ) -> typing.Generator[RelationFieldDefinition, None, None]:
+    ) -> list[
+        RelationFieldDefinition
+    ]:  # typing.Generator[RelationFieldDefinition, None, None]:
+        items = []
         for key, field in self.fields.items():
             if isinstance(field, RelationFieldDefinition):
-                yield field
+                items.append(field)
+
+        return items
 
     @property
     def embedded_fields(self) -> typing.Generator[EmbeddedFieldDefinition, None, None]:

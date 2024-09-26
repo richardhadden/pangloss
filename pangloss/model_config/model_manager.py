@@ -38,6 +38,7 @@ class ModelManager:
             initialise_incoming_relations_on_view_types_for_base,
             initialise_edit_view_type,
             initialise_edit_set_type,
+            delete_subclassed_relations,
         )
 
         for model in cls.registered_models:
@@ -48,7 +49,13 @@ class ModelManager:
             model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
             initialise_model_field_definitions(model)
 
+        for model in cls.registered_models:
+            delete_subclassed_relations(model)
+
+        for model in cls.registered_models:
             initialise_reference_set_on_base_models(model)
+
+        for model in cls.registered_models:
             initialise_reference_view_on_base_models(model)
             model.incoming_relation_definitions = collections.defaultdict(set)
 
@@ -61,6 +68,12 @@ class ModelManager:
             model.model_rebuild(
                 force=True, _parent_namespace_depth=3 if _defined_in_test else 2
             )
+
+        for model in cls.registered_models:
+            print("----")
+            print(model.__name__)
+            for fd in model.field_definitions.relation_fields:
+                print("MM", fd.field_name)
 
         for model in cls.registered_models:
             initialise_view_type_for_base(model)
