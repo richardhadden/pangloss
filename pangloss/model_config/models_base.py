@@ -50,6 +50,10 @@ class _SubNodeProxy:
     def field_definitions(self) -> "ModelFieldDefinitions":
         return self.base_class.field_definitions
 
+    @property
+    def labels(self) -> set[str]:
+        return typing.cast(set[str], self.base_class.labels)
+
 
 STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
     "alias_generator": humps.camelize,
