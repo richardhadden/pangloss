@@ -7,6 +7,7 @@ from pangloss.model_config.models_base import (
     NonHeritableTrait,
     EdgeModel,
     ReifiedRelationNode,
+    MultiKeyField,
 )
 from pangloss.model_config.model_manager import ModelManager
 
@@ -22,6 +23,7 @@ import typing
     NonHeritableTrait,
     EdgeModel,
     ReifiedRelationNode,
+    MultiKeyField,
 )  # type: ignore
 
 

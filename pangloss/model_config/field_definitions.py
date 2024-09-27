@@ -188,7 +188,14 @@ class ModelFieldDefinitions:
     @property
     def property_fields(
         self,
-    ) -> typing.Generator[LiteralFieldDefinition | ListFieldDefinition, None, None]:
+    ) -> typing.Generator[
+        LiteralFieldDefinition | ListFieldDefinition | MultiKeyFieldDefinition,
+        None,
+        None,
+    ]:
         for key, field in self.fields.items():
-            if isinstance(field, (LiteralFieldDefinition, ListFieldDefinition)):
+            if isinstance(
+                field,
+                (LiteralFieldDefinition, ListFieldDefinition, MultiKeyFieldDefinition),
+            ):
                 yield field
