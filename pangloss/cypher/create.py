@@ -18,17 +18,15 @@ def build_create_node_subquery(
         extra_labels = []
 
     node_identifier = Identifier()
-
     node_data_identifier = Identifier()
-
     query_params = QueryParams(
         {node_data_identifier: get_properties_as_writeable_dict(instance)}
     )
 
     node_labels_string = join_labels(instance.labels, extra_labels)
     query = QuerySubstring(f"""
-        CREATE (n:{node_labels_string})
-        SET n = ${node_data_identifier}
+        CREATE ({node_identifier}:{node_labels_string})
+        SET {node_identifier} = ${node_data_identifier}
     """)
 
     return node_identifier, query, query_params
