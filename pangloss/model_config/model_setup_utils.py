@@ -10,7 +10,13 @@ from pangloss.model_config.models_base import (
     EdgeModel,
     ReferenceSetBase,
 )
-from pangloss.models import BaseNode, HeritableTrait, NonHeritableTrait, ReifiedRelation
+from pangloss.models import (
+    BaseNode,
+    HeritableTrait,
+    NonHeritableTrait,
+    ReifiedRelation,
+    RootNode,
+)
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import RootNode
@@ -375,3 +381,19 @@ def recurse_reified_relation_definitions_into_tree(cls: type[ReifiedRelation], t
                 )
                 ttree.children.append(tree)
     return ttree
+
+
+def get_non_heritable_mixins_as_direct_ancestors(
+    cls,
+) -> set[NonHeritableTrait]:
+    """Identifies Traits that are directly applied to a model class"""
+    traits_as_direct_bases = []
+    for base in cls.__bases__:
+        for parent in inspect.getmro(base):
+            if parent is RootNode:
+                break
+            elif parent is NonHeritableTrait:
+                traits_as_direct_bases.append(base)
+            else:
+                continue
+    return set(traits_as_direct_bases)

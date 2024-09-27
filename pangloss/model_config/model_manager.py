@@ -39,10 +39,12 @@ class ModelManager:
             initialise_edit_view_type,
             initialise_edit_set_type,
             delete_subclassed_relations,
+            initialise_model_labels,
         )
 
         for model in cls.registered_models:
             model.model_rebuild(_parent_namespace_depth=3 if _defined_in_test else 2)
+            initialise_model_labels(model)
             set_type_to_literal_on_base_model(model)
             delete_indirect_non_heritable_trait_fields(model)
 

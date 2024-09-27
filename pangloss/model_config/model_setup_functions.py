@@ -37,6 +37,7 @@ from pangloss.model_config.models_base import (
 )
 from pangloss.model_config.model_setup_utils import (
     create_reference_view_model_with_property_model,
+    get_non_heritable_mixins_as_direct_ancestors,
     get_non_heritable_traits_as_indirect_ancestors,
     create_reference_set_model_with_property_model,
     get_paths_to_target_node,
@@ -908,3 +909,19 @@ def delete_subclassed_relations(cls: type[RootNode]):
     for item in to_delete:
         del cls.field_definitions.fields[item]
     cls.model_rebuild(force=True)
+
+
+def initialise_model_labels(cls: type[RootNode]) -> None:
+    """All neo4j labels for model.
+
+    Includes direct Trait names."""
+    cls.labels = {
+        c.__name__
+        for c in cls.mro()
+        if (
+            (issubclass(c, (RootNode, HeritableTrait)))
+            and c is not HeritableTrait
+            or c in get_non_heritable_mixins_as_direct_ancestors(cls)
+        )
+        and c is not RootNode
+    }

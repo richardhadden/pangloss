@@ -223,6 +223,7 @@ class RootNode(_GenericNode):
     incoming_relation_definitions: typing.ClassVar[
         dict[str, set["IncomingRelationDefinition"]]
     ]
+    labels: typing.ClassVar[set[str]]
 
     __abstract__: typing.ClassVar[bool] = True
 

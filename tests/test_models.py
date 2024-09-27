@@ -21,6 +21,7 @@ from pangloss.models import (
     EdgeModel,
     ReifiedRelation,
     HeritableTrait,
+    NonHeritableTrait,
 )
 
 
@@ -735,3 +736,38 @@ def test_initialise_edit_view_model_with_multi_key_field():
     assert t.name
     assert t.name.value == "John"
     assert t.name.certainty == 1
+
+
+def test_labels():
+    class Entity(BaseNode):
+        pass
+
+    class CanBreathe(HeritableTrait):
+        pass
+
+    class Animal(Entity, CanBreathe):
+        pass
+
+    class NotThis(NonHeritableTrait):
+        pass
+
+    class Dog(Animal, NotThis):
+        pass
+
+    class SitsOnLaps(NonHeritableTrait):
+        pass
+
+    class ExpensiveDog(Dog, SitsOnLaps):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert ExpensiveDog.labels == {
+        "BaseNode",
+        "Entity",
+        "Animal",
+        "CanBreathe",
+        "Dog",
+        "ExpensiveDog",
+        "SitsOnLaps",
+    }
