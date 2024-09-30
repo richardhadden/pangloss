@@ -6,22 +6,43 @@ import pydantic
 from pangloss.model_config.models_base import RootNode, ReifiedRelation
 
 
-class QuerySubstring(str):
-    def __new__(cls, query):
-        return super().__new__(cls, query)
-
-
 class Identifier(str):
     def __new__(cls):
         return super().__new__(cls, "x" + uuid.uuid4().hex[:6].lower())
+
+
+class QuerySubstring(str):
+    def __new__(cls, query_string: str):
+        return super().__new__(cls, query_string)
 
 
 class QueryParams(dict[Identifier, dict[str, typing.Any]]):
     pass
 
 
+class CreateQuery:
+    match_query_strings: list[str]
+    create_query_strings: list[str]
+    query_params: dict[str, typing.Any]
+    return_identifier: str
+    return_uuid: uuid.UUID
+
+    def __init__(self):
+        self.match_query_strings = []
+        self.create_query_strings = []
+        self.query_params = {}
+        self.uuid = uuid.uuid4()
+
+    def to_query_string(self):
+        if not self.return_identifier:
+            raise Exception("CreateQuery.to_query_string called on non-top-level node")
+        return f"""{"\n".join(self.match_query_strings)}
+    {"\n".join(self.create_query_strings)}
+    RETURN {self.return_identifier}"""
+
+
 def join_labels(labels: set[str], extra_labels: typing.Iterable[str]):
-    all_labels = list(*labels, *extra_labels)
+    all_labels = [*labels, *extra_labels]
     return f"{":".join(all_labels)}"
 
 
@@ -39,7 +60,9 @@ def convert_type_for_writing(value):
             return value
 
 
-def get_properties_as_writeable_dict(instance: RootNode | ReifiedRelation):
+def get_properties_as_writeable_dict(
+    instance: RootNode | ReifiedRelation, extras: dict[str, typing.Any] | None = None
+):
     data = {}
     for property_definition in instance.field_definitions.property_fields:
         if property_definition.field_metatype == "MultiKeyField":
@@ -54,5 +77,8 @@ def get_properties_as_writeable_dict(instance: RootNode | ReifiedRelation):
             data[property_definition.field_name] = convert_type_for_writing(
                 getattr(instance, property_definition.field_name)
             )
+    if extras:
+        for key, value in extras.items():
+            data[key] = convert_type_for_writing(value)
 
     return data

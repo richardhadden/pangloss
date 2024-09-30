@@ -8,6 +8,7 @@ import uuid
 
 import annotated_types
 import humps
+import neo4j
 import pydantic
 
 
@@ -84,6 +85,13 @@ class _ExtantNodeMixin:
     modified_when: datetime.datetime
     modified_by: str
     is_deleted: bool = False
+
+    @pydantic.field_validator("*", mode="before")
+    @classmethod
+    def convert_neo4j_dates(cls, value: typing.Any, field) -> typing.Any:
+        if isinstance(value, (neo4j.time.Date, neo4j.time.DateTime)):
+            return value.to_native()
+        return value
 
 
 class MultiKeyField[T](pydantic.BaseModel):

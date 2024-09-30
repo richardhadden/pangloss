@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import typing
+
+from pangloss.cypher.create import build_create_node_query_object
+from pangloss.database import write_transaction, Transaction
 from pangloss.model_config.models_base import (
     RootNode,
     Embedded,
@@ -8,10 +14,10 @@ from pangloss.model_config.models_base import (
     EdgeModel,
     ReifiedRelationNode,
     MultiKeyField,
+    ReferenceViewBase,
 )
 from pangloss.model_config.model_manager import ModelManager
 
-import typing
 
 # This is doing nothing, just making sure the import is being used
 # so won't be cleared up by linters
@@ -40,3 +46,12 @@ class BaseNode(RootNode):
 
         # Register the model with ModelManager
         ModelManager.register_model(cls)
+
+    @write_transaction
+    async def create(self, tx: Transaction) -> ReferenceViewBase:
+        query_object = build_create_node_query_object(self, start_node=True)
+        query = typing.cast(typing.LiteralString, query_object.to_query_string())
+        result = await tx.run(query, query_object.query_params)
+        record = await result.value()
+        print(record)
+        return self.ReferenceView(**record[0])
