@@ -36,8 +36,9 @@ def build_create_relationship_to_existing(
         "relation_labels": relation_definition.relation_labels,
         "reverse_relation_labels": relation_definition.reverse_relation_labels,
     }
-    if hasattr(relation_to_target, "edge_model"):
-        edge_properties["edge_properties"] = relation_to_target.edge_model  # type: ignore
+
+    if hasattr(relation_to_target, "edge_properties"):
+        edge_properties.update(relation_to_target.edge_properties)  # type: ignore
 
     edge_properties = convert_dict_for_writing(edge_properties)
 

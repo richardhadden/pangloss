@@ -9,7 +9,7 @@ import pytest_asyncio
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.database import Database
-from pangloss.models import BaseNode, RelationConfig
+from pangloss.models import BaseNode, RelationConfig, EdgeModel
 from pangloss.model_config.model_manager import ModelManager
 
 
@@ -106,5 +106,65 @@ async def test_create_with_relation():
         concerns_person=[{"type": "Person", "uuid": person_in_db.uuid}],
     )
 
-    await event.create()
-    # assert False
+    event_in_db = await event.create()
+    assert event_in_db.uuid
+    assert event_in_db.type == "Event"
+    assert event_in_db.label == "An Event"
+
+    # Now get the view from the DB to check we have relation
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db.name == "An Event"
+    assert event_from_db.concerns_person == [
+        Person.ReferenceView(
+            **{"type": "Person", "uuid": person_in_db.uuid, "label": "John Smith"}
+        )
+    ]
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_relation_edge_model():
+    class InvolvementType(EdgeModel):
+        type_of_involvement: str
+
+    class Event(BaseNode):
+        name: str
+        concerns_person: typing.Annotated[
+            Person,
+            RelationConfig(reverse_name="is_concerned_in", edge_model=InvolvementType),
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person = Person(type="Person", label="John Smith")
+    person_in_db = await person.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        name="An Event",
+        concerns_person=[
+            {
+                "type": "Person",
+                "uuid": person_in_db.uuid,
+                "edge_properties": {"type_of_involvement": "Bad"},
+            }
+        ],
+    )
+
+    event_in_db = await event.create()
+    assert event_in_db.uuid
+    assert event_in_db.type == "Event"
+    assert event_in_db.label == "An Event"
+
+    # Now get the view from the DB to check we have relation
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db.name == "An Event"
+    assert event_from_db.concerns_person[0]
+    concerns_person = event_from_db.concerns_person[0]
+    assert concerns_person.edge_properties.type_of_involvement == "Bad"
