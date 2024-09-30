@@ -31,3 +31,6 @@ archive.zip
 .DS_Store
 
 neo4j-docker-test-pangloss/
+
+
+query_dump.cypher

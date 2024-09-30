@@ -60,6 +60,10 @@ def convert_type_for_writing(value):
             return value
 
 
+def convert_dict_for_writing(data: dict[str, typing.Any]):
+    return {key: convert_type_for_writing(value) for key, value in data.items()}
+
+
 def get_properties_as_writeable_dict(
     instance: RootNode | ReifiedRelation, extras: dict[str, typing.Any] | None = None
 ):

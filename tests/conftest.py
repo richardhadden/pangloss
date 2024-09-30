@@ -33,7 +33,8 @@ def event_loop(request):
     from pangloss.database import close_database_connection, Database
 
     loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
     loop.run_until_complete(Database.dangerously_clear_database())
+    yield loop
+    # loop.run_until_complete(Database.dangerously_clear_database())
     loop.run_until_complete(close_database_connection())
     loop.close()

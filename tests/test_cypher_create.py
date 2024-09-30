@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import typing
 import uuid
@@ -7,7 +9,7 @@ import pytest_asyncio
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.database import Database
-from pangloss.models import BaseNode
+from pangloss.models import BaseNode, RelationConfig
 from pangloss.model_config.model_manager import ModelManager
 
 
@@ -62,7 +64,7 @@ def test_build_basic_properties_query():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_basic_create_on_model():
+async def test_basic_create_on_model(clear_database):
     class Thing(BaseNode):
         name: str
         age: int
@@ -78,3 +80,31 @@ async def test_basic_create_on_model():
     assert thing_in_db.type == "Thing"
     assert thing_in_db.label == "A Thing"
     assert isinstance(thing_in_db.uuid, uuid.UUID)
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_relation():
+    class Event(BaseNode):
+        name: str
+        concerns_person: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_concerned_in")
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person = Person(type="Person", label="John Smith")
+    person_in_db = await person.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        name="An Event",
+        concerns_person=[{"type": "Person", "uuid": person_in_db.uuid}],
+    )
+
+    await event.create()
+    # assert False
