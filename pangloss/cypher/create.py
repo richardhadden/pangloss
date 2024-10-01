@@ -1,4 +1,3 @@
-import datetime
 import typing
 import uuid
 
@@ -59,7 +58,7 @@ def build_create_node_query_object(
     instance: "RootNode | ReifiedRelation",
     query: CreateQuery | None = None,
     extra_labels: list[str] | None = None,
-    start_node: bool = False,
+    head_node: bool = False,
     user: str = "DefaultUser",
 ) -> CreateQuery:
     if not query:
@@ -76,10 +75,10 @@ def build_create_node_query_object(
     query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
         instance,
         extras={
-            "created_by": user,
-            "created_when": datetime.datetime.now(),
-            "modified_by": user,
-            "modified_when": datetime.datetime.now(),
+            # "created_by": user,
+            # "created_when": datetime.datetime.now(),
+            # "modified_by": user,
+            # "modified_when": datetime.datetime.now(),
             "uuid": query.uuid,
         },
     )
@@ -91,7 +90,17 @@ def build_create_node_query_object(
 SET {node_identifier} = ${node_data_identifier}""")
     )
 
-    if start_node:
+    if head_node:
+        user_identifier = Identifier()
+        query.match_query_strings.append(
+            f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}})"""
+        )
+
+        query.create_query_strings.append(
+            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->(:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
+        )
+
+    if head_node:
         query.return_identifier = node_identifier
 
     for relation_definition in instance.field_definitions.relation_fields:

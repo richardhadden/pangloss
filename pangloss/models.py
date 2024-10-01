@@ -58,18 +58,19 @@ class BaseNode(RootNode):
             f.write(f"{query}\n\n//{str(params)}")
         result = await tx.run(query, params)
         record = await result.value()
-
+        print(record)
         if len(record) == 0:
             raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
-        print(record[0])
+
         return cls.View(**record[0])
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
-        query_object = build_create_node_query_object(self, start_node=True)
+        query_object = build_create_node_query_object(self, head_node=True)
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(query_object.query_params)}")
         result = await tx.run(query, query_object.query_params)
         record = await result.value()
+
         return self.ReferenceView(**record[0])

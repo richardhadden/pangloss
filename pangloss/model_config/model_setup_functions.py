@@ -782,6 +782,7 @@ def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):
                 list[typing.Union[*incoming_relation_types]]  # type: ignore
             )
         )
+        cls.View.model_fields[incoming_field_name].default_factory = list
         cls.View.model_rebuild(force=True)
 
 

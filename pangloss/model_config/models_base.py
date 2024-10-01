@@ -96,8 +96,8 @@ class _ExtantNodeMixin:
     uuid: uuid.UUID
     created_when: datetime.datetime
     created_by: str
-    modified_when: datetime.datetime
-    modified_by: str
+    modified_when: datetime.datetime | None
+    modified_by: str | None
     is_deleted: bool = False
 
     @pydantic.field_validator("*", mode="before")

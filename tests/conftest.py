@@ -34,6 +34,7 @@ def event_loop(request):
 
     loop = asyncio.get_event_loop_policy().new_event_loop()
     loop.run_until_complete(Database.dangerously_clear_database())
+    loop.run_until_complete(Database.create_default_user())
     yield loop
     # loop.run_until_complete(Database.dangerously_clear_database())
     loop.run_until_complete(close_database_connection())
