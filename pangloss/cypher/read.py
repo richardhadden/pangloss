@@ -11,10 +11,13 @@ def build_view_read_query(
     label = model.__name__
     query = f"""
         MATCH path_to_node = (node:{label} {{uuid: $uuid}})
-        MATCH (node)-[:PG_CREATED_IN]->(creation:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
         
-        CALL () {{
-            OPTIONAL MATCH (node)-[:PG_MODIFIED_IN]->(modification:PGModification)-[:PG_MODIFIED_BY]->(user:PGUser)
+        MATCH (headnode:HeadNode)
+        WHERE node = headnode OR headnode.uuid = node._head_uuid
+        MATCH (headnode)-[:PG_CREATED_IN]->(creation:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
+        
+        CALL (headnode) {{
+            OPTIONAL MATCH (headnode)-[:PG_MODIFIED_IN]->(modification:PGModification)-[:PG_MODIFIED_BY]->(user:PGUser)
             RETURN {{modified_by: user.username, modified_when: modification.modified_when}} as modification
             ORDER BY modification.modified_when 
             LIMIT 1

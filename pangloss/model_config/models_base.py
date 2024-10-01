@@ -94,10 +94,7 @@ class _ExtantNodeMixin:
     """Contains the fields that a model will have once it is created"""
 
     uuid: uuid.UUID
-    created_when: datetime.datetime
-    created_by: str
-    modified_when: datetime.datetime | None
-    modified_by: str | None
+
     is_deleted: bool = False
 
     @pydantic.field_validator("*", mode="before")
@@ -184,12 +181,19 @@ class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for viewing model"""
 
-    # head_uuid: uuid.UUID
+    # _head_uuid: uuid.UUID
     generated: typing.ClassVar[bool] = True
 
     def __init__(self, *args, **kwargs):
         kwargs = collect_multi_key_field_to_dict(kwargs)
         super().__init__(*args, **kwargs)
+
+
+class HeadViewBase(ViewBase):
+    created_when: datetime.datetime
+    created_by: str
+    modified_when: datetime.datetime | None
+    modified_by: str | None
 
 
 # Reference types need to be separated, so that additional fields for viewing
@@ -237,6 +241,7 @@ class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
 class RootNode(_GenericNode):
     """Default base model on creation"""
 
+    HeadView: typing.ClassVar[type[HeadViewBase]]
     View: typing.ClassVar[type[ViewBase]]
     EditView: typing.ClassVar[type[EditViewBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]

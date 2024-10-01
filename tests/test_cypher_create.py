@@ -208,47 +208,15 @@ async def test_create_with_create_inline():
 
     order_from_db = await order.get_view(uuid=order_in_db.uuid)
 
+    assert order_from_db.thing_ordered[0].type == "Singing"
+    assert order_from_db.thing_ordered[0].label == "John Smith sings"
+    singing_uuid = order_from_db.thing_ordered[0].uuid
+    assert singing_uuid
 
-[
-    {
-        "created_by": "DefaultUser",
-        "_type": "BaseNode:Order:HeadNode",
-        "thing_ordered": [
-            {
-                "_type": "BaseNode:Singing:CreateInline:ReadInline",
-                "thing_ordered._id": 11,
-                "_head_uuid": "066fbf38-3c41-79b0-8000-69aaf64fb1a5",
-                "thing_ordered._elementId": "5:945401ed-5520-433b-96f1-e880b23ad925:11",
-                "_id": 25,
-                "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:25",
-                "label": "John Smith sings",
-                "uuid": "066fbf38-3c42-7081-8000-ef760a7bb5a5",
-                "type": "Singing",
-                "singing_by": [
-                    {
-                        "_type": "Person:BaseNode:HeadNode",
-                        "singing_by._id": 10,
-                        "_id": 37,
-                        "singing_by._elementId": "5:945401ed-5520-433b-96f1-e880b23ad925:10",
-                        "singing_by.reverse_relation_labels": ["sung_by"],
-                        "singing_by.relation_labels": ["singing_by"],
-                        "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:37",
-                        "label": "John Smith",
-                        "uuid": "066fbf38-3ba6-7d26-8000-518420176fd2",
-                        "type": "Person",
-                    }
-                ],
-            }
-        ],
-        "created_when": neo4j.time.DateTime(
-            2024, 10, 1, 13, 5, 7, 815721390, tzinfo="<UTC>"
-        ),
-        "_id": 23,
-        "modified_by": None,
-        "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:23",
-        "label": "John Smith ordered to sing",
-        "uuid": "066fbf38-3c41-79b0-8000-69aaf64fb1a5",
-        "modified_when": None,
-        "type": "Order",
-    }
-]
+    assert order_from_db.thing_ordered[0].singing_by[0].type == "Person"
+    assert order_from_db.thing_ordered[0].singing_by[0].uuid == person_in_db.uuid
+    assert order_from_db.thing_ordered[0].singing_by[0].label == "John Smith"
+
+    singing_from_db = await Singing.get_view(uuid=singing_uuid)
+    assert singing_from_db
+    assert singing_from_db.created_by == "DefaultUser"

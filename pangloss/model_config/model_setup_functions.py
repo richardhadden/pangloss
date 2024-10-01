@@ -31,6 +31,7 @@ from pangloss.model_config.models_base import (
     NonHeritableTrait,
     ReferenceSetBase,
     ReferenceViewBase,
+    HeadViewBase,
     ViewBase,
     EditViewBase,
     ReifiedRelationViewBase,
@@ -763,6 +764,13 @@ def initialise_view_type_for_base(cls: type[RootNode] | type[ReifiedRelation]):
 
     cls.View.base_class = cls
     cls.View.model_rebuild(force=True)
+
+    if issubclass(cls, RootNode):
+        cls.HeadView = pydantic.create_model(
+            f"{cls.__name__}HeadView", __base__=HeadViewBase
+        )
+        cls.HeadView.model_fields.update(cls.View.model_fields)
+        cls.HeadView.model_rebuild(force=True)
 
 
 def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):

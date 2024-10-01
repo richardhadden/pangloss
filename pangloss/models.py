@@ -62,7 +62,7 @@ class BaseNode(RootNode):
         if len(record) == 0:
             raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
 
-        return cls.View(**record[0])
+        return cls.HeadView(**record[0])
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
