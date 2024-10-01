@@ -22,8 +22,8 @@ if typing.TYPE_CHECKING:
     )
 
 
-def build_create_relationship_to_existing(
-    relation_to_target: "ReferenceSetBase",
+def build_create_relationship(
+    relation_to_target: "ReferenceSetBase | RootNode",
     relation_definition: "RelationFieldDefinition",
     source_node_identifier: str,
     query: CreateQuery,
@@ -45,13 +45,29 @@ def build_create_relationship_to_existing(
 
     query.query_params[edge_properties_identifier] = edge_properties
 
-    query.match_query_strings.append(
-        f"""MATCH ({matched_node_identifier} {{uuid: "{relation_to_target.uuid}"}})"""
-    )
-    query.create_query_strings.append(
-        f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({matched_node_identifier})
-        SET {relation_identifier} = ${edge_properties_identifier}"""
-    )
+    if relation_definition.create_inline:
+        extra_labels = ["ReadInline", "CreateInline"]
+        if relation_definition.edit_inline:
+            extra_labels.append("EditInline")
+        create_node_query, new_node_identifier = build_create_node_query_object(
+            typing.cast("RootNode", relation_to_target),
+            query=query,
+            extra_labels=extra_labels,
+        )
+
+        query.create_query_strings.append(
+            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            //SET {relation_identifier} = ${edge_properties_identifier}"""
+        )
+
+    else:
+        query.match_query_strings.append(
+            f"""MATCH ({matched_node_identifier} {{uuid: "{typing.cast("ReferenceSetBase", relation_to_target).uuid}"}})"""
+        )
+        query.create_query_strings.append(
+            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({matched_node_identifier})
+            SET {relation_identifier} = ${edge_properties_identifier}"""
+        )
 
 
 def build_create_node_query_object(
@@ -60,33 +76,38 @@ def build_create_node_query_object(
     extra_labels: list[str] | None = None,
     head_node: bool = False,
     user: str = "DefaultUser",
-) -> CreateQuery:
+) -> tuple[CreateQuery, Identifier]:
     if not query:
         query = CreateQuery()
 
     if not extra_labels:
         extra_labels = []
 
+    if head_node:
+        extra_labels.append("HeadNode")
+
     node_identifier = Identifier()
     node_data_identifier = Identifier()
 
-    query.uuid = typing.cast(uuid.UUID, uuid7())
+    instance_uuid = typing.cast(uuid.UUID, uuid7())
+
+    if head_node:
+        query.uuid = instance_uuid
+
+    extra_node_data = {
+        "uuid": instance_uuid,
+    }
+    if not head_node:
+        extra_node_data["_head_uuid"] = query.uuid
 
     query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
-        instance,
-        extras={
-            # "created_by": user,
-            # "created_when": datetime.datetime.now(),
-            # "modified_by": user,
-            # "modified_when": datetime.datetime.now(),
-            "uuid": query.uuid,
-        },
+        instance, extras=extra_node_data
     )
 
     node_labels_string = join_labels(instance.labels, extra_labels)
 
     query.create_query_strings.append(
-        QuerySubstring(f"""CREATE ({node_identifier}:{node_labels_string} {{uuid: "{str(query.uuid)}"}})
+        QuerySubstring(f"""CREATE ({node_identifier}:{node_labels_string} {{uuid: "{str(instance_uuid)}"}})
 SET {node_identifier} = ${node_data_identifier}""")
     )
 
@@ -104,17 +125,12 @@ SET {node_identifier} = ${node_data_identifier}""")
         query.return_identifier = node_identifier
 
     for relation_definition in instance.field_definitions.relation_fields:
-        if relation_definition.create_inline:
-            pass
-        else:
-            for related_instance in getattr(
-                instance, relation_definition.field_name, []
-            ):
-                build_create_relationship_to_existing(
-                    relation_to_target=related_instance,
-                    relation_definition=relation_definition,
-                    source_node_identifier=node_identifier,
-                    query=query,
-                )
+        for related_instance in getattr(instance, relation_definition.field_name, []):
+            build_create_relationship(
+                relation_to_target=related_instance,
+                relation_definition=relation_definition,
+                source_node_identifier=node_identifier,
+                query=query,
+            )
 
-    return query
+    return query, node_identifier

@@ -32,7 +32,7 @@ def test_build_basic_properties_query():
 
     thing = Thing(type="Thing", label="A Thing", name="A Thing", age=1)
 
-    query_object = build_create_node_query_object(thing, head_node=True)
+    query_object, _ = build_create_node_query_object(thing, head_node=True)
 
     cqs = query_object.create_query_strings[0]
 
@@ -170,3 +170,85 @@ async def test_create_with_relation_edge_model(clear_database):
     assert event_from_db.concerns_person[0]
     concerns_person = event_from_db.concerns_person[0]
     assert concerns_person.edge_properties.type_of_involvement == "Bad"
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_create_inline():
+    class Person(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: typing.Annotated[
+            Singing, RelationConfig(reverse_name="ordered_in", create_inline=True)
+        ]
+
+    class Singing(BaseNode):
+        singing_by: typing.Annotated[Person, RelationConfig(reverse_name="sung_by")]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person = Person(type="Person", label="John Smith")
+    person_in_db = await person.create()
+
+    order = Order(
+        type="Order",
+        label="John Smith ordered to sing",
+        thing_ordered=[
+            {
+                "type": "Singing",
+                "label": "John Smith sings",
+                "singing_by": [{"type": "Person", "uuid": person_in_db.uuid}],
+            }
+        ],
+    )
+
+    order_in_db = await order.create()
+    assert order_in_db.label == "John Smith ordered to sing"
+
+    order_from_db = await order.get_view(uuid=order_in_db.uuid)
+
+
+[
+    {
+        "created_by": "DefaultUser",
+        "_type": "BaseNode:Order:HeadNode",
+        "thing_ordered": [
+            {
+                "_type": "BaseNode:Singing:CreateInline:ReadInline",
+                "thing_ordered._id": 11,
+                "_head_uuid": "066fbf38-3c41-79b0-8000-69aaf64fb1a5",
+                "thing_ordered._elementId": "5:945401ed-5520-433b-96f1-e880b23ad925:11",
+                "_id": 25,
+                "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:25",
+                "label": "John Smith sings",
+                "uuid": "066fbf38-3c42-7081-8000-ef760a7bb5a5",
+                "type": "Singing",
+                "singing_by": [
+                    {
+                        "_type": "Person:BaseNode:HeadNode",
+                        "singing_by._id": 10,
+                        "_id": 37,
+                        "singing_by._elementId": "5:945401ed-5520-433b-96f1-e880b23ad925:10",
+                        "singing_by.reverse_relation_labels": ["sung_by"],
+                        "singing_by.relation_labels": ["singing_by"],
+                        "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:37",
+                        "label": "John Smith",
+                        "uuid": "066fbf38-3ba6-7d26-8000-518420176fd2",
+                        "type": "Person",
+                    }
+                ],
+            }
+        ],
+        "created_when": neo4j.time.DateTime(
+            2024, 10, 1, 13, 5, 7, 815721390, tzinfo="<UTC>"
+        ),
+        "_id": 23,
+        "modified_by": None,
+        "_elementId": "4:945401ed-5520-433b-96f1-e880b23ad925:23",
+        "label": "John Smith ordered to sing",
+        "uuid": "066fbf38-3c41-79b0-8000-69aaf64fb1a5",
+        "modified_when": None,
+        "type": "Order",
+    }
+]

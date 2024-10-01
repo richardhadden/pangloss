@@ -66,7 +66,7 @@ class BaseNode(RootNode):
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
-        query_object = build_create_node_query_object(self, head_node=True)
+        query_object, _ = build_create_node_query_object(self, head_node=True)
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(query_object.query_params)}")

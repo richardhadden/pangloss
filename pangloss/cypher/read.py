@@ -13,17 +13,19 @@ def build_view_read_query(
         MATCH path_to_node = (node:{label} {{uuid: $uuid}})
         MATCH (node)-[:PG_CREATED_IN]->(creation:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
         
-        CALL {{
+        CALL () {{
             OPTIONAL MATCH (node)-[:PG_MODIFIED_IN]->(modification:PGModification)-[:PG_MODIFIED_BY]->(user:PGUser)
             RETURN {{modified_by: user.username, modified_when: modification.modified_when}} as modification
             ORDER BY modification.modified_when 
             LIMIT 1
         }}
         
+        // Collect outgoing node patterns
         CALL (node) {{
             {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
+            OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){{0,}}(:ReadInline)-[]->{{0,}}(:BaseNode)
             WITH apoc.coll.flatten([
-                
+                collect(path_through_read_nodes),
                 {"collect(path_to_direct_nodes)," if model.field_definitions.relation_fields else ""}
                 []
             ]) AS paths, node

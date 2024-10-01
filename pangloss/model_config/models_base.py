@@ -184,6 +184,7 @@ class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for viewing model"""
 
+    # head_uuid: uuid.UUID
     generated: typing.ClassVar[bool] = True
 
     def __init__(self, *args, **kwargs):
