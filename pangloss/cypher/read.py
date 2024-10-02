@@ -26,11 +26,13 @@ def build_view_read_query(
         // Collect outgoing node patterns
         CALL (node) {{
             {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
+            {"""OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)""" if model.field_definitions.embedded_fields else ""}
             OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){{0,}}(:ReadInline)-[]->{{0,}}(:BaseNode)
             OPTIONAL MATCH path_to_reified = (node)-[]->(:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
             WITH apoc.coll.flatten([
                 collect(path_to_reified),
                 collect(path_through_read_nodes),
+                {"collect(path_to_related_through_embedded)," if model.field_definitions.embedded_fields else ""}
                 {"collect(path_to_direct_nodes)," if model.field_definitions.relation_fields else ""}
                 []
             ]) AS paths, node

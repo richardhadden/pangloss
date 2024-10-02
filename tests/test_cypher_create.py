@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import typing
 import uuid
 
@@ -8,6 +9,7 @@ import pytest_asyncio
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.database import Database
+from pangloss.model_config.models_base import Embedded
 from pangloss.models import BaseNode, RelationConfig, EdgeModel, ReifiedRelation
 from pangloss.model_config.model_manager import ModelManager
 
@@ -229,7 +231,7 @@ async def test_create_with_create_inline():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_reified_relation():
+async def test_create_with_reified_relation(clear_database):
     class Certainty(EdgeModel):
         certainty: int
 
@@ -288,3 +290,90 @@ async def test_create_with_reified_relation():
     assert event_from_db.involves_person[0].target[0].uuid
     assert event_from_db.involves_person[0].target[0].label == "John Smith"
     assert event_from_db.involves_person[0].target[0].edge_properties.certainty == 1
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_write_embedded_nodes():
+    class Date(BaseNode):
+        precise_date: datetime.date
+
+    class Event(BaseNode):
+        when: Embedded[Date]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+    )
+
+    event_in_db = await event.create()
+    assert event_in_db
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+    assert event_from_db
+
+    assert event_from_db.when[0].precise_date == datetime.date.today()
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+# async def test_speed():
+async def speed():
+    """Random speed check —— turned off for now"""
+
+    class Certainty(EdgeModel):
+        certainty: int
+
+    TIdentification = typing.TypeVar("TIdentification")
+
+    class Identification(ReifiedRelation[TIdentification]):
+        target: typing.Annotated[
+            TIdentification,
+            RelationConfig(reverse_name="is_target_of", edge_model=Certainty),
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        involves_person: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    persons = []
+    for i in range(100):
+        person = Person(type="Person", label=f"John Smith {i}")
+        person_in_db = await person.create()
+        persons.append(person_in_db)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        involves_person=[
+            {
+                "type": "Identification[test_speed.<locals>.Person]",
+                "target": [
+                    {
+                        "edge_properties": {"certainty": i},
+                        "uuid": person.uuid,
+                        "type": "Person",
+                    }
+                ],
+            }
+            for i, person in enumerate(persons)
+        ],
+    )
+    import time
+
+    start = time.time()
+    event_in_db = await event.create()
+    assert (time.time() - start) < 5
+
+    start = time.time()
+    await event.get_view(uuid=event_in_db.uuid)
+    assert (time.time() - start) < 0.05

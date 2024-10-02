@@ -108,11 +108,13 @@ class Database:
     @write_transaction
     async def dangerously_clear_database(cls, tx: Transaction) -> None:
         result = await tx.run("""MATCH (n) DETACH DELETE n
-                              MERGE (:PGUser {username: "DefaultUser"})""")
+                              MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})""")
         await result.consume()
 
     @classmethod
     @write_transaction
     async def create_default_user(cls, tx: Transaction) -> None:
-        result = await tx.run("""MERGE (:PGUser {username: "DefaultUser"})""")
+        result = await tx.run(
+            """MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})"""
+        )
         await result.consume()

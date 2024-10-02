@@ -78,9 +78,8 @@ def get_properties_as_writeable_dict(
                 )
 
         else:
-            data[property_definition.field_name] = convert_type_for_writing(
-                getattr(instance, property_definition.field_name)
-            )
+            if value := getattr(instance, property_definition.field_name, None):
+                data[property_definition.field_name] = convert_type_for_writing(value)
     if extras:
         for key, value in extras.items():
             data[key] = convert_type_for_writing(value)

@@ -85,7 +85,7 @@ class EmbeddedFieldDefinition(FieldDefinition):
 
     def __post_init__(self):
         self.field_concrete_types = get_concrete_model_types(self.field_annotated_type)
-        print(self.field_concrete_types)
+
         if not self.validators:
             self.validators = [annotated_types.MinLen(1), annotated_types.MaxLen(1)]
 

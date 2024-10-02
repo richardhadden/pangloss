@@ -583,6 +583,7 @@ def create_embedded_set_model(cls: type[RootNode]):
         for field_name, field in cls.model_fields.items()
         if field_name != "label"
     }
+
     embedded_set_model.model_fields = fields
     embedded_set_model.model_rebuild(force=True)
 

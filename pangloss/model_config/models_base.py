@@ -100,7 +100,7 @@ class _ExtantNodeMixin:
     @pydantic.field_validator("*", mode="before")
     @classmethod
     def convert_neo4j_dates(cls, value: typing.Any, field) -> typing.Any:
-        if isinstance(value, (neo4j.time.Date, neo4j.time.DateTime)):
+        if isinstance(value, (neo4j.time.DateTime, neo4j.time.Date)):
             return value.to_native()
         return value
 
@@ -242,11 +242,28 @@ class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
     """Model for setting an embedded node"""
 
     type: str
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+    }
 
 
 class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
     type: str
     uuid: uuid.UUID
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+    }
+
+    @pydantic.field_validator("*", mode="before")
+    @classmethod
+    def convert_neo4j_dates(cls, value: typing.Any, field) -> typing.Any:
+        if isinstance(value, (neo4j.time.Date, neo4j.time.DateTime)):
+            return value.to_native()
+        return value
 
 
 class RootNode(_GenericNode):

@@ -14,7 +14,10 @@ from pangloss.cypher.utils import (
 )
 
 if typing.TYPE_CHECKING:
-    from pangloss.model_config.field_definitions import RelationFieldDefinition
+    from pangloss.model_config.field_definitions import (
+        RelationFieldDefinition,
+        EmbeddedFieldDefinition,
+    )
     from pangloss.model_config.models_base import (
         RootNode,
         ReifiedRelation,
@@ -24,7 +27,7 @@ if typing.TYPE_CHECKING:
 
 def build_create_relationship(
     relation_to_target: "ReferenceSetBase | RootNode",
-    relation_definition: "RelationFieldDefinition",
+    relation_definition: "RelationFieldDefinition | EmbeddedFieldDefinition",
     source_node_identifier: str,
     query: CreateQuery,
 ):
@@ -33,10 +36,15 @@ def build_create_relationship(
     matched_node_identifier = Identifier()
     relation_identifier = Identifier()
 
-    edge_properties = {
-        "relation_labels": relation_definition.relation_labels,
-        "reverse_relation_labels": relation_definition.reverse_relation_labels,
-    }
+    edge_properties = {}
+
+    if relation_definition.field_metatype == "Relation":
+        edge_properties.update(
+            {
+                "relation_labels": relation_definition.relation_labels,
+                "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            }
+        )
 
     if hasattr(relation_to_target, "edge_properties"):
         edge_properties.update(relation_to_target.edge_properties)  # type: ignore
@@ -47,7 +55,20 @@ def build_create_relationship(
 
     query.query_params[edge_properties_identifier] = edge_properties
 
-    if relation_definition.create_inline:
+    if relation_definition.field_metatype == "Embedded":
+        extra_labels = ["Embedded", "ReadInline"]
+        create_node_query, new_node_identifier = build_create_node_query_object(
+            typing.cast("RootNode", relation_to_target),
+            query=query,
+            extra_labels=extra_labels,
+        )
+
+        query.create_query_strings.append(
+            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            //SET {relation_identifier} = ${edge_properties_identifier}"""
+        )
+
+    elif relation_definition.create_inline:
         extra_labels = ["ReadInline", "CreateInline"]
         if relation_definition.edit_inline:
             extra_labels.append("EditInline")
@@ -130,7 +151,7 @@ SET {node_identifier} = ${node_data_identifier}""")
         )
 
         query.create_query_strings.append(
-            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->(:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
+            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->(:PGInternal:PGCore:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
         )
 
     if head_node:
@@ -141,6 +162,15 @@ SET {node_identifier} = ${node_data_identifier}""")
             build_create_relationship(
                 relation_to_target=related_instance,
                 relation_definition=relation_definition,
+                source_node_identifier=node_identifier,
+                query=query,
+            )
+
+    for embedded_definition in instance.field_definitions.embedded_fields:
+        for embedded_instance in getattr(instance, embedded_definition.field_name, []):
+            build_create_relationship(
+                relation_to_target=embedded_instance,
+                relation_definition=embedded_definition,
                 source_node_identifier=node_identifier,
                 query=query,
             )
