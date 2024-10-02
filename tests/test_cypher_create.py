@@ -9,7 +9,7 @@ import pytest_asyncio
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.database import Database
-from pangloss.model_config.models_base import Embedded
+from pangloss.model_config.models_base import Embedded, ReifiedRelationNode
 from pangloss.models import BaseNode, RelationConfig, EdgeModel, ReifiedRelation
 from pangloss.model_config.model_manager import ModelManager
 
@@ -294,7 +294,7 @@ async def test_create_with_reified_relation(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_write_embedded_nodes():
+async def test_write_embedded_nodes(clear_database):
     class Date(BaseNode):
         precise_date: datetime.date
 
@@ -377,3 +377,99 @@ async def speed():
     start = time.time()
     await event.get_view(uuid=event_in_db.uuid)
     assert (time.time() - start) < 0.05
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_reified_node(clear_database):
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(EdgeModel):
+        certainty: int
+
+    IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+
+    class Identification(ReifiedRelation[IdentificationTargetT]):
+        target: typing.Annotated[
+            IdentificationTargetT,
+            RelationConfig(
+                reverse_name="is_target_of", edge_model=IdentificationCertainty
+            ),
+        ]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="is_carried_out_by"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person1 = Person(type="Person", label="JohnSmith")
+    person1_in_db = await person1.create()
+
+    person2 = Person(type="Person", label="TobyJones")
+    person2_in_db = await person2.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        carried_out_by=[
+            {
+                "label": "Jones acts as proxy for Smith",
+                "type": "WithProxyActor[Identification[test_create_with_reified_node.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    event_in_db = await event.create()
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db.label == "An Event"
+    assert event_from_db.carried_out_by
+
+    assert event_from_db.carried_out_by[0].label == "Jones acts as proxy for Smith"
+    assert event_from_db.carried_out_by[0].target[0].target[0].label == "JohnSmith"
+    assert (
+        event_from_db.carried_out_by[0].target[0].target[0].uuid == person1_in_db.uuid
+    )
+    assert (
+        event_from_db.carried_out_by[0].target[0].target[0].edge_properties.certainty
+        == 1
+    )
+    assert event_from_db.carried_out_by[0].proxy[0].target[0].label == "TobyJones"
+    assert event_from_db.carried_out_by[0].proxy[0].target[0].uuid == person2_in_db.uuid
+    assert (
+        event_from_db.carried_out_by[0].proxy[0].target[0].edge_properties.certainty
+        == 1
+    )
