@@ -8,8 +8,13 @@ import pytest_asyncio
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.database import Database
-from pangloss.models import BaseNode, RelationConfig, EdgeModel
+from pangloss.models import BaseNode, RelationConfig, EdgeModel, ReifiedRelation
 from pangloss.model_config.model_manager import ModelManager
+
+
+@pytest.fixture(scope="function", autouse=True)
+def reset_model_manager():
+    ModelManager._reset()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -220,3 +225,48 @@ async def test_create_with_create_inline():
     singing_from_db = await Singing.get_view(uuid=singing_uuid)
     assert singing_from_db
     assert singing_from_db.created_by == "DefaultUser"
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_reified_relation():
+    class Certainty(EdgeModel):
+        certainty: int
+
+    TIdentification = typing.TypeVar("TIdentification")
+
+    class Identification(ReifiedRelation[TIdentification]):
+        target: typing.Annotated[
+            TIdentification,
+            RelationConfig(reverse_name="is_target_of", edge_model=Certainty),
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        involves_person: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person = Person(type="Person", label="John Smith")
+    person_in_db = await person.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        involves_person=[
+            {
+                "type": "Identification[test_create_with_reified_relation.<locals>.Person]",
+                "target": [
+                    {
+                        "edge_properties": {"certainty": 1},
+                        "uuid": person_in_db.uuid,
+                        "type": "Person",
+                    }
+                ],
+            }
+        ],
+    )
