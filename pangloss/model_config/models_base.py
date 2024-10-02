@@ -109,7 +109,7 @@ class MultiKeyField[T](pydantic.BaseModel):
     value: T
 
 
-class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
+class ReifiedRelation[T](pydantic.BaseModel):
     """Defines a model for a Reified Relation (a relation through a node)
 
     `target` parameter must be present, either defined using generic class
@@ -125,6 +125,7 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
 
     field_definitions_initialised: typing.ClassVar[bool]
     field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+    labels: typing.ClassVar[set[str]]
 
     model_config = STANDARD_MODEL_CONFIG
 
@@ -133,6 +134,15 @@ class ReifiedRelation[T](pydantic.BaseModel, _SubNodeProxy):
         # Needs to be set on a per-class basis on subclassing, not
         # inherited for each class
         cls.field_definitions_initialised = False
+
+        cls.labels = set()
+
+        for parent_class in cls.mro():
+            if (
+                issubclass(parent_class, ReifiedRelation)
+                and "[" not in parent_class.__name__
+            ):
+                cls.labels.add(parent_class.__name__)
 
 
 class ReifiedRelationNode[T](ReifiedRelation[T]):

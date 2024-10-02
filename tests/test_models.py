@@ -771,3 +771,27 @@ def test_labels():
         "ExpensiveDog",
         "SitsOnLaps",
     }
+
+
+def test_labels_on_reified_relation():
+    class Certainty(EdgeModel):
+        certainty: int
+
+    T = typing.TypeVar("T")
+
+    class Identification(ReifiedRelation[T]):
+        target: typing.Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Event(BaseNode):
+        involves_person: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Identification[Person].labels == set(["Identification", "ReifiedRelation"])
