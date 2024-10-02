@@ -89,6 +89,8 @@ class Thing(BaseNode):
     embedded_stuff: Embedded[Stuff | OtherStuff]
 ```
 
+n.b. **Embedded nodes cannot currently have relation fields through Reified Relations.**
+
 ## Relations
 
 Relations are defined on the _source_ node model, and point to a target node model. Relation definitions comprise two parts, the _type_ to be pointed at, and an annotation comprising a `RelationConfig` instance.
@@ -269,11 +271,11 @@ class Identification[T](ReifiedRelation[T]):
 However, due to some Pydantic requirement, if you wish to *override* the `target` annotation *with a generic*, the generic value must be created as a a `typing.TypeVar`.
 
 ```python
-IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+TIdentificationTarget = typing.TypeVar("TIdentificationTarget")
 
-class Identification(ReifiedRelation[IdentificationTargetT]):
+class Identification(ReifiedRelation[TIdentificationTarget]):
     target: typing.Annotated[
-        IdentificationTargetT,
+        TIdentificationTarget,
         RelationConfig(
             "is_target_of_identification",
             edge_model=IdentificationCertainty,
@@ -284,10 +286,13 @@ class Identification(ReifiedRelation[IdentificationTargetT]):
 
 
 # TODO:
-- `ExpandedField[str]` (e.g. `Certainty[str]`)
+
 
 - DB layer
 - API layer
+- Allow reified relations from Embedded nodes
+- Allow edge models on Embedded nodes
+
 
 ## Bugs:
 
