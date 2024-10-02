@@ -270,3 +270,21 @@ async def test_create_with_reified_relation():
             }
         ],
     )
+
+    event_in_db = await event.create()
+    assert event_in_db
+
+    event_from_db = await event.get_view(uuid=event_in_db.uuid)
+    assert event_from_db
+
+    assert event_from_db.type == "Event"
+    assert event_from_db.label == "An Event"
+    assert (
+        event_from_db.involves_person[0].type
+        == "Identification[test_create_with_reified_relation.<locals>.Person]"
+    )
+    assert event_from_db.involves_person[0].uuid
+    assert event_from_db.involves_person[0].target[0].type == "Person"
+    assert event_from_db.involves_person[0].target[0].uuid
+    assert event_from_db.involves_person[0].target[0].label == "John Smith"
+    assert event_from_db.involves_person[0].target[0].edge_properties.certainty == 1

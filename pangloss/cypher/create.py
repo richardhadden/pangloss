@@ -30,8 +30,6 @@ def build_create_relationship(
 ):
     from pangloss.model_config.models_base import ReifiedRelation
 
-    ReifiedRelation
-
     matched_node_identifier = Identifier()
     relation_identifier = Identifier()
 
@@ -63,7 +61,16 @@ def build_create_relationship(
             f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
             //SET {relation_identifier} = ${edge_properties_identifier}"""
         )
-    # elif issubclass(relation_to_target, ReifiedRelation):
+    elif isinstance(relation_to_target, ReifiedRelation):
+        _, new_node_identifier = build_create_node_query_object(
+            typing.cast("RootNode", relation_to_target),
+            query=query,
+            extra_labels=[],
+        )
+        query.create_query_strings.append(
+            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            SET {relation_identifier} = ${edge_properties_identifier}"""
+        )
 
     else:
         query.match_query_strings.append(

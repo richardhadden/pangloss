@@ -157,6 +157,7 @@ class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
     """Base model for getting ReifiedRelation"""
 
     type: str
+    uuid: uuid.UUID
     generated: typing.ClassVar[bool] = True
     model_config = STANDARD_MODEL_CONFIG
 
