@@ -552,5 +552,23 @@ async def test_create_with_reified_node():
     person_from_db1 = await Person.get_view(uuid=person1_in_db.uuid)
 
     assert person_from_db1
+
+    assert len(person_from_db1.carried_out) == 2
+    assert len(person_from_db1.acts_as_proxy_in) == 1
+
     assert person_from_db1.carried_out[0].label == "2An Event"
     assert person_from_db1.carried_out[0].type == "Event"
+
+    # TODO: finish more thorough test
+
+    assert (
+        person_from_db1.carried_out[0].carried_out_by[0].target[0].target[0].uuid
+        == person1_in_db.uuid
+    )
+
+    assert (
+        person_from_db1.carried_out[0].carried_out_by[0].proxy[0].target[0].uuid
+        == person2_in_db.uuid
+    )
+
+    assert len(person_from_db1.carried_out) == 2
