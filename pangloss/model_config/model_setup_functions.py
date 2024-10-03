@@ -794,6 +794,14 @@ def initialise_incoming_relations_on_view_types_for_base(cls: type[RootNode]):
         cls.View.model_fields[incoming_field_name].default_factory = list
         cls.View.model_rebuild(force=True)
 
+        cls.HeadView.model_fields[incoming_field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[typing.Union[*incoming_relation_types]]  # type: ignore
+            )
+        )
+        cls.HeadView.model_fields[incoming_field_name].default_factory = list
+        cls.HeadView.model_rebuild(force=True)
+
 
 def initialise_edit_view_type(cls: type[RootNode]):
     """Initialises EditView on a RootModel

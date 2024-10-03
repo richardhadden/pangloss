@@ -41,6 +41,7 @@ def build_create_relationship(
     if relation_definition.field_metatype == "Relation":
         edge_properties.update(
             {
+                "reverse_name": relation_definition.reverse_name,
                 "relation_labels": relation_definition.relation_labels,
                 "reverse_relation_labels": relation_definition.reverse_relation_labels,
             }

@@ -372,16 +372,17 @@ async def speed():
 
     start = time.time()
     event_in_db = await event.create()
-    assert (time.time() - start) < 5
+    print(time.time() - start)
 
     start = time.time()
     await event.get_view(uuid=event_in_db.uuid)
-    assert (time.time() - start) < 0.05
+    print(time.time() - start)
+    assert False
 
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_reified_node(clear_database):
+async def test_create_with_reified_node():
     class Person(BaseNode):
         pass
 
@@ -405,7 +406,7 @@ async def test_create_with_reified_node(clear_database):
     class Event(BaseNode):
         carried_out_by: typing.Annotated[
             WithProxyActor[Identification[Person]],
-            RelationConfig(reverse_name="is_carried_out_by"),
+            RelationConfig(reverse_name="carried_out"),
         ]
 
     ModelManager.initialise_models(_defined_in_test=True)
@@ -473,3 +474,83 @@ async def test_create_with_reified_node(clear_database):
         event_from_db.carried_out_by[0].proxy[0].target[0].edge_properties.certainty
         == 1
     )
+
+    event2 = Event(
+        type="Event",
+        label="2An Event",
+        carried_out_by=[
+            {
+                "label": "2 Jones acts as proxy for Smith",
+                "type": "WithProxyActor[Identification[test_create_with_reified_node.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    await event2.create()
+
+    event3 = Event(
+        type="Event",
+        label="3An Event",
+        carried_out_by=[
+            {
+                "label": "3 Smith acts as proxy for jones",
+                "type": "WithProxyActor[Identification[test_create_with_reified_node.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_create_with_reified_node.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    await event3.create()
+
+    person_from_db1 = await Person.get_view(uuid=person1_in_db.uuid)
+
+    assert person_from_db1
+    assert person_from_db1.carried_out[0].label == "2An Event"
+    assert person_from_db1.carried_out[0].type == "Event"
