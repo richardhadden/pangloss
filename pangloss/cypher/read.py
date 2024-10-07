@@ -47,9 +47,9 @@ def build_view_read_query(
                 OPTIONAL MATCH path_down = (related_nodes)-[rr WHERE type(rr) = type(reverse_relation)]->()(()-[]->()){0,}(other_node1:BaseNode)
                 WITH collect(path_down) as paths_down, paths, reverse_bind, to_node
                 CALL apoc.paths.toJsonTree(paths_down) YIELD value
-                WITH collect(apoc.map.mergeList([value, {edge_properties: to_node}, { bind: reverse_bind}])) as items
+                WITH collect(apoc.map.mergeList([value, {edge_properties: to_node}, { __bind: reverse_bind}])) as items
 
-                RETURN apoc.map.groupByMulti(items, "bind") as through_reified_chain
+                RETURN apoc.map.groupByMulti(items, "__bind") as through_reified_chain
             }""" if model.incoming_relation_definitions else ""
         }
         
