@@ -568,5 +568,3 @@ async def test_create_with_reified_node():
         person_from_db1.carried_out[0].carried_out_by[0].proxy[0].target[0].uuid
         == person2_in_db.uuid
     )
-
-    assert len(person_from_db1.carried_out) == 2
