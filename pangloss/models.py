@@ -58,7 +58,7 @@ class BaseNode(RootNode):
             f.write(f"{query}\n\n//{str(params)}")
         result = await tx.run(query, params)
         record = await result.value()
-        # print(">>", record)
+        print(">>", record)
         if len(record) == 0:
             raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
 

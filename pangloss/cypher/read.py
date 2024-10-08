@@ -22,7 +22,7 @@ def build_view_read_query(
             ORDER BY modification.modified_when 
             LIMIT 1
         }}
-        
+     
         // Collect outgoing node patterns
         CALL (node) {{
             {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
@@ -48,15 +48,20 @@ def build_view_read_query(
                 WITH collect(path_down) as paths_down, paths, reverse_bind, to_node
                 CALL apoc.paths.toJsonTree(paths_down) YIELD value
                 WITH collect(apoc.map.mergeList([value, {edge_properties: to_node}, { __bind: reverse_bind}])) as items
-
                 RETURN apoc.map.groupByMulti(items, "__bind") as through_reified_chain
-            }""" if model.incoming_relation_definitions else ""
-        }
-        
-        
-        RETURN apoc.map.mergeList([node{{.*, created_by: user.username, created_when: creation.created_when}}, outgoing, modification {", through_reified_chain" if model.incoming_relation_definitions else ""}])
+            }
+             CALL {
+                WITH node
+                MATCH (node)<-[reverse_relation]-(related_node:BaseNode)
+                WHERE NOT related_node:Embedded AND NOT related_node:ReifiedRelation
+                WITH reverse_relation.reverse_name AS reverse_relation_type, collect(related_node) AS related_node_data
+                WITH collect({ t: reverse_relation_type, related_node_data: related_node_data }) AS direct_incoming
+                RETURN REDUCE(s = { }, item IN apoc.coll.flatten([direct_incoming]) | apoc.map.setEntry(s, item.t, item.related_node_data)) AS reverse_relations
+            }
+            
+        """ if model.incoming_relation_definitions else ""}
+        WITH node, user, outgoing, modification, creation{", reverse_relations, through_reified_chain" if model.incoming_relation_definitions else ""}
+
+        RETURN apoc.map.mergeList([node{{.*, created_by: user.username, created_when: creation.created_when}}, outgoing, modification{", reverse_relations, through_reified_chain" if model.incoming_relation_definitions else ""}])
     """
     return typing.cast(typing.LiteralString, query), {"uuid": str(uuid)}
-
-
-#

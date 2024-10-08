@@ -90,7 +90,7 @@ async def test_basic_create_on_model():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_relation(clear_database):
+async def test_create_with_relation():
     class Event(BaseNode):
         name: str
         concerns_person: typing.Annotated[
@@ -129,6 +129,14 @@ async def test_create_with_relation(clear_database):
             **{"type": "Person", "uuid": person_in_db.uuid, "label": "John Smith"}
         )
     ]
+
+    person_from_db = await Person.get_view(uuid=person_in_db.uuid)
+    assert person_from_db
+
+    assert person_from_db.is_concerned_in
+    assert person_from_db.is_concerned_in[0].uuid == event_from_db.uuid
+    assert person_from_db.is_concerned_in[0].label == event_from_db.label
+    assert person_from_db.is_concerned_in[0].type == "Event"
 
 
 @typing.no_type_check
