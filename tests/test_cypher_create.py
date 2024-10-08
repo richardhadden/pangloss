@@ -328,6 +328,43 @@ async def test_write_embedded_nodes(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
+async def test_reverse_relation_from_embedded():
+    class Book(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        page: str
+        source: typing.Annotated[Book, RelationConfig(reverse_name="is_source_of")]
+
+    class Event(BaseNode):
+        citation: Embedded[Citation]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    book = Book(type="Book", label="My Book")
+    book_in_db = await book.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        citation=[
+            {
+                "type": "Citation",
+                "page": "One",
+                "source": [{"type": "Book", "uuid": book_in_db.uuid}],
+            }
+        ],
+    )
+    event_in_db = await event.create()
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db.citation[0].page == "One"
+    assert event_from_db.citation[0].source[0].label == "My Book"
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
 # async def test_speed():
 async def speed():
     """Random speed check —— turned off for now"""

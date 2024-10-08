@@ -604,7 +604,30 @@ def create_embedded_view_model(cls: type[RootNode]):
         for field_name, field in cls.model_fields.items()
         if field_name != "label"
     }
+
     embedded_set_model.model_fields = fields
+
+    for relation_definition in cls.field_definitions.relation_fields:
+        concrete_types: list[
+            type[ReferenceViewBase] | type[ReifiedRelationViewBase]
+        ] = [
+            m.ReferenceView
+            for m in relation_definition.field_concrete_types
+            if issubclass(m, RootNode)
+        ]
+        concrete_types.extend(
+            [
+                m.View
+                for m in relation_definition.field_concrete_types
+                if issubclass(m, ReifiedRelation)
+            ]
+        )
+        embedded_set_model.model_fields[relation_definition.field_name] = (
+            pydantic.fields.FieldInfo.from_annotation(
+                list[typing.Union[*concrete_types]]  # type: ignore
+            )
+        )
+
     embedded_set_model.model_rebuild(force=True)
 
     # It should not be necessary to initialise anything on this model

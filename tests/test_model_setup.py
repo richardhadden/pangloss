@@ -12,6 +12,7 @@ from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import is_subclass_of_heritable_trait
 from pangloss.model_config.model_setup_functions import (
     create_embedded_set_model,
+    create_embedded_view_model,
     initialise_reference_set_on_base_models,
     initialise_reference_view_on_base_models,
     initialise_reified_relation,
@@ -554,6 +555,32 @@ def test_create_embedded_set_node_type():
     assert (
         embedded_set_model.model_fields["related_to"].annotation
         == list[RelatedThing.ReferenceSet]
+    )
+
+
+def test_create_embedded_view_model():
+    class RelatedThing(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        name: str
+        age: int
+        related_to: typing.Annotated[
+            RelatedThing, RelationConfig(reverse_name="has_related_thing")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    embedded_view_model = create_embedded_view_model(Thing)
+
+    with pytest.raises(KeyError):
+        embedded_view_model.model_fields["label"]
+
+    assert embedded_view_model.model_fields["name"].annotation == str
+    assert embedded_view_model.model_fields["age"].annotation == int
+    assert (
+        embedded_view_model.model_fields["related_to"].annotation
+        == list[RelatedThing.ReferenceView]
     )
 
 

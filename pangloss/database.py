@@ -106,9 +106,19 @@ class Database:
 
     @classmethod
     @write_transaction
+    async def write_indexes(cls, tx: Transaction) -> None:
+        result = await tx.run(
+            "CREATE CONSTRAINT BaseNodeUidUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.uuid IS UNIQUE"
+        )
+        await result.consume()
+
+    @classmethod
+    @write_transaction
     async def dangerously_clear_database(cls, tx: Transaction) -> None:
         result = await tx.run("""MATCH (n) DETACH DELETE n
-                              MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})""")
+                              MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})
+
+                              """)
         await result.consume()
 
     @classmethod

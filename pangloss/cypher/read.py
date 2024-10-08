@@ -8,9 +8,8 @@ if typing.TYPE_CHECKING:
 def build_view_read_query(
     model: type["BaseNode"], uuid: uuid.UUID | str
 ) -> tuple[typing.LiteralString, dict[str, str]]:
-    label = model.__name__
     query = f"""
-        MATCH path_to_node = (node:{label} {{uuid: $uuid}})
+        MATCH path_to_node = (node:BaseNode {{uuid: $uuid}})
         
         MATCH (headnode:HeadNode)
         WHERE node = headnode OR headnode.uuid = node._head_uuid
@@ -40,8 +39,8 @@ def build_view_read_query(
                 YIELD value
                 RETURN value as outgoing 
         }}
-        {"""
-            CALL (node) {
+        {""" 
+            CALL (node) { // Gets full context from incoming reified chain
                 OPTIONAL MATCH  paths = (node)<-[to_node]-(x WHERE (x:ReifiedRelation))(()<--()){1, }()<-[reverse_relation]-(related_nodes:BaseNode)
                 WITH [x in relationships(paths) WHERE type(x) <> "TARGET" | x][0].reverse_name as reverse_bind, reverse_relation, paths, related_nodes, to_node
                 OPTIONAL MATCH path_down = (related_nodes)-[rr WHERE type(rr) = type(reverse_relation)]->()(()-[]->()){0,}(other_node1:BaseNode)
@@ -50,9 +49,9 @@ def build_view_read_query(
                 WITH collect(apoc.map.mergeList([value, {edge_properties: to_node}, { __bind: reverse_bind}])) as items
                 RETURN apoc.map.groupByMulti(items, "__bind") as through_reified_chain
             }
-             CALL {
+             CALL (node) { // Gets basic reverse relation from incoming
                 WITH node
-                MATCH (node)<-[reverse_relation]-(related_node:BaseNode)
+                OPTIONAL MATCH (node)<-[reverse_relation]-(related_node:BaseNode)
                 WHERE NOT related_node:Embedded AND NOT related_node:ReifiedRelation
                 WITH reverse_relation.reverse_name AS reverse_relation_type, collect(related_node) AS related_node_data
                 WITH collect({ t: reverse_relation_type, related_node_data: related_node_data }) AS direct_incoming
