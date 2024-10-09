@@ -70,7 +70,7 @@ def test_build_basic_properties_query():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_basic_create_on_model():
+async def test_basic_create_on_model(clear_database):
     class Thing(BaseNode):
         name: str
         age: int
@@ -90,7 +90,7 @@ async def test_basic_create_on_model():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_relation():
+async def test_create_with_relation(clear_database):
     class Event(BaseNode):
         name: str
         concerns_person: typing.Annotated[
@@ -189,7 +189,7 @@ async def test_create_with_relation_edge_model(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_create_inline():
+async def test_create_with_create_inline(clear_database):
     class Person(BaseNode):
         pass
 
@@ -328,7 +328,7 @@ async def test_write_embedded_nodes(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_reverse_relation_from_embedded():
+async def test_reverse_relation_from_embedded(clear_database):
     class Book(BaseNode):
         pass
 
@@ -433,7 +433,7 @@ async def speed():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_reified_node():
+async def test_create_with_reified_node(clear_database):
     class Person(BaseNode):
         pass
 
