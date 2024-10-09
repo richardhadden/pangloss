@@ -622,6 +622,17 @@ def create_embedded_view_model(cls: type[RootNode]):
                 if issubclass(m, ReifiedRelation)
             ]
         )
+        if relation_definition.edge_model:
+            concrete_types = [
+                create_reference_view_model_with_property_model(
+                    origin_model=cls,
+                    target_model=concrete_type,
+                    edge_model=relation_definition.edge_model,
+                    field_name=relation_definition.field_name,
+                )
+                for concrete_type in concrete_types
+            ]
+
         embedded_set_model.model_fields[relation_definition.field_name] = (
             pydantic.fields.FieldInfo.from_annotation(
                 list[typing.Union[*concrete_types]]  # type: ignore

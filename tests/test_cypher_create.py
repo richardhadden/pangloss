@@ -362,6 +362,12 @@ async def test_reverse_relation_from_embedded():
     assert event_from_db.citation[0].page == "One"
     assert event_from_db.citation[0].source[0].label == "My Book"
 
+    book_from_db = await Book.get_view(uuid=book_in_db.uuid)
+
+    assert book_from_db.is_source_of
+    assert book_from_db.is_source_of[0].type == "Event"
+    assert book_from_db.is_source_of[0].uuid == event_from_db.uuid
+
 
 @typing.no_type_check
 @pytest.mark.asyncio
