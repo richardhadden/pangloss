@@ -55,6 +55,7 @@ class BaseNode(RootNode):
     @read_transaction
     async def get_view(cls, tx: Transaction, uuid: uuid.UUID | str):
         query, params = build_view_read_query(cls, uuid=uuid)
+
         with open("get_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(params)}")
         result = await tx.run(query, params)
@@ -81,7 +82,7 @@ class BaseNode(RootNode):
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
-        query_object, _ = build_create_node_query_object(self, head_node=True)
+        query_object, *_ = build_create_node_query_object(self, head_node=True)
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(query_object.query_params)}")
@@ -92,13 +93,20 @@ class BaseNode(RootNode):
 
     @classmethod
     @write_transaction
-    async def _update_method(cls, tx: Transaction, instance) -> None:
+    async def _update_method(cls, tx: Transaction, instance) -> bool:
         query_object, _, should_update = await build_update_node_query_object(
             instance, head_node=True
         )
         if should_update:
             query = typing.cast(typing.LiteralString, query_object.to_query_string())
+
             with open("update_query_dump.cypher", "w") as f:
                 f.write(f"{query}\n\n//{str(query_object.query_params)}")
             result = await tx.run(query, query_object.query_params)
-            await result.consume()
+            value = await result.value()
+            if value:
+                return value[0]
+            else:
+                return False
+        else:
+            return True

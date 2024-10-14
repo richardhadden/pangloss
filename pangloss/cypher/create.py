@@ -23,13 +23,14 @@ if typing.TYPE_CHECKING:
         ReifiedRelation,
         ReferenceSetBase,
     )
+from pangloss.cypher.utils import UpdateQuery
 
 
 def build_create_relationship(
     relation_to_target: "ReferenceSetBase | RootNode",
     relation_definition: "RelationFieldDefinition | EmbeddedFieldDefinition",
     source_node_identifier: str,
-    query: CreateQuery,
+    query: CreateQuery | UpdateQuery,
 ):
     from pangloss.model_config.models_base import ReifiedRelation
 
@@ -58,7 +59,7 @@ def build_create_relationship(
 
     if relation_definition.field_metatype == "Embedded":
         extra_labels = ["Embedded", "ReadInline"]
-        create_node_query, new_node_identifier = build_create_node_query_object(
+        create_node_query, new_node_identifier, _ = build_create_node_query_object(
             typing.cast("RootNode", relation_to_target),
             query=query,
             extra_labels=extra_labels,
@@ -70,10 +71,10 @@ def build_create_relationship(
         )
 
     elif relation_definition.create_inline:
-        extra_labels = ["ReadInline", "CreateInline"]
+        extra_labels = ["ReadInline", "CreateInline", "DetachDelete"]
         if relation_definition.edit_inline:
             extra_labels.append("EditInline")
-        create_node_query, new_node_identifier = build_create_node_query_object(
+        create_node_query, new_node_identifier, _ = build_create_node_query_object(
             typing.cast("RootNode", relation_to_target),
             query=query,
             extra_labels=extra_labels,
@@ -81,13 +82,13 @@ def build_create_relationship(
 
         query.create_query_strings.append(
             f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-            //SET {relation_identifier} = ${edge_properties_identifier}"""
+            SET {relation_identifier} = ${edge_properties_identifier}"""
         )
     elif isinstance(relation_to_target, ReifiedRelation):
-        _, new_node_identifier = build_create_node_query_object(
+        _, new_node_identifier, _ = build_create_node_query_object(
             typing.cast("RootNode", relation_to_target),
             query=query,
-            extra_labels=[],
+            extra_labels=["DetachDelete"],
         )
         query.create_query_strings.append(
             f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
@@ -106,11 +107,11 @@ def build_create_relationship(
 
 def build_create_node_query_object(
     instance: "RootNode | ReifiedRelation",
-    query: CreateQuery | None = None,
+    query: CreateQuery | UpdateQuery | None = None,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
     user: str = "DefaultUser",
-) -> tuple[CreateQuery, Identifier]:
+) -> tuple[CreateQuery | UpdateQuery, Identifier, uuid.UUID]:
     if not query:
         query = CreateQuery()
 
@@ -142,12 +143,9 @@ def build_create_node_query_object(
 
     query.create_query_strings.append(
         QuerySubstring(
-            f"""CREATE ({node_identifier}:{node_labels_string} {{uuid: "{str(instance_uuid)}"}})"""
+            f"""CREATE ({node_identifier}:{node_labels_string})
+            SET {node_identifier} += ${node_data_identifier}"""
         )
-    )
-
-    query.set_query_strings.append(
-        f"""SET {node_identifier} = ${node_data_identifier}"""
     )
 
     if head_node:
@@ -181,4 +179,4 @@ def build_create_node_query_object(
                 query=query,
             )
 
-    return query, node_identifier
+    return query, node_identifier, instance_uuid

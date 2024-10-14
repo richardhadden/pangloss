@@ -69,13 +69,18 @@ class UpdateQuery:
     def to_query_string(self):
         if not self.return_identifier:
             raise Exception("UpdateQuery.to_query_string called on non-top-level node")
-        return f"""{"\n".join(self.match_query_strings)}
+        return f"""
+    {"\n".join(self.match_query_strings[0:2])}
+    {"\n".join(self.merge_query_strings)}
+    WITH *
+    {"\n".join(self.match_query_strings[2:])}
     {"\n".join(self.create_query_strings)}
+     
     {"\n".join(self.set_query_strings)}
     {"\n".join(self.delete_query_strings)}
     {"WITH *" if self.call_query_strings else ""}
     {"\n".join(self.call_query_strings)}
-    RETURN {self.return_identifier}"""
+    RETURN true"""
 
 
 def join_labels(labels: set[str], extra_labels: typing.Iterable[str]):

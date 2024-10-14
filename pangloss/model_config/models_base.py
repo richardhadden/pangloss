@@ -56,9 +56,6 @@ class _SubNodeProxy:
     def labels(self) -> set[str]:
         return typing.cast(set[str], self.base_class.labels)
 
-    async def update(self) -> None:
-        await typing.cast(type["BaseNode"], self.base_class)._update_method(self)
-
 
 STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
     "alias_generator": humps.camelize,
@@ -190,7 +187,8 @@ class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for inputting edited model"""
 
-    pass
+    async def update(self) -> bool:
+        return await typing.cast(type["BaseNode"], self.base_class)._update_method(self)
 
 
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):

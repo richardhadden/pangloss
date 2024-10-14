@@ -862,3 +862,45 @@ def test_edit_set_of_reified_relation_can_be_existing_or_new():
     assert isinstance(event.person_involved[3], Cat.ReferenceSet)
     assert isinstance(event.person_involved[4], Intermediate[Cat].EditSet)
     assert isinstance(event.person_involved[5], Intermediate[Cat])
+
+
+@typing.no_type_check
+def test_model_edit_set_of_reified_relation():
+    class Person(BaseNode):
+        pass
+
+    class Intermediate[T](ReifiedRelation[T]):
+        intermediate_value: str
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Intermediate[Person],
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event_to_update = Event.EditSet(
+        uuid=uuid.uuid4(),
+        type="Event",
+        label="An Event Two",
+        person_involved=[
+            {
+                "uuid": uuid.uuid4(),
+                "type": "Intermediate[test_model_edit_set_of_reified_relation.<locals>.Person]",
+                "intermediate_value": "somevalue2",
+                "target": [{"type": "Person", "uuid": uuid.uuid4()}],
+            }
+        ],
+    )
+
+    a = Intermediate[Person].EditSet(
+        **{
+            "uuid": uuid.uuid4(),
+            "type": "Intermediate[test_model_edit_set_of_reified_relation.<locals>.Person]",
+            "intermediate_value": "somevalue2",
+            "target": [{"type": "Person", "uuid": uuid.uuid4()}],
+        }
+    )
+
+    assert a.intermediate_value

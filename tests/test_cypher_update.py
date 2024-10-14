@@ -187,6 +187,9 @@ async def test_update_reified():
     person1 = Person(type="Person", label="A Person1")
     person1_created = await person1.create()
 
+    person2 = Person(type="Person", label="A Person2")
+    person2_created = await person2.create()
+
     event = Event(
         type="Event",
         label="An Event",
@@ -202,34 +205,63 @@ async def test_update_reified():
     event_created = await event.create()
     event_edit_view = await Event.get_edit_view(uuid=event_created.uuid)
 
-    print(Intermediate[Person].EditSet.model_fields.keys())
-
     event_to_update = Event.EditSet(
         uuid=event_created.uuid,
         type="Event",
-        label="An Event Two",
+        label="An Event",
         person_involved=[
             {
                 "uuid": event_edit_view.person_involved[0].uuid,
                 "type": "Intermediate[test_update_reified.<locals>.Person]",
                 "intermediate_value": "somevalue2",
-                "target": [{"type": "Person", "uuid": person1_created.uuid}],
+                "target": [{"type": "Person", "uuid": person2_created.uuid}],
             }
         ],
     )
 
     assert event_to_update.person_involved[0].uuid
 
-    await event_to_update.update()
+    assert event_to_update.person_involved[0].intermediate_value == "somevalue2"
+
+    success = await event_to_update.update()
+    assert success is True
 
     event_view = await Event.get_view(uuid=event_created.uuid)
+    assert event_view.modified_by == "DefaultUser"
 
-    # assert event_view.person_involved[0].intermediate_value == "somevalue2"
+    assert event_view.person_involved[0].intermediate_value == "somevalue2"
+    assert event_view.person_involved[0].target[0].uuid == person2_created.uuid
+    assert event_view.person_involved[0].target[0].label == "A Person2"
+
+    event_to_update = Event.EditSet(
+        uuid=event_created.uuid,
+        type="Event",
+        label="An Event",
+        person_involved=[
+            {
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue3",
+                "target": [{"type": "Person", "uuid": person2_created.uuid}],
+            }
+        ],
+    )
+    import time
+
+    start = time.perf_counter()
+    success = await event_to_update.update()
+    print(time.perf_counter() - start)
+
+    assert 2 == 1
+    event_view2 = await Event.get_view(uuid=event_created.uuid)
+    assert event_view2.modified_by == "DefaultUser"
+    assert len(event_view2.person_involved) == 1
+    assert event_view2.person_involved[0].intermediate_value == "somevalue3"
+    assert event_view2.person_involved[0].target[0].uuid == person2_created.uuid
 
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_update_with_reified_chain(clear_database):
+async def test_update_with_reified_chain():
     class Person(BaseNode):
         pass
 

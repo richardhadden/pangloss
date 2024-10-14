@@ -966,6 +966,8 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
             embedded_definition.field_name
         ].metadata = embedded_definition.validators
 
+    cls.EditSet.model_rebuild(force=True)
+
 
 def delete_subclassed_relations(cls: type[RootNode]):
     to_delete = []

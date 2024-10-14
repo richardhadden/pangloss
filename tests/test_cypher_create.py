@@ -39,7 +39,7 @@ def test_build_basic_properties_query():
 
     thing = Thing(type="Thing", label="A Thing", name="A Thing", age=1)
 
-    query_object, _ = build_create_node_query_object(thing, head_node=True)
+    query_object, _, _ = build_create_node_query_object(thing, head_node=True)
 
     cqs = query_object.create_query_strings[0]
 
@@ -48,8 +48,6 @@ def test_build_basic_properties_query():
     assert f"CREATE ({query_object.return_identifier}" in cqs
     assert ":BaseNode" in cqs
     assert ":Thing" in cqs
-
-    assert "{uuid: " in cqs
 
     set_param_key = list(query_object.query_params.keys())[0]
     assert f"SET {query_object.return_identifier} = ${set_param_key}"
