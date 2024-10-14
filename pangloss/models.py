@@ -5,6 +5,7 @@ import uuid
 
 from pangloss.cypher.create import build_create_node_query_object
 from pangloss.cypher.read import build_view_read_query
+from pangloss.cypher.update import build_update_node_query_object
 from pangloss.database import write_transaction, Transaction, read_transaction
 from pangloss.exceptions import PanglossNotFoundError
 from pangloss.model_config.models_base import (
@@ -58,11 +59,25 @@ class BaseNode(RootNode):
             f.write(f"{query}\n\n//{str(params)}")
         result = await tx.run(query, params)
         record = await result.value()
-        print(">>", record)
+        # print(">>", record)
         if len(record) == 0:
             raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
 
         return cls.HeadView(**record[0])
+
+    @classmethod
+    @read_transaction
+    async def get_edit_view(cls, tx: Transaction, uuid: uuid.UUID | str):
+        query, params = build_view_read_query(cls, uuid=uuid)
+        with open("get_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(params)}")
+        result = await tx.run(query, params)
+        record = await result.value()
+        # print(">>", record)
+        if len(record) == 0:
+            raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
+
+        return cls.EditView(**record[0])
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
@@ -74,3 +89,16 @@ class BaseNode(RootNode):
         record = await result.value()
 
         return self.ReferenceView(**record[0])
+
+    @classmethod
+    @write_transaction
+    async def _update_method(cls, tx: Transaction, instance) -> None:
+        query_object, _, should_update = await build_update_node_query_object(
+            instance, head_node=True
+        )
+        if should_update:
+            query = typing.cast(typing.LiteralString, query_object.to_query_string())
+            with open("update_query_dump.cypher", "w") as f:
+                f.write(f"{query}\n\n//{str(query_object.query_params)}")
+            result = await tx.run(query, query_object.query_params)
+            await result.consume()

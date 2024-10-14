@@ -1,3 +1,4 @@
+import collections
 import copy
 import dataclasses
 import inspect
@@ -44,6 +45,8 @@ from pangloss.model_config.model_setup_utils import (
     get_paths_to_target_node,
     recurse_embedded_models_for_all_outgoing_relation_field_definitions,
 )
+
+from pangloss.model_config.model_manager import ModelManager
 
 
 def get_relation_config_from_field_metadata(
@@ -865,32 +868,81 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
         )
 
     for relation_definition in cls.field_definitions.relation_fields:
-        allowed_relation_types = []
+        allowed_relation_types = collections.deque()
 
         for concrete_type in relation_definition.field_concrete_types:
             if issubclass(concrete_type, RootNode):
                 if relation_definition.edit_inline:
-                    allowed_relation_types.append(concrete_type)
-
                     if not concrete_type.__dict__.get("EditSet", None):
                         initialise_edit_set_type(concrete_type)
-                    allowed_relation_types.append(concrete_type.EditSet)
-
+                    allowed_relation_types.appendleft(
+                        typing.Annotated[
+                            concrete_type.EditSet,
+                            pydantic.Tag("Existing_" + concrete_type.__name__),
+                        ]
+                    )
+                    allowed_relation_types.appendleft(
+                        typing.Annotated[
+                            concrete_type, pydantic.Tag("New_" + concrete_type.__name__)
+                        ]
+                    )
                 else:
-                    allowed_relation_types.append(concrete_type.ReferenceSet)
+                    allowed_relation_types.append(
+                        typing.Annotated[
+                            concrete_type.ReferenceSet,
+                            pydantic.Tag("Reference_" + concrete_type.__name__),
+                        ]
+                    )
 
             if issubclass(concrete_type, ReifiedRelation):
-                allowed_relation_types.append(concrete_type)
-
                 if not concrete_type.__dict__.get("EditSet", None):
                     initialise_edit_set_type(concrete_type)
-                allowed_relation_types.append(concrete_type.EditSet)
+                allowed_relation_types.appendleft(
+                    typing.Annotated[
+                        concrete_type.EditSet,
+                        pydantic.Tag("Existing_" + concrete_type.__name__),
+                    ]
+                )
+                allowed_relation_types.append(
+                    typing.Annotated[
+                        concrete_type, pydantic.Tag("New_" + concrete_type.__name__)
+                    ]
+                )
 
-        cls.EditSet.model_fields[relation_definition.field_name] = (
-            pydantic.fields.FieldInfo.from_annotation(
-                list[typing.Union[*allowed_relation_types]]  # type: ignore
+        def model_discriminator(v: typing.Any) -> str:
+            is_dict = isinstance(v, dict)
+
+            if (is_dict and not v.get("type", False)) and not hasattr(v, "type"):
+                raise Exception("Type not provided in request")
+
+            model_type = v.get("type") if is_dict else getattr(v, "type")
+            if not isinstance(model_type, str):
+                raise Exception("Type provided not a string")
+
+            if not relation_definition.edit_inline:
+                if model_type in ModelManager.registered_model_names:
+                    return "Reference_" + model_type
+
+            if (is_dict and v.get("uuid", None)) or hasattr(v, "uuid"):
+                return "Existing_" + model_type
+
+            return "New_" + model_type
+
+        if allowed_relation_types:
+            cls.EditSet.model_fields[relation_definition.field_name] = (
+                pydantic.fields.FieldInfo.from_annotation(
+                    list[
+                        typing.Annotated[
+                            typing.Union[*allowed_relation_types],  # type: ignore
+                            pydantic.Field(
+                                discriminator=pydantic.Discriminator(
+                                    model_discriminator
+                                ),
+                            ),
+                        ]
+                    ],
+                )
             )
-        )
         cls.EditSet.model_fields[
             relation_definition.field_name
         ].metadata = relation_definition.validators

@@ -433,7 +433,7 @@ async def speed():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_reified_node(clear_database):
+async def test_create_with_reified_node():
     class Person(BaseNode):
         pass
 

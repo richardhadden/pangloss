@@ -795,3 +795,70 @@ def test_labels_on_reified_relation():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert Identification[Person].labels == set(["Identification", "ReifiedRelation"])
+
+
+@typing.no_type_check
+def test_edit_set_of_reified_relation_can_be_existing_or_new():
+    class Person(BaseNode):
+        pass
+
+    class Cat(BaseNode):
+        pass
+
+    class Intermediate[T](ReifiedRelation[T]):
+        intermediate_value: str
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Intermediate[Person] | Person | Cat | Intermediate[Cat],
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    existing_intermediate_uuid = uuid.uuid4()
+
+    event = Event.EditSet(
+        uuid=uuid.uuid4(),
+        type="Event",
+        label="An Event",
+        person_involved=[
+            {
+                "uuid": existing_intermediate_uuid,
+                "type": "Intermediate[test_edit_set_of_reified_relation_can_be_existing_or_new.<locals>.Person]",
+                "intermediate_value": "IntermediateValue",
+                "target": [{"type": "Person", "uuid": uuid.uuid4()}],
+            },
+            {
+                "type": "Intermediate[test_edit_set_of_reified_relation_can_be_existing_or_new.<locals>.Person]",
+                "intermediate_value": "IntermediateValue2",
+                "target": [{"type": "Person", "uuid": uuid.uuid4()}],
+            },
+            {
+                "type": "Person",
+                "uuid": uuid.uuid4(),
+            },
+            {
+                "type": "Cat",
+                "uuid": uuid.uuid4(),
+            },
+            {
+                "uuid": uuid.uuid4(),
+                "type": "Intermediate[test_edit_set_of_reified_relation_can_be_existing_or_new.<locals>.Cat]",
+                "intermediate_value": "IntermediateValueCat",
+                "target": [{"type": "Cat", "uuid": uuid.uuid4()}],
+            },
+            {
+                "type": "Intermediate[test_edit_set_of_reified_relation_can_be_existing_or_new.<locals>.Cat]",
+                "intermediate_value": "IntermediateValueCat",
+                "target": [{"type": "Cat", "uuid": uuid.uuid4()}],
+            },
+        ],
+    )
+
+    assert isinstance(event.person_involved[0], Intermediate[Person].EditSet)
+    assert isinstance(event.person_involved[1], Intermediate[Person])
+    assert isinstance(event.person_involved[2], Person.ReferenceSet)
+    assert isinstance(event.person_involved[3], Cat.ReferenceSet)
+    assert isinstance(event.person_involved[4], Intermediate[Cat].EditSet)
+    assert isinstance(event.person_involved[5], Intermediate[Cat])

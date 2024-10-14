@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
         ModelFieldDefinitions,
         IncomingRelationDefinition,
     )
+    from pangloss.models import BaseNode
 
 """
 Required model variations:
@@ -55,6 +56,9 @@ class _SubNodeProxy:
     def labels(self) -> set[str]:
         return typing.cast(set[str], self.base_class.labels)
 
+    async def update(self) -> None:
+        await typing.cast(type["BaseNode"], self.base_class)._update_method(self)
+
 
 STANDARD_MODEL_CONFIG: pydantic.ConfigDict = {
     "alias_generator": humps.camelize,
@@ -67,7 +71,7 @@ class _GenericNode(pydantic.BaseModel):
     """Standard fields for node types"""
 
     type: str
-    label: str
+    # label: str
 
     model_config = {
         "alias_generator": humps.camelize,
@@ -192,6 +196,7 @@ class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for viewing model"""
 
+    label: str
     # _head_uuid: uuid.UUID
     generated: typing.ClassVar[bool] = True
 
@@ -201,6 +206,7 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 
 
 class HeadViewBase(ViewBase):
+    label: str
     created_when: datetime.datetime
     created_by: str
     modified_when: datetime.datetime | None
@@ -219,7 +225,7 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
     """
 
     uuid: uuid.UUID
-
+    label: str
     model_config = STANDARD_MODEL_CONFIG
 
 
@@ -268,6 +274,8 @@ class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
 
 class RootNode(_GenericNode):
     """Default base model on creation"""
+
+    label: str
 
     HeadView: typing.ClassVar[type[HeadViewBase]]
     View: typing.ClassVar[type[ViewBase]]

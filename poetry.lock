@@ -110,6 +110,17 @@ files = [
 ]
 
 [[package]]
+name = "patchdiff"
+version = "0.3.4"
+description = "MIT"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "patchdiff-0.3.4-py3-none-any.whl", hash = "sha256:109710036e028aa0bac10139997a42b7d69d73d0275eff12455a59f2d6f8f995"},
+    {file = "patchdiff-0.3.4.tar.gz", hash = "sha256:034959a4a6e4143b2f63ae645b221e0617909410ffb3e186b77c643225e233e6"},
+]
+
+[[package]]
 name = "pluggy"
 version = "1.5.0"
 description = "plugin and hook calling mechanisms for python"
@@ -473,4 +484,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "8187aab0840a2af238eb246e9d8f1dfa7ed72ff96bddc235cd3a9344aee9b887"
+content-hash = "67fa37afd95bd4bd16d8f6433c0e43df1429e47d5943e3b981582bc91f53b499"

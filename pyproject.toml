@@ -16,6 +16,7 @@ rich = "^13.8.1"
 pydantic-settings = "^2.5.2"
 uuid7 = "^0.1.0"
 pytest-asyncio = "^0.24.0"
+patchdiff = "^0.3.4"
 
 
 [tool.poetry.group.dev.dependencies]

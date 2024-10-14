@@ -141,8 +141,13 @@ def build_create_node_query_object(
     node_labels_string = join_labels(instance.labels, extra_labels)
 
     query.create_query_strings.append(
-        QuerySubstring(f"""CREATE ({node_identifier}:{node_labels_string} {{uuid: "{str(instance_uuid)}"}})
-SET {node_identifier} = ${node_data_identifier}""")
+        QuerySubstring(
+            f"""CREATE ({node_identifier}:{node_labels_string} {{uuid: "{str(instance_uuid)}"}})"""
+        )
+    )
+
+    query.set_query_strings.append(
+        f"""SET {node_identifier} = ${node_data_identifier}"""
     )
 
     if head_node:

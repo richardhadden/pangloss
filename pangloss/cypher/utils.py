@@ -3,7 +3,7 @@ import uuid
 
 import pydantic
 
-from pangloss.model_config.models_base import RootNode, ReifiedRelation
+from pangloss.model_config.models_base import RootNode, ReifiedRelation, EditSetBase
 
 
 class Identifier(str):
@@ -23,6 +23,7 @@ class QueryParams(dict[Identifier, dict[str, typing.Any]]):
 class CreateQuery:
     match_query_strings: list[str]
     create_query_strings: list[str]
+    set_query_strings: list[str]
     query_params: dict[str, typing.Any]
     return_identifier: str
     return_uuid: uuid.UUID
@@ -30,6 +31,7 @@ class CreateQuery:
     def __init__(self):
         self.match_query_strings = []
         self.create_query_strings = []
+        self.set_query_strings = []
         self.query_params = {}
         self.uuid = uuid.uuid4()
 
@@ -38,6 +40,41 @@ class CreateQuery:
             raise Exception("CreateQuery.to_query_string called on non-top-level node")
         return f"""{"\n".join(self.match_query_strings)}
     {"\n".join(self.create_query_strings)}
+    {"\n".join(self.set_query_strings)}
+    RETURN {self.return_identifier}"""
+
+
+class UpdateQuery:
+    match_query_strings: list[str]
+    create_query_strings: list[str]
+    merge_query_strings: list[str]
+    set_query_strings: list[str]
+    call_query_strings: list[str]
+    delete_query_strings: list[str]
+
+    query_params: dict[str, typing.Any]
+    return_identifier: str
+    return_uuid: uuid.UUID
+
+    def __init__(self):
+        self.match_query_strings = []
+        self.create_query_strings = []
+        self.set_query_strings = []
+        self.merge_query_strings = []
+        self.call_query_strings = []
+        self.delete_query_strings = []
+        self.query_params = {}
+        self.uuid = uuid.uuid4()
+
+    def to_query_string(self):
+        if not self.return_identifier:
+            raise Exception("UpdateQuery.to_query_string called on non-top-level node")
+        return f"""{"\n".join(self.match_query_strings)}
+    {"\n".join(self.create_query_strings)}
+    {"\n".join(self.set_query_strings)}
+    {"\n".join(self.delete_query_strings)}
+    {"WITH *" if self.call_query_strings else ""}
+    {"\n".join(self.call_query_strings)}
     RETURN {self.return_identifier}"""
 
 
@@ -65,7 +102,8 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: RootNode | ReifiedRelation, extras: dict[str, typing.Any] | None = None
+    instance: RootNode | ReifiedRelation | EditSetBase,
+    extras: dict[str, typing.Any] | None = None,
 ):
     data = {}
     for property_definition in instance.field_definitions.property_fields:

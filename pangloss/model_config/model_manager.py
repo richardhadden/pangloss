@@ -9,6 +9,7 @@ if typing.TYPE_CHECKING:
 class ModelManager:
     registered_models: list[type["RootNode"]] = []
     registered_reified_relation_nodes: list[type["ReifiedRelationNode"]] = []
+    registered_model_names: set[str]
 
     @classmethod
     def register_model(cls, model: type["RootNode"]):
@@ -25,6 +26,9 @@ class ModelManager:
 
     @classmethod
     def initialise_models(cls, _defined_in_test=False):
+        # Initialise the model names as a set
+        cls.registered_model_names = {model.__name__ for model in cls.registered_models}
+
         from pangloss.model_config.model_setup_functions import (
             set_type_to_literal_on_base_model,
             initialise_model_field_definitions,

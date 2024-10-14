@@ -1,8 +1,19 @@
+from __future__ import annotations
+
+import typing
+
 import pytest
 import pytest_asyncio
 
 from pangloss.database import Database
 from pangloss.model_config.model_manager import ModelManager
+from pangloss.models import (
+    BaseNode,
+    EdgeModel,
+    ReifiedRelation,
+    RelationConfig,
+    ReifiedRelationNode,
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -19,3 +30,295 @@ async def clear_database():
         pass
 
     await Database.dangerously_clear_database()
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_get_edit_view():
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(EdgeModel):
+        certainty: int
+
+    IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+
+    class Identification(ReifiedRelation[IdentificationTargetT]):
+        target: typing.Annotated[
+            IdentificationTargetT,
+            RelationConfig(
+                reverse_name="is_target_of", edge_model=IdentificationCertainty
+            ),
+        ]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="carried_out"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person1 = Person(type="Person", label="JohnSmith")
+    person1_in_db = await person1.create()
+
+    person2 = Person(type="Person", label="TobyJones")
+    person2_in_db = await person2.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        carried_out_by=[
+            {
+                "label": "Jones acts as proxy for Smith",
+                "type": "WithProxyActor[Identification[test_get_edit_view.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_get_edit_view.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_get_edit_view.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    event_in_db = await event.create()
+
+    edit_event_from_db = await Event.get_edit_view(uuid=event_in_db.uuid)
+
+    assert edit_event_from_db.uuid == event_in_db.uuid
+
+    assert (
+        edit_event_from_db.carried_out_by[0].target[0].target[0].uuid
+        == person1_in_db.uuid
+    )
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_with_simple_relation(clear_database):
+    class Event(BaseNode):
+        event_type: str
+        person_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person1 = Person(type="Person", label="A Person1")
+    person1_in_db = await person1.create()
+
+    person2 = Person(type="Person", label="A Person2")
+    person2_in_db = await person2.create()
+
+    event = Event(
+        type="Event",
+        event_type="Party",
+        label="An Event",
+        person_involved=[{"type": "Person", "uuid": person1_in_db.uuid}],
+    )
+    event_in_db = await event.create()
+
+    edit_event_from_db = await Event.get_edit_view(uuid=event_in_db.uuid)
+
+    assert edit_event_from_db.person_involved[0].uuid == person1_in_db.uuid
+
+    event_update = Event.EditSet(
+        uuid=event_in_db.uuid,
+        label=event_in_db.label,
+        type="Event",
+        event_type="Rave",
+        person_involved=[{"type": "Person", "uuid": person2_in_db.uuid}],
+    )
+
+    await event_update.update()
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db.event_type == "Rave"
+
+    assert len(event_from_db.person_involved) == 1
+
+    assert event_from_db.person_involved[0].uuid == person2_in_db.uuid
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_reified():
+    class Person(BaseNode):
+        pass
+
+    class Intermediate[T](ReifiedRelation[T]):
+        intermediate_value: str
+
+    class Event(BaseNode):
+        person_involved: typing.Annotated[
+            Intermediate[Person],
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person1 = Person(type="Person", label="A Person1")
+    person1_created = await person1.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        person_involved=[
+            {
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue1",
+                "target": [{"type": "Person", "uuid": person1_created.uuid}],
+            }
+        ],
+    )
+
+    event_created = await event.create()
+    event_edit_view = await Event.get_edit_view(uuid=event_created.uuid)
+
+    print(Intermediate[Person].EditSet.model_fields.keys())
+
+    event_to_update = Event.EditSet(
+        uuid=event_created.uuid,
+        type="Event",
+        label="An Event Two",
+        person_involved=[
+            {
+                "uuid": event_edit_view.person_involved[0].uuid,
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue2",
+                "target": [{"type": "Person", "uuid": person1_created.uuid}],
+            }
+        ],
+    )
+
+    assert event_to_update.person_involved[0].uuid
+
+    await event_to_update.update()
+
+    event_view = await Event.get_view(uuid=event_created.uuid)
+
+    # assert event_view.person_involved[0].intermediate_value == "somevalue2"
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_with_reified_chain(clear_database):
+    class Person(BaseNode):
+        pass
+
+    class IdentificationCertainty(EdgeModel):
+        certainty: int
+
+    IdentificationTargetT = typing.TypeVar("IdentificationTargetT")
+
+    class Identification(ReifiedRelation[IdentificationTargetT]):
+        target: typing.Annotated[
+            IdentificationTargetT,
+            RelationConfig(
+                reverse_name="is_target_of", edge_model=IdentificationCertainty
+            ),
+        ]
+
+    class WithProxyActor[T](ReifiedRelationNode[T]):
+        target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+        proxy: typing.Annotated[T, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Event(BaseNode):
+        carried_out_by: typing.Annotated[
+            WithProxyActor[Identification[Person]],
+            RelationConfig(reverse_name="carried_out"),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    person1 = Person(type="Person", label="JohnSmith")
+    person1_in_db = await person1.create()
+
+    person2 = Person(type="Person", label="TobyJones")
+    person2_in_db = await person2.create()
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        carried_out_by=[
+            {
+                "label": "Jones acts as proxy for Smith",
+                "type": "WithProxyActor[Identification[test_update_with_reified_chain.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    event_in_db = await event.create()
+
+    edit_event_from_db = await Event.get_edit_view(uuid=event_in_db.uuid)
+
+    # Call update with no changes; should do nothing
+    await edit_event_from_db.update()
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+
+    # And should not have a modified object
+    assert not event_from_db.modified_by
+
+    # Now, let's update a basic property
+
+    edit_event_from_db.label = "An Event Updated"
+    await edit_event_from_db.update()
+
+    # Re-get the data from the DB
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+    assert event_from_db.uuid == event_in_db.uuid
+    assert event_from_db.modified_by == "DefaultUser"
+
+    assert event_from_db.label == "An Event Updated"

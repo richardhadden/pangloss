@@ -108,7 +108,11 @@ class Database:
     @write_transaction
     async def write_indexes(cls, tx: Transaction) -> None:
         result = await tx.run(
-            "CREATE CONSTRAINT BaseNodeUidUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.uuid IS UNIQUE"
+            """CREATE CONSTRAINT BaseNodeUidUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.uuid IS UNIQUE"""
+        )
+        await result.consume()
+        result = await tx.run(
+            """CREATE CONSTRAINT PGUserNameIndex IF NOT EXISTS FOR (n:PGUser) REQUIRE n.username IS UNIQUE"""
         )
         await result.consume()
 
