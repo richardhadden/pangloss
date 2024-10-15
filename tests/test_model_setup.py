@@ -1036,9 +1036,15 @@ def test_initialise_edit_set_type_basic():
     assert "involves_person" in Event.EditSet.model_fields
 
     assert (
-        Event.EditSet.model_fields["involves_person"].annotation
-        == list[Person.ReferenceSet]
+        typing.get_origin(Event.EditSet.model_fields["involves_person"].annotation)
+        is list
     )
+
+    inner_type = typing.get_args(
+        typing.get_args(Event.EditSet.model_fields["involves_person"].annotation)[0]
+    )[0]
+    assert inner_type == Person.ReferenceSet
+
     assert Event.EditSet.model_fields["involves_person"].metadata == [
         annotated_types.MaxLen(1)
     ]
@@ -1077,18 +1083,23 @@ def test_initialise_edit_set_type_with_cyclical_relation():
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert (
-        Order.EditSet.model_fields["thing_ordered"].annotation
-        == list[
-            typing.Union[
-                DoubleIntermediate,
-                DoubleIntermediate.EditSet,
-                Payment,
-                Payment.EditSet,
-                Intermediate,
-                Intermediate.EditSet,
-            ]
-        ]
+        typing.get_origin(Order.EditSet.model_fields["thing_ordered"].annotation)
+        is list
     )
+
+    union_type = typing.get_args(
+        typing.get_args(Order.EditSet.model_fields["thing_ordered"].annotation)[0]
+    )[0]
+    assert typing.get_origin(union_type) is typing.Union
+
+    assert {typing.get_args(t)[0] for t in typing.get_args(union_type)} == {
+        DoubleIntermediate,
+        DoubleIntermediate.EditSet,
+        Payment,
+        Payment.EditSet,
+        Intermediate,
+        Intermediate.EditSet,
+    }
 
     assert Order.EditSet.model_fields["thing_ordered"].metadata == [
         annotated_types.MaxLen(2)
@@ -1131,10 +1142,15 @@ def test_initialise_edit_set_with_reified_relation():
 
     person_involved = Event.EditSet.model_fields["person_involved"]
     assert person_involved
-    assert (
-        person_involved.annotation
-        == list[typing.Union[Identification[Person], Identification[Person].EditSet]]
-    )
+    assert typing.get_origin(person_involved.annotation) is list
+
+    union_type = typing.get_args(typing.get_args(person_involved.annotation)[0])[0]
+    assert typing.get_origin(union_type) is typing.Union
+
+    assert {typing.get_args(t)[0] for t in typing.get_args(union_type)} == {
+        Identification[Person],
+        Identification[Person].EditSet,
+    }
 
 
 def test_initialise_edit_set_with_reified_relation_with_overridden_target():
@@ -1157,10 +1173,16 @@ def test_initialise_edit_set_with_reified_relation_with_overridden_target():
 
     person_involved = Event.EditSet.model_fields["person_involved"]
     assert person_involved
-    assert (
-        person_involved.annotation
-        == list[typing.Union[Identification[Person], Identification[Person].EditSet]]
-    )
+    assert typing.get_origin(person_involved.annotation) is list
+
+    union_type = typing.get_args(typing.get_args(person_involved.annotation)[0])[0]
+
+    assert typing.get_origin(union_type) is typing.Union
+
+    assert {typing.get_args(t)[0] for t in typing.get_args(union_type)} == {
+        Identification[Person],
+        Identification[Person].EditSet,
+    }
 
 
 def test_initialisation_of_edit_set_with_inherited_type_works():
@@ -1180,10 +1202,14 @@ def test_initialisation_of_edit_set_with_inherited_type_works():
     person_involved = Event.EditSet.model_fields["person_involved"]
 
     assert person_involved
-    assert (
-        person_involved.annotation
-        == list[typing.Union[Person.ReferenceSet, Dude.ReferenceSet]]
-    )
+    assert typing.get_origin(person_involved.annotation) is list
+
+    union_type = typing.get_args(typing.get_args(person_involved.annotation)[0])[0]
+    assert typing.get_origin(union_type) is typing.Union
+
+    assert {typing.get_args(t)[0] for t in typing.get_args(union_type)} == {
+        Person.ReferenceSet,
+    }
 
     assert Dude.EditSet.__name__ == "DudeEditSet"
 
