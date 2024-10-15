@@ -148,7 +148,7 @@ def test_initialise_reference_view_on_models_function():
 
     assert Thing.ReferenceView
     assert set(Thing.ReferenceView.model_fields.keys()) == set(
-        ["type", "uuid", "label"]
+        ["type", "uuid", "label", "head_type", "head_uuid"]
     )
     assert (
         Thing.ReferenceView.model_fields["type"].annotation == typing.Literal["Thing"]
@@ -159,7 +159,7 @@ def test_initialise_reference_view_on_models_function():
 
     assert OtherThing.ReferenceView
     assert set(OtherThing.ReferenceView.model_fields.keys()) == set(
-        ["type", "uuid", "label", "name"]
+        ["type", "uuid", "label", "name", "head_type", "head_uuid"]
     )
     assert (
         OtherThing.ReferenceView.model_fields["type"].annotation
@@ -179,7 +179,7 @@ def test_initialise_reference_view_on_models_during_model_setup():
 
     assert NewThing.ReferenceView
     assert set(NewThing.ReferenceView.model_fields.keys()) == set(
-        ["type", "uuid", "label"]
+        ["type", "uuid", "label", "head_type", "head_uuid"]
     )
     assert (
         NewThing.ReferenceView.model_fields["type"].annotation
@@ -240,7 +240,7 @@ def test_construct_specialised_reference_set_model_with_edge_properties():
 
     related_to_annotation = Thing.model_fields["related_to"].annotation
     assert related_to_annotation
-    assert typing.get_origin(related_to_annotation) == list
+    assert typing.get_origin(related_to_annotation) is list
     assert (
         typing.get_args(related_to_annotation)[0].__name__
         == "Thing__related_to__RelatedThing__ReferenceSet"
@@ -419,7 +419,7 @@ def test_initialise_reified_edge_model_with_double_reified():
         typing.get_origin(
             ForwardedIdentification[IdentifiedThing].model_fields["target"].annotation
         )
-        == list
+        is list
     )
     assert (
         typing.get_args(
@@ -487,7 +487,7 @@ def test_initialise_reified_relation_with_reified_node():
 
     event_carried_out_by = Event.model_fields["carried_out_by"]
     assert event_carried_out_by
-    assert typing.get_origin(event_carried_out_by.annotation) == list
+    assert typing.get_origin(event_carried_out_by.annotation) is list
     assert typing.get_args(event_carried_out_by.annotation)[0]
 
     assert issubclass(
@@ -517,7 +517,7 @@ def test_initialise_reified_relation_with_relation_property_model():
     ModelManager.initialise_models(_defined_in_test=True)
 
     related_to_annotation = Thing.model_fields["related_to"].annotation
-    assert typing.get_origin(related_to_annotation) == list
+    assert typing.get_origin(related_to_annotation) is list
     assert (
         typing.get_args(related_to_annotation)[0].__name__
         == "Thing__related_to__Identification[test_initialise_reified_relation_with_relation_property_model.<locals>.RelatedThing]"
@@ -550,8 +550,8 @@ def test_create_embedded_set_node_type():
     with pytest.raises(KeyError):
         embedded_set_model.model_fields["label"]
 
-    assert embedded_set_model.model_fields["name"].annotation == str
-    assert embedded_set_model.model_fields["age"].annotation == int
+    assert embedded_set_model.model_fields["name"].annotation is str
+    assert embedded_set_model.model_fields["age"].annotation is int
     assert (
         embedded_set_model.model_fields["related_to"].annotation
         == list[RelatedThing.ReferenceSet]
@@ -576,8 +576,8 @@ def test_create_embedded_view_model():
     with pytest.raises(KeyError):
         embedded_view_model.model_fields["label"]
 
-    assert embedded_view_model.model_fields["name"].annotation == str
-    assert embedded_view_model.model_fields["age"].annotation == int
+    assert embedded_view_model.model_fields["name"].annotation is str
+    assert embedded_view_model.model_fields["age"].annotation is int
     assert (
         embedded_view_model.model_fields["related_to"].annotation
         == list[RelatedThing.ReferenceView]
@@ -623,7 +623,7 @@ def test_initialise_view_type_for_base_with_reified_relation_is_all_view_types()
     origin_type = typing.get_origin(
         Event.View.model_fields["person_involved"].annotation
     )
-    assert origin_type == list
+    assert origin_type is list
 
     arg_type = typing.get_args(Event.View.model_fields["person_involved"].annotation)[0]
     assert issubclass(arg_type, pydantic.BaseModel)
@@ -636,13 +636,13 @@ def test_initialise_view_type_for_base_with_reified_relation_is_all_view_types()
     assert arg_type.model_fields["target"].annotation
 
     target_origin_type = typing.get_origin(arg_type.model_fields["target"].annotation)
-    assert target_origin_type == list
+    assert target_origin_type is list
 
     target_arg_type = typing.get_args(arg_type.model_fields["target"].annotation)[0]
 
     assert issubclass(target_arg_type, ReferenceViewBase)
 
-    assert target_arg_type == Person.ReferenceView
+    assert target_arg_type is Person.ReferenceView
 
 
 def test_initialise_view_type_for_base():
@@ -675,9 +675,9 @@ def test_initialise_view_type_for_base():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    assert Thing.View.model_fields["name"].annotation == str
+    assert Thing.View.model_fields["name"].annotation is str
     assert Thing.View.model_fields["name"].metadata == [annotated_types.MaxLen(10)]
-    assert Thing.View.model_fields["age"].annotation == int
+    assert Thing.View.model_fields["age"].annotation is int
     assert (
         Thing.View.model_fields["related_to"].annotation
         == list[RelatedThing.ReferenceView | Identification[RelatedThing].View]
@@ -772,7 +772,7 @@ def test_view_initialisation_with_reverse_relation_with_reified_relation_simple(
 
     is_involved_in = Person.View.model_fields["is_involved_in"]
 
-    assert typing.get_origin(is_involved_in.annotation) == list
+    assert typing.get_origin(is_involved_in.annotation) is list
 
     assert (
         typing.get_args(is_involved_in.annotation)[0].__name__
@@ -790,7 +790,7 @@ def test_view_initialisation_with_reverse_relation_with_reified_relation_simple(
     event_person_involved = source_class.model_fields["person_involved"]
     # TODO: verify properly here...
 
-    assert typing.get_origin(event_person_involved.annotation) == list
+    assert typing.get_origin(event_person_involved.annotation) is list
 
     assert typing.get_args(event_person_involved.annotation)[0]
 
@@ -828,7 +828,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
     is_carried_out_by = Person.View.model_fields["is_carried_out_by"].annotation
 
     # Check type is wrapped in a list
-    assert typing.get_origin(is_carried_out_by) == list
+    assert typing.get_origin(is_carried_out_by) is list
 
     # Get inner type and check it has correct name
     is_carried_out_by_type = typing.get_args(is_carried_out_by)[0]
@@ -848,7 +848,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
         "carried_out_by"
     ].annotation
 
-    assert typing.get_origin(event_carried_out_by) == list
+    assert typing.get_origin(event_carried_out_by) is list
 
     event_carried_out_by_type = typing.get_args(event_carried_out_by)[0]
 
@@ -867,7 +867,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
 
-    assert typing.get_origin(with_proxy_actor_target) == list
+    assert typing.get_origin(with_proxy_actor_target) is list
 
     with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
 
@@ -877,7 +877,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     identification = with_proxy_actor_target_type.model_fields["target"].annotation
 
-    assert typing.get_origin(identification) == list
+    assert typing.get_origin(identification) is list
 
     person_type = typing.get_args(identification)[0]
 
@@ -890,7 +890,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     assert (
         typing.get_origin(Person.View.model_fields["acts_as_proxy_in"].annotation)
-        == list
+        is list
     )
 
     acts_as_proxy_in_type = typing.get_args(
@@ -907,7 +907,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
         "carried_out_by"
     ].annotation
 
-    assert typing.get_origin(event_carried_out_by) == list
+    assert typing.get_origin(event_carried_out_by) is list
 
     event_carried_out_by_type = typing.get_args(event_carried_out_by)[0]
 
@@ -926,7 +926,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     with_proxy_actor_target = with_proxy_actor.model_fields["target"].annotation
 
-    assert typing.get_origin(with_proxy_actor_target) == list
+    assert typing.get_origin(with_proxy_actor_target) is list
 
     with_proxy_actor_target_type = typing.get_args(with_proxy_actor_target)[0]
 
@@ -936,7 +936,7 @@ def test_view_initialisation_of_reverse_relation_with_reified_relation_complex()
 
     identification = with_proxy_actor_target_type.model_fields["target"].annotation
 
-    assert typing.get_origin(identification) == list
+    assert typing.get_origin(identification) is list
 
     person_type = typing.get_args(identification)[0]
 

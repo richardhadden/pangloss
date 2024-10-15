@@ -118,7 +118,7 @@ async def build_update_relation_query(
 
     query.call_query_strings.append(
         f"""CALL ({source_node_identifier}) {{
-            MATCH ({source_node_identifier})-[existing_rel:{relation_definition.field_name.upper()}]->(related_item:DetachDelete)
+            OPTIONAL MATCH ({source_node_identifier})-[existing_rel:{relation_definition.field_name.upper()}]->(related_item:DetachDelete)
             WHERE NOT related_item.uuid IN ${extant_related_node_uuid_list_identifier}
             OPTIONAL MATCH delete_path = (related_item)((:DetachDelete)-->(:DetachDelete)){{0,}}(:DetachDelete)
             DETACH DELETE related_item
@@ -146,21 +146,29 @@ async def build_update_node_query_object(
     node_data_identifier = Identifier()
 
     if head_node:
+        query.uuid = instance.uuid
+        query.head_type = instance.type
+
+    if head_node:
         query.return_identifier = node_identifier
         should_update = await create_modification_node_or_no_update(instance, query)
         if not should_update:
-            print("should not update")
             return query, node_identifier, should_update
-        print("Should update", should_update)
-    extra_data = {"uuid": instance.uuid}
+
+    extra_data = {"uuid": instance.uuid, "head_type": None}
+
     if label := getattr(instance, "label", None):
-        extra_data[label] = label
+        extra_data["label"] = label
+
+    if not head_node:
+        extra_data["head_uuid"] = query.uuid
+        extra_data["head_type"] = query.head_type
 
     uuid_identifier = Identifier()
     query.query_params[uuid_identifier] = str(instance.uuid)
-    query.query_params[node_data_identifier] = query.query_params[
-        node_data_identifier
-    ] = get_properties_as_writeable_dict(instance, extras=extra_data)
+    query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
+        instance, extras=extra_data
+    )
 
     if head_node:
         query.match_query_strings.append(

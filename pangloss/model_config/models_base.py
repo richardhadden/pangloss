@@ -159,6 +159,8 @@ class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
 
     type: str
     uuid: uuid.UUID
+    head_uuid: typing.Optional[uuid.UUID] = None
+    head_type: typing.Optional[str] = None
     generated: typing.ClassVar[bool] = True
     model_config = STANDARD_MODEL_CONFIG
 
@@ -183,6 +185,9 @@ class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
         kwargs = collect_multi_key_field_to_dict(kwargs)
         super().__init__(*args, **kwargs)
 
+    async def update(self) -> bool:
+        return await typing.cast(type["BaseNode"], self.base_class)._update_method(self)
+
 
 class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for inputting edited model"""
@@ -197,6 +202,8 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     label: str
     # _head_uuid: uuid.UUID
     generated: typing.ClassVar[bool] = True
+    head_uuid: typing.Optional[uuid.UUID] = None
+    head_type: typing.Optional[str] = None
 
     def __init__(self, *args, **kwargs):
         kwargs = collect_multi_key_field_to_dict(kwargs)
@@ -225,6 +232,8 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
     uuid: uuid.UUID
     label: str
     model_config = STANDARD_MODEL_CONFIG
+    head_uuid: typing.Optional[uuid.UUID] = None
+    head_type: typing.Optional[str] = None
 
 
 class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):

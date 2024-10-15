@@ -187,7 +187,7 @@ async def test_create_with_relation_edge_model(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_create_with_create_inline(clear_database):
+async def test_create_with_create_inline():
     class Person(BaseNode):
         pass
 

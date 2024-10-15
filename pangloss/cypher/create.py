@@ -128,12 +128,12 @@ def build_create_node_query_object(
 
     if head_node:
         query.uuid = instance_uuid
+        query.head_type = instance.type
 
-    extra_node_data = {
-        "uuid": instance_uuid,
-    }
+    extra_node_data = {"uuid": instance_uuid, "is_deleted": False}
     if not head_node:
-        extra_node_data["_head_uuid"] = query.uuid
+        extra_node_data["head_uuid"] = query.uuid
+        extra_node_data["head_type"] = query.head_type
 
     query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
         instance, extras=extra_node_data

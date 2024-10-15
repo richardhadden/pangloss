@@ -8,11 +8,14 @@ if typing.TYPE_CHECKING:
 def build_view_read_query(
     model: type["BaseNode"], uuid: uuid.UUID | str
 ) -> tuple[typing.LiteralString, dict[str, str]]:
+    has_relation_fields = bool(model.field_definitions.relation_fields)
+    has_embedded_fields = bool(model.field_definitions.embedded_fields)
+
     query = f"""
         MATCH path_to_node = (node:BaseNode {{uuid: $uuid}})
         
         MATCH (headnode:HeadNode)
-        WHERE node = headnode OR headnode.uuid = node._head_uuid
+        WHERE node = headnode OR headnode.uuid = node.head_uuid
         MATCH (headnode)-[:PG_CREATED_IN]->(creation:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
         
         CALL (headnode) {{
@@ -24,15 +27,16 @@ def build_view_read_query(
      
         // Collect outgoing node patterns
         CALL (node) {{
-            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
-            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if model.field_definitions.embedded_fields else ""}
-            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if model.field_definitions.relation_fields else ""}
-            OPTIONAL MATCH path_to_reified = (node)-[]->(:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
+            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if has_relation_fields else ""}
+            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if has_embedded_fields else ""}
+            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if has_relation_fields else ""}
+            {"""OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){0,}(base_node:BaseNode)
+            ORDER BY first_reified.uuid, base_node.uuid""" if has_relation_fields else ""}
             WITH apoc.coll.flatten([
-                collect(path_to_reified),
-                {"collect(path_through_read_nodes)," if model.field_definitions.relation_fields else ""}
-                {"collect(path_to_related_through_embedded)," if model.field_definitions.embedded_fields else ""}
-                {"collect(path_to_direct_nodes)," if model.field_definitions.relation_fields else ""}
+                {"collect(path_to_reified)," if has_relation_fields else ""}
+                {"collect(path_through_read_nodes)," if has_relation_fields else ""}
+                {"collect(path_to_related_through_embedded)," if has_embedded_fields else ""}
+                {"collect(path_to_direct_nodes)," if has_relation_fields else ""}
                 []
             ]) AS paths, node
             CALL apoc.paths.toJsonTree(paths)
@@ -97,7 +101,7 @@ def build_edit_view_query(
             {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
             {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if model.field_definitions.embedded_fields else ""}
             {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if model.field_definitions.relation_fields else ""}
-            OPTIONAL MATCH path_to_reified = (node)-[]->(:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
+            OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
             WITH apoc.coll.flatten([
                 collect(path_to_reified),
                 {"collect(path_through_read_nodes)," if model.field_definitions.relation_fields else ""}

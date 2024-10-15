@@ -169,7 +169,7 @@ async def test_update_with_simple_relation(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_update_reified():
+async def test_update_reified(clear_database):
     class Person(BaseNode):
         pass
 
@@ -245,18 +245,75 @@ async def test_update_reified():
             }
         ],
     )
-    import time
 
-    start = time.perf_counter()
     success = await event_to_update.update()
-    print(time.perf_counter() - start)
+    assert success
 
-    assert 2 == 1
     event_view2 = await Event.get_view(uuid=event_created.uuid)
     assert event_view2.modified_by == "DefaultUser"
     assert len(event_view2.person_involved) == 1
     assert event_view2.person_involved[0].intermediate_value == "somevalue3"
     assert event_view2.person_involved[0].target[0].uuid == person2_created.uuid
+
+    person3 = Person(type="Person", label="Person3")
+    person3_created = await person3.create()
+
+    event_to_update = Event.EditSet(
+        uuid=event_created.uuid,
+        type="Event",
+        label="An Event",
+        person_involved=[
+            {
+                "uuid": event_view2.person_involved[0].uuid,
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue3",
+                "target": [{"type": "Person", "uuid": person2_created.uuid}],
+            },
+            {
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue4",
+                "target": [{"type": "Person", "uuid": person3_created.uuid}],
+            },
+        ],
+    )
+    success = await event_to_update.update()
+
+    event_view3 = await Event.get_view(uuid=event_created.uuid)
+    assert len(event_view3.person_involved) == 2
+
+    assert event_view3.person_involved[0].intermediate_value == "somevalue3"
+    assert event_view3.person_involved[0].target[0].uuid == person2_created.uuid
+    assert event_view3.person_involved[1].intermediate_value == "somevalue4"
+    assert event_view3.person_involved[1].target[0].uuid == person3_created.uuid
+
+    event_to_update = Event.EditSet(
+        uuid=event_created.uuid,
+        type="Event",
+        label="An Event",
+        person_involved=[
+            {
+                "uuid": event_view2.person_involved[0].uuid,
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue3",
+                "target": [
+                    {"type": "Person", "uuid": person2_created.uuid},
+                    {"type": "Person", "uuid": person3_created.uuid},
+                ],
+            },
+            {
+                "type": "Intermediate[test_update_reified.<locals>.Person]",
+                "intermediate_value": "somevalue4",
+                "target": [{"type": "Person", "uuid": person3_created.uuid}],
+            },
+        ],
+    )
+
+    success = await event_to_update.update()
+
+    event_view4 = await Event.get_view(uuid=event_created.uuid)
+    assert event_view4.person_involved[0].intermediate_value == "somevalue3"
+    assert event_view4.person_involved[0].target[0].uuid == person2_created.uuid
+    assert event_view4.person_involved[0].target[1].uuid == person3_created.uuid
 
 
 @typing.no_type_check
@@ -345,12 +402,61 @@ async def test_update_with_reified_chain():
 
     # Now, let's update a basic property
 
-    edit_event_from_db.label = "An Event Updated"
-    await edit_event_from_db.update()
-
     # Re-get the data from the DB
     event_from_db = await Event.get_view(uuid=event_in_db.uuid)
-    assert event_from_db.uuid == event_in_db.uuid
-    assert event_from_db.modified_by == "DefaultUser"
 
-    assert event_from_db.label == "An Event Updated"
+    # Create a new WithProxyActor, swapping round Smith and Jones
+    event_edit_set1 = Event.EditSet(
+        uuid=event_from_db.uuid,
+        type="Event",
+        label="An Event Updated",
+        carried_out_by=[
+            {
+                "label": "Smith acts as proxy for Jones",
+                "type": "WithProxyActor[Identification[test_update_with_reified_chain.<locals>.Person]]",
+                "target": [
+                    {
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    success = await event_edit_set1.update()
+    assert success
+
+    event_from_db2 = await Event.get_view(uuid=event_in_db.uuid)
+    assert event_from_db2.label == "An Event Updated"
+
+    assert event_from_db2.carried_out_by[0].head_type == "Event"
+
+    assert event_from_db2.carried_out_by[0].label == "Smith acts as proxy for Jones"
+
+    assert (
+        event_from_db2.carried_out_by[0].target[0].target[0].uuid == person2_in_db.uuid
+    )
+    assert event_from_db2.carried_out_by[0].target[0].target[0].label == "TobyJones"
+    assert (
+        event_from_db2.carried_out_by[0].target[0].target[0].edge_properties.certainty
+        == 1
+    )

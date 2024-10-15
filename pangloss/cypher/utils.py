@@ -27,6 +27,7 @@ class CreateQuery:
     query_params: dict[str, typing.Any]
     return_identifier: str
     return_uuid: uuid.UUID
+    head_type: str | None
 
     def __init__(self):
         self.match_query_strings = []
@@ -34,6 +35,7 @@ class CreateQuery:
         self.set_query_strings = []
         self.query_params = {}
         self.uuid = uuid.uuid4()
+        self.head_type = None
 
     def to_query_string(self):
         if not self.return_identifier:
@@ -55,6 +57,7 @@ class UpdateQuery:
     query_params: dict[str, typing.Any]
     return_identifier: str
     return_uuid: uuid.UUID
+    head_type: str | None
 
     def __init__(self):
         self.match_query_strings = []
@@ -65,6 +68,7 @@ class UpdateQuery:
         self.delete_query_strings = []
         self.query_params = {}
         self.uuid = uuid.uuid4()
+        self.head_type = None
 
     def to_query_string(self):
         if not self.return_identifier:
