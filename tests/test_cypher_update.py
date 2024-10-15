@@ -517,3 +517,28 @@ async def test_update_with_reified_chain():
         event_from_db3.carried_out_by[0].target[0].target[0].edge_properties.certainty
         == 2
     )
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_nested_edit_inline():
+    class Factoid(BaseNode):
+        statements: typing.Annotated[
+            Statement, RelationConfig(reverse_name="is_statement_in")
+        ]
+
+    class Statement(BaseNode):
+        pass
+
+    class Order(Statement):
+        thing_ordered: typing.Annotated[
+            Statement, RelationConfig(reverse_name="is_ordered_in")
+        ]
+
+    class Activity(Statement):
+        activity_type: str
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    # TODO: make an example of this and test
+    assert False
