@@ -443,9 +443,11 @@ async def test_update_with_reified_chain():
     )
 
     success = await event_edit_set1.update()
+
     assert success
 
     event_from_db2 = await Event.get_view(uuid=event_in_db.uuid)
+
     assert event_from_db2.label == "An Event Updated"
 
     assert event_from_db2.carried_out_by[0].head_type == "Event"
@@ -459,4 +461,59 @@ async def test_update_with_reified_chain():
     assert (
         event_from_db2.carried_out_by[0].target[0].target[0].edge_properties.certainty
         == 1
+    )
+
+    assert (
+        event_from_db2.carried_out_by[0].proxy[0].target[0].uuid == person1_in_db.uuid
+    )
+
+    event_edit_set2 = Event.EditSet(
+        uuid=event_from_db2.uuid,
+        type="Event",
+        label="An Event Updated",
+        carried_out_by=[
+            {
+                "uuid": event_from_db2.carried_out_by[0].uuid,
+                "label": "Smith acts as proxy for Jones",
+                "type": "WithProxyActor[Identification[test_update_with_reified_chain.<locals>.Person]]",
+                "target": [
+                    {
+                        "uuid": event_from_db2.carried_out_by[0].target[0].uuid,
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 2},
+                                "type": "Person",
+                                "uuid": person2_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+                "proxy": [
+                    {
+                        "uuid": event_from_db2.carried_out_by[0].proxy[0].uuid,
+                        "type": "Identification[test_update_with_reified_chain.<locals>.Person]",
+                        "target": [
+                            {
+                                "edge_properties": {"certainty": 1},
+                                "type": "Person",
+                                "uuid": person1_in_db.uuid,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )
+
+    success = await event_edit_set2.update()
+    assert success
+
+    event_from_db3 = await Event.get_view(uuid=event_in_db.uuid)
+
+    assert event_from_db3
+
+    assert (
+        event_from_db3.carried_out_by[0].target[0].target[0].edge_properties.certainty
+        == 2
     )

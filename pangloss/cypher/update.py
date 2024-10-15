@@ -6,6 +6,7 @@ from pangloss.cypher.create import build_create_node_query_object
 from pangloss.cypher.utils import (
     UpdateQuery,
     Identifier,
+    convert_dict_for_writing,
     get_properties_as_writeable_dict,
 )
 
@@ -75,7 +76,33 @@ async def build_update_relation_query(
         extant_related_node_uuids
     )
 
+    edge_properties = {}
+
     for related_node in related_nodes:
+        relation_identifier = Identifier()
+        if relation_definition.field_metatype == "Relation":
+            edge_properties.update(
+                {
+                    "reverse_name": relation_definition.reverse_name,
+                    "relation_labels": relation_definition.relation_labels,
+                    "reverse_relation_labels": relation_definition.reverse_relation_labels,
+                }
+            )
+
+        edge_properties = convert_dict_for_writing(edge_properties)
+
+        edge_properties_identifier = Identifier()
+
+        if hasattr(related_node, "edge_properties"):
+            edge_properties.update(related_node.edge_properties)  # type: ignore
+
+        query.query_params[edge_properties_identifier] = edge_properties
+
+        print(
+            related_node.__class__.__name__,
+            query.query_params[edge_properties_identifier],
+        )
+
         if isinstance(related_node, (RootNode, ReifiedRelation)):
             create_query, related_identifier, related_uuid = (
                 build_create_node_query_object(
@@ -91,7 +118,9 @@ async def build_update_relation_query(
 
             query.create_query_strings.append(
                 f"""
-                   CREATE ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({related_identifier})
+                   CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_identifier})
+                     SET {relation_identifier} = ${edge_properties_identifier}
+                
                 """
             )
 
@@ -99,8 +128,15 @@ async def build_update_relation_query(
             relation_definition.edit_inline
             or issubclass(related_node.base_class, ReifiedRelation)
         ):
-            query, node_identifier, _ = await build_update_node_query_object(
+            query, related_node_identifier, _ = await build_update_node_query_object(
                 related_node, query
+            )
+
+            query.match_query_strings.append(
+                f"""WITH *
+                    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
+                    SET {relation_identifier} = ${edge_properties_identifier}       
+                """
             )
 
         elif isinstance(related_node, ReferenceSetBase):
@@ -112,7 +148,14 @@ async def build_update_relation_query(
                 f"""CALL ({source_node_identifier}) {{
                     MATCH ({node_to_relate_identifier} {{uuid: ${related_node_uuid_identifier}}})
                     WHERE NOT ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-                    CREATE ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+                    CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+                    SET {relation_identifier} = ${edge_properties_identifier}
+                }}"""
+            )
+            query.call_query_strings.append(
+                f"""CALL ({source_node_identifier}) {{
+                    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+                    SET {relation_identifier} = ${edge_properties_identifier}
                 }}"""
             )
 

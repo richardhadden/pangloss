@@ -67,7 +67,7 @@ def build_create_relationship(
 
         query.create_query_strings.append(
             f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-            //SET {relation_identifier} = ${edge_properties_identifier}"""
+            SET {relation_identifier} = ${edge_properties_identifier}"""
         )
 
     elif relation_definition.create_inline:

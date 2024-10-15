@@ -237,6 +237,9 @@ class Event(BaseNode):
         RelationConfig(reverse_name="participant_in")]
 ```
 
+__Note__: _Generic_ reified relations cannot take a union type or a Trait type as the type argument.
+Use a union of generic reified relations if necessary.
+
 ### Viewing/Creating/Editing Inline
 
 _Pangloss_ moves away from the simple graph paradigm of nodes representing entities, connected by typed edges.

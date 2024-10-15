@@ -887,12 +887,28 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
                         ]
                     )
                 else:
-                    allowed_relation_types.append(
-                        typing.Annotated[
-                            concrete_type.ReferenceSet,
-                            pydantic.Tag("Reference_" + concrete_type.__name__),
-                        ]
-                    )
+                    if relation_definition.edge_model:
+                        reference_set_type = (
+                            create_reference_set_model_with_property_model(
+                                origin_model=cls,
+                                target_model=concrete_type,
+                                edge_model=relation_definition.edge_model,
+                                field_name=relation_definition.field_name,
+                            )
+                        )
+                        allowed_relation_types.append(
+                            typing.Annotated[
+                                reference_set_type,
+                                pydantic.Tag("Reference_" + concrete_type.__name__),
+                            ]
+                        )
+                    else:
+                        allowed_relation_types.append(
+                            typing.Annotated[
+                                concrete_type.ReferenceSet,
+                                pydantic.Tag("Reference_" + concrete_type.__name__),
+                            ]
+                        )
 
             if issubclass(concrete_type, ReifiedRelation):
                 if not concrete_type.__dict__.get("EditSet", None):

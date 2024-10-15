@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+import uuid
 
 from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
 from pangloss.model_config.model_manager import ModelManager
@@ -21,3 +22,15 @@ class Event(BaseNode):
 
 
 ModelManager.initialise_models()
+
+
+event = Event(
+    type="Event",
+    label="A Nice Event",
+    carried_out_by=[
+        {
+            "type": "Identification[Person]",
+            "target": [{"type": "Person", "uuid": uuid.uuid4()}],
+        }
+    ],
+)
