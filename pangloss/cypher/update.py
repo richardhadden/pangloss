@@ -96,7 +96,9 @@ async def build_update_relation_query(
         if hasattr(related_node, "edge_properties"):
             edge_properties.update(related_node.edge_properties)  # type: ignore
 
-        query.query_params[edge_properties_identifier] = edge_properties
+        query.query_params[edge_properties_identifier] = convert_dict_for_writing(
+            edge_properties
+        )
 
         print(
             related_node.__class__.__name__,
@@ -120,7 +122,7 @@ async def build_update_relation_query(
                 f"""
                    CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_identifier})
                      SET {relation_identifier} = ${edge_properties_identifier}
-                
+
                 """
             )
 
@@ -133,10 +135,13 @@ async def build_update_relation_query(
             )
 
             query.match_query_strings.append(
-                f"""WITH *
-                    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
-                    SET {relation_identifier} = ${edge_properties_identifier}       
+                f"""MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
+                       
+                    
                 """
+            )
+            query.set_query_strings.append(
+                f"SET {relation_identifier} = ${edge_properties_identifier}"
             )
 
         elif isinstance(related_node, ReferenceSetBase):

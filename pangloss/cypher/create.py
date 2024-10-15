@@ -100,7 +100,8 @@ def build_create_relationship(
             f"""MATCH ({matched_node_identifier} {{uuid: "{typing.cast("ReferenceSetBase", relation_to_target).uuid}"}})"""
         )
         query.create_query_strings.append(
-            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({matched_node_identifier})
+            f"""
+            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({matched_node_identifier})
             SET {relation_identifier} = ${edge_properties_identifier}"""
         )
 
@@ -143,7 +144,8 @@ def build_create_node_query_object(
 
     query.create_query_strings.append(
         QuerySubstring(
-            f"""CREATE ({node_identifier}:{node_labels_string})
+            f"""//this
+            CREATE ({node_identifier}:{node_labels_string})
             SET {node_identifier} += ${node_data_identifier}"""
         )
     )
