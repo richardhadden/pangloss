@@ -11,6 +11,7 @@ from pangloss.model_config.model_manager import ModelManager
 from pangloss.models import (
     BaseNode,
     EdgeModel,
+    Embedded,
     ReifiedRelation,
     RelationConfig,
     ReifiedRelationNode,
@@ -708,15 +709,13 @@ async def test_update_nested_edit_inline(clear_database):
     # from view returned below
     most_recent_modified_before = datetime.datetime.now(datetime.timezone.utc)
 
-    import time
-
-    start = time.perf_counter()
     success = await factoid_update2.update()
-    print(time.perf_counter() - start)
 
     factoid_from_db2 = await Factoid.get_view(uuid=factoid_from_db.uuid)
 
     assert factoid_from_db2.modified_when > most_recent_modified_before
+
+    assert len(factoid_from_db2.statements) == 1
 
     assert (
         factoid_from_db2.statements[0]
@@ -736,6 +735,16 @@ async def test_update_nested_edit_inline(clear_database):
         == person1_created.uuid
     )
 
+    assert (
+        len(
+            factoid_from_db2.statements[0]
+            .thing_ordered[0]
+            .thing_ordered[0]
+            .carried_out_by
+        )
+        == 2
+    )
+
     # Random thought to check whether UUID7 sortable
     assert person1_created.uuid < person2_created.uuid
 
@@ -743,4 +752,33 @@ async def test_update_nested_edit_inline(clear_database):
 @typing.no_type_check
 @pytest.mark.asyncio
 async def test_update_embedded():
-    pass
+    class Date(BaseNode):
+        precise_date: datetime.date
+
+    class Event(BaseNode):
+        when: Embedded[Date]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+    )
+
+    event_in_db = await event.create()
+    assert event_in_db
+
+    event_from_db = await Event.get_view(uuid=event_in_db.uuid)
+    assert event_from_db
+
+    assert event_from_db.when[0].precise_date == datetime.date.today()
+
+    event = Event.EditSet(
+        uuid=event_from_db.uuid,
+        type="Event",
+        label="An Event",
+        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+    )
+
+    # TODO: test event EditSet works properly, as it does not at the moment

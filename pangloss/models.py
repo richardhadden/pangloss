@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import time
 import typing
 import uuid
 
@@ -37,6 +39,13 @@ from pangloss.model_config.model_manager import ModelManager
 )  # type: ignore
 
 
+@contextmanager
+def time_query(label: str = "Query time"):
+    start_time = time.perf_counter()
+    yield
+    print(f"{label}:", time.perf_counter() - start_time)
+
+
 class BaseNode(RootNode):
     @classmethod
     def __pydantic_init_subclass__(cls) -> None:
@@ -58,8 +67,10 @@ class BaseNode(RootNode):
 
         with open("get_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(params)}")
-        result = await tx.run(query, params)
-        record = await result.value()
+
+        with time_query("Get View query time"):
+            result = await tx.run(query, params)
+            record = await result.value()
         # print(record)
         if len(record) == 0:
             raise PanglossNotFoundError(f'<{cls.__name__} uid="{str(uuid)}"> not found')
@@ -86,8 +97,10 @@ class BaseNode(RootNode):
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(query_object.query_params)}")
-        result = await tx.run(query, query_object.query_params)
-        record = await result.value()
+
+        with time_query("Create query time"):
+            result = await tx.run(query, query_object.query_params)
+            record = await result.value()
 
         return self.ReferenceView(**record[0])
 
@@ -102,8 +115,10 @@ class BaseNode(RootNode):
 
             with open("update_query_dump.cypher", "w") as f:
                 f.write(f"{query}\n\n//{str(query_object.query_params)}")
-            result = await tx.run(query, query_object.query_params)
-            value = await result.value()
+
+            with time_query("Update query time"):
+                result = await tx.run(query, query_object.query_params)
+                value = await result.value()
 
             if value:
                 return value[0]

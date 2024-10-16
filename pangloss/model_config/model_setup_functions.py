@@ -325,6 +325,7 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                         if issubclass(source_class, ReifiedRelation) and not issubclass(
                             source_class, ReifiedRelationNode
                         ):
+                            print(source_class)
                             source_concrete_class = pydantic.create_model(
                                 f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
                                 __base__=ReifiedRelationViewBase,

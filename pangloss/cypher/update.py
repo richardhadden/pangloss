@@ -119,9 +119,12 @@ async def build_update_relation_query(
             query.create_query_strings.append(
                 f"""
                    CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_identifier})
-                     SET {relation_identifier} = ${edge_properties_identifier}
+                     
 
                 """
+            )
+            query.set_query_strings.append(
+                f"SET {relation_identifier} = ${edge_properties_identifier}"
             )
 
         elif isinstance(related_node, EditSetBase) and (
@@ -133,9 +136,8 @@ async def build_update_relation_query(
             )
 
             query.match_query_strings.append(
-                f"""MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
-                       
-                    
+                f"""
+                MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
                 """
             )
             query.set_query_strings.append(
@@ -149,17 +151,18 @@ async def build_update_relation_query(
             # Match node where it is not attached with rel and attach it
             query.match_query_strings_top.append(
                 f"""
-                    MATCH ({node_to_relate_identifier} {{uuid: ${related_node_uuid_identifier}}})
+                MATCH ({node_to_relate_identifier} {{uuid: ${related_node_uuid_identifier}}})
                 """
             )
-            query.merge_query_strings.append(f"""    
-                    
-                    MERGE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-                    ON CREATE
-                    SET {relation_identifier} += ${edge_properties_identifier}
-                    ON MATCH 
-                    SET {relation_identifier} += ${edge_properties_identifier}
-                """)
+            query.merge_query_strings.append(
+                f"""    
+                MERGE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+                """
+            )
+
+            query.set_query_strings.append(
+                f"SET {relation_identifier} += ${edge_properties_identifier}"
+            )
 
     # From here, generate queries to clean up non-present relations
     to_delete_related_item_identifier = Identifier()
@@ -205,7 +208,9 @@ async def build_update_node_query_object(
 
     if head_node:
         query.return_identifier = node_identifier
+
         should_update = await create_modification_node_or_no_update(instance, query)
+
         if not should_update:
             return query, node_identifier, should_update
 
@@ -236,11 +241,12 @@ async def build_update_node_query_object(
     else:
         query.merge_query_strings.append(
             f"""MERGE ({node_identifier} {{uuid: ${uuid_identifier}}})
-            ON MATCH 
-                SET {node_identifier} += ${node_data_identifier}
-            ON CREATE
-                SET {node_identifier} += ${node_data_identifier}
+          
+                
             """
+        )
+        query.set_query_strings.append(
+            f"SET {node_identifier} += ${node_data_identifier}"
         )
 
     # Dispatch lists of objects for each relation field to the appropriate function

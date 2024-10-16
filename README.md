@@ -299,3 +299,4 @@ class Identification(ReifiedRelation[TIdentificationTarget]):
 
 ## Bugs:
 
+- Incoming relation does not allow subclasses
