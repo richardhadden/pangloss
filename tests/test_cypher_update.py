@@ -169,7 +169,7 @@ async def test_update_with_simple_relation(clear_database):
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_update_reified(clear_database):
+async def test_update_reified():
     class Person(BaseNode):
         pass
 

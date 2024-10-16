@@ -875,13 +875,13 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
                 if relation_definition.edit_inline:
                     if not concrete_type.__dict__.get("EditSet", None):
                         initialise_edit_set_type(concrete_type)
-                    allowed_relation_types.appendleft(
+                    allowed_relation_types.append(
                         typing.Annotated[
                             concrete_type.EditSet,
                             pydantic.Tag("Existing_" + concrete_type.__name__),
                         ]
                     )
-                    allowed_relation_types.appendleft(
+                    allowed_relation_types.append(
                         typing.Annotated[
                             concrete_type, pydantic.Tag("New_" + concrete_type.__name__)
                         ]

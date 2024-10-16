@@ -152,12 +152,21 @@ def build_create_node_query_object(
 
     if head_node:
         user_identifier = Identifier()
+        creation_node_identifier = Identifier()
+        creation_data_identifier = Identifier()
+
+        query.query_params[creation_data_identifier] = instance.model_dump_json(
+            round_trip=True
+        )
         query.match_query_strings.append(
             f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}})"""
         )
 
         query.create_query_strings.append(
-            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->(:PGInternal:PGCore:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
+            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->({creation_node_identifier}:PGInternal:PGCore:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
+        )
+        query.set_query_strings.append(
+            f"""SET {creation_node_identifier}.creation = ${creation_data_identifier}"""
         )
 
     if head_node:
