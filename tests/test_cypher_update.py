@@ -319,7 +319,7 @@ async def test_update_reified():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_update_with_reified_chain():
+async def test_update_with_reified_chain(clear_database):
     class Person(BaseNode):
         pass
 
@@ -522,7 +522,7 @@ async def test_update_with_reified_chain():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_update_nested_edit_inline():
+async def test_update_nested_edit_inline(clear_database):
     class Factoid(BaseNode):
         statements: typing.Annotated[
             Statement,
@@ -734,3 +734,9 @@ async def test_update_nested_edit_inline():
 
     # Random thought to check whether UUID7 sortable
     assert person1_created.uuid < person2_created.uuid
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_embedded():
+    pass

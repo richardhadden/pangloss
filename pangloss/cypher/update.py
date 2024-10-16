@@ -100,11 +100,6 @@ async def build_update_relation_query(
             edge_properties
         )
 
-        print(
-            related_node.__class__.__name__,
-            query.query_params[edge_properties_identifier],
-        )
-
         if isinstance(related_node, (RootNode, ReifiedRelation)):
             extra_labels = ["ReadInline", "CreateInline", "DetachDelete"]
             if relation_definition.edit_inline:

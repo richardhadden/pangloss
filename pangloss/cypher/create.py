@@ -59,7 +59,7 @@ def build_create_relationship(
     query.query_params[edge_properties_identifier] = edge_properties
 
     if relation_definition.field_metatype == "Embedded":
-        extra_labels = ["Embedded", "ReadInline"]
+        extra_labels = ["Embedded", "ReadInline", "DetachDelete"]
         create_node_query, new_node_identifier, _ = build_create_node_query_object(
             typing.cast("RootNode", relation_to_target),
             query=query,
