@@ -708,7 +708,11 @@ async def test_update_nested_edit_inline(clear_database):
     # from view returned below
     most_recent_modified_before = datetime.datetime.now(datetime.timezone.utc)
 
+    import time
+
+    start = time.perf_counter()
     success = await factoid_update2.update()
+    print(time.perf_counter() - start)
 
     factoid_from_db2 = await Factoid.get_view(uuid=factoid_from_db.uuid)
 

@@ -160,30 +160,30 @@ async def build_update_relation_query(
                     ON MATCH 
                     SET {relation_identifier} += ${edge_properties_identifier}
                 """)
-            # query.match_query_strings.append(
-            #    f"""
-            #        MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-            #
-            #   """
-            # )
-            # query.set_query_strings.append(
-            #    f"""SET {relation_identifier} = ${edge_properties_identifier}"""
-            # )
 
-    query.call_query_strings.append(
-        f"""CALL ({source_node_identifier}) {{
-            OPTIONAL MATCH ({source_node_identifier})-[existing_rel:{relation_definition.field_name.upper()}]->(related_item:DetachDelete)
-            WHERE NOT related_item.uuid IN ${extant_related_node_uuid_list_identifier}
-            OPTIONAL MATCH delete_path = (related_item)((:DetachDelete)-->(:DetachDelete)){{0,}}(:DetachDelete)
-            DETACH DELETE related_item
-            DETACH DELETE delete_path
-            
-            WITH {source_node_identifier}
-            MATCH ({source_node_identifier})-[existing_rel:{relation_definition.field_name.upper()}]->(related_item)
-            WHERE NOT related_item.uuid IN ${extant_related_node_uuid_list_identifier}
-            DELETE existing_rel
-        }}"""
+    # From here, generate queries to clean up non-present relations
+    to_delete_related_item_identifier = Identifier()
+    delete_path_identifier = Identifier()
+
+    existing_related_item_identifier = Identifier()
+    existing_relation_identifier = Identifier()
+
+    query.match_query_strings.append(
+        f"""
+            OPTIONAL MATCH ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({to_delete_related_item_identifier}:DetachDelete)
+            WHERE NOT {to_delete_related_item_identifier}.uuid IN ${extant_related_node_uuid_list_identifier}
+            OPTIONAL MATCH {delete_path_identifier} = ({to_delete_related_item_identifier})((:DetachDelete)-->(:DetachDelete)){{0,}}(:DetachDelete)
+        """
     )
+    query.delete_query_strings.append(f"""        
+            DETACH DELETE {to_delete_related_item_identifier}
+            DETACH DELETE {delete_path_identifier}""")
+    query.match_query_strings.append(f"""        
+            OPTIONAL MATCH ({source_node_identifier})-[{existing_relation_identifier}:{relation_definition.field_name.upper()}]->({existing_related_item_identifier})
+            WHERE NOT {existing_related_item_identifier}.uuid IN ${extant_related_node_uuid_list_identifier}
+            
+        """)
+    query.delete_query_strings.append(f"DELETE {existing_relation_identifier}")
 
 
 async def build_update_node_query_object(
