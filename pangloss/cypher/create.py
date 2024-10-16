@@ -1,6 +1,7 @@
 import typing
 import uuid
 
+import jsonpatch
 from uuid_extensions import uuid7
 
 
@@ -144,7 +145,7 @@ def build_create_node_query_object(
 
     query.create_query_strings.append(
         QuerySubstring(
-            f"""//this
+            f"""//this |>
             CREATE ({node_identifier}:{node_labels_string})
             SET {node_identifier} += ${node_data_identifier}"""
         )
@@ -155,9 +156,12 @@ def build_create_node_query_object(
         creation_node_identifier = Identifier()
         creation_data_identifier = Identifier()
 
-        query.query_params[creation_data_identifier] = instance.model_dump_json(
-            round_trip=True
-        )
+        diff_from_empty = jsonpatch.JsonPatch.from_diff(
+            {},
+            instance.model_dump(round_trip=True, mode="json", warnings=False),
+        ).to_string()
+
+        query.query_params[creation_data_identifier] = diff_from_empty
         query.match_query_strings.append(
             f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}})"""
         )

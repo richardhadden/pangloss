@@ -21,7 +21,7 @@ def build_view_read_query(
         CALL (headnode) {{
             OPTIONAL MATCH (headnode)-[:PG_MODIFIED_IN]->(modification:PGModification)-[:PG_MODIFIED_BY]->(user:PGUser)
             RETURN {{modified_by: user.username, modified_when: modification.modified_when}} as modification
-            ORDER BY modification.modified_when 
+            ORDER BY modification.modified_when DESC
             LIMIT 1
         }}
      

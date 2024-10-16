@@ -26,14 +26,14 @@ async def create_modification_node_or_no_update(
     )
 
     # Diff the JSON dumps of values
-    reverse_operation = jsonpatch.JsonPatch.from_diff(
-        instance.model_dump(round_trip=True, mode="json"),
+    forward_operation = jsonpatch.JsonPatch.from_diff(
         edit_view.model_dump(round_trip=True, mode="json"),
+        instance.model_dump(round_trip=True, mode="json"),
     )
 
-    if reverse_operation:
+    if forward_operation:
         reverse_operation_identifier = Identifier()
-        reverse_operation_serialized = str(reverse_operation)
+        reverse_operation_serialized = forward_operation.to_string()
 
         user_identifier = Identifier()
         modification_uuid_identifier = Identifier()
@@ -106,11 +106,14 @@ async def build_update_relation_query(
         )
 
         if isinstance(related_node, (RootNode, ReifiedRelation)):
+            extra_labels = ["ReadInline", "CreateInline", "DetachDelete"]
+            if relation_definition.edit_inline:
+                extra_labels.append("EditInline")
             create_query, related_identifier, related_uuid = (
                 build_create_node_query_object(
                     related_node,
                     query,
-                    extra_labels=["DetachDelete"],
+                    extra_labels=extra_labels,
                 )
             )
 

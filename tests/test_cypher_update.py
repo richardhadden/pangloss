@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import typing
 
 import pytest
@@ -524,7 +525,10 @@ async def test_update_with_reified_chain():
 async def test_update_nested_edit_inline():
     class Factoid(BaseNode):
         statements: typing.Annotated[
-            Statement, RelationConfig(reverse_name="is_statement_in")
+            Statement,
+            RelationConfig(
+                reverse_name="is_statement_in", create_inline=True, edit_inline=True
+            ),
         ]
 
     class Statement(BaseNode):
@@ -532,13 +536,201 @@ async def test_update_nested_edit_inline():
 
     class Order(Statement):
         thing_ordered: typing.Annotated[
-            Statement, RelationConfig(reverse_name="is_ordered_in")
+            Statement,
+            RelationConfig(
+                reverse_name="is_ordered_in", create_inline=True, edit_inline=True
+            ),
         ]
 
     class Activity(Statement):
-        activity_type: str
+        carried_out_by: typing.Annotated[
+            Person, RelationConfig(reverse_name="carried_out")
+        ]
+
+    class Person(BaseNode):
+        pass
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    # TODO: make an example of this and test
-    assert False
+    person1 = Person(type="Person", label="Person1")
+    person1_created = await person1.create()
+
+    factoid = Factoid(
+        type="Factoid",
+        label="A Factoid",
+        statements=[
+            {
+                "type": "Order",
+                "label": "An Activity Gets Ordered",
+                "thing_ordered": [
+                    {
+                        "type": "Activity",
+                        "label": "Person1 does a thing",
+                        "carried_out_by": [
+                            {
+                                "type": "Person",
+                                "uuid": person1_created.uuid,
+                            }
+                        ],
+                    },
+                ],
+            }
+        ],
+    )
+
+    factoid_created = await factoid.create()
+
+    factoid_from_db = await Factoid.get_view(uuid=factoid_created.uuid)
+
+    factoid_update1 = Factoid.EditSet(
+        uuid=factoid_from_db.uuid,
+        type="Factoid",
+        label="A Factoid",
+        statements=[
+            {
+                "uuid": factoid_from_db.statements[0].uuid,
+                "type": "Order",
+                "label": "An Order Gets Ordered",
+                "thing_ordered": [
+                    {
+                        "type": "Order",
+                        "label": "An activity gets ordered updated",
+                        "thing_ordered": [
+                            {
+                                "type": "Activity",
+                                "label": "Person1 does a thing updated",
+                                "carried_out_by": [
+                                    {
+                                        "type": "Person",
+                                        "uuid": person1_created.uuid,
+                                    }
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    )
+
+    success = await factoid_update1.update()
+    assert success
+
+    factoid_from_db1 = await Factoid.get_view(uuid=factoid_from_db.uuid)
+
+    assert factoid_from_db1.modified_by == "DefaultUser"
+
+    # Check top statement is still same statement
+    assert factoid_from_db1.statements[0].uuid == factoid_from_db.statements[0].uuid
+
+    assert factoid_from_db1.statements[0].label == "An Order Gets Ordered"
+
+    assert factoid_from_db1.statements[0].thing_ordered[0].type == "Order"
+    assert (
+        factoid_from_db1.statements[0].thing_ordered[0].label
+        == "An activity gets ordered updated"
+    )
+
+    assert (
+        factoid_from_db1.statements[0].thing_ordered[0].thing_ordered[0].type
+        == "Activity"
+    )
+
+    assert (
+        factoid_from_db1.statements[0].thing_ordered[0].thing_ordered[0].label
+        == "Person1 does a thing updated"
+    )
+
+    assert (
+        factoid_from_db1.statements[0]
+        .thing_ordered[0]
+        .thing_ordered[0]
+        .carried_out_by[0]
+        .label
+        == "Person1"
+    )
+
+    assert (
+        factoid_from_db1.statements[0]
+        .thing_ordered[0]
+        .thing_ordered[0]
+        .carried_out_by[0]
+        .uuid
+        == person1_created.uuid
+    )
+
+    # Create a new person
+    person2 = Person(type="Person", label="Person2")
+    person2_created = await person2.create()
+
+    # Modify nothing but carried_out_by
+    factoid_update2 = Factoid.EditSet(
+        uuid=factoid_from_db.uuid,
+        type="Factoid",
+        label="A Factoid",
+        statements=[
+            {
+                "uuid": factoid_from_db.statements[0].uuid,
+                "type": "Order",
+                "label": "An Order Gets Ordered",
+                "thing_ordered": [
+                    {
+                        "uuid": factoid_from_db1.statements[0].thing_ordered[0].uuid,
+                        "type": "Order",
+                        "label": "An activity gets ordered updated",
+                        "thing_ordered": [
+                            {
+                                "uuid": factoid_from_db1.statements[0]
+                                .thing_ordered[0]
+                                .thing_ordered[0]
+                                .uuid,
+                                "type": "Activity",
+                                "label": "Person1 and Person2 do a thing updated",
+                                "carried_out_by": [
+                                    {
+                                        "type": "Person",
+                                        "uuid": person1_created.uuid,
+                                    },
+                                    {
+                                        "type": "Person",
+                                        "uuid": person2_created.uuid,
+                                    },
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    )
+
+    # Check we get back a modified_when after this datetime
+    # from view returned below
+    most_recent_modified_before = datetime.datetime.now(datetime.timezone.utc)
+
+    success = await factoid_update2.update()
+
+    factoid_from_db2 = await Factoid.get_view(uuid=factoid_from_db.uuid)
+
+    assert factoid_from_db2.modified_when > most_recent_modified_before
+
+    assert (
+        factoid_from_db2.statements[0]
+        .thing_ordered[0]
+        .thing_ordered[0]
+        .carried_out_by[0]
+        .uuid
+        == person2_created.uuid
+    )
+
+    assert (
+        factoid_from_db2.statements[0]
+        .thing_ordered[0]
+        .thing_ordered[0]
+        .carried_out_by[1]
+        .uuid
+        == person1_created.uuid
+    )
+
+    # Random thought to check whether UUID7 sortable
+    assert person1_created.uuid < person2_created.uuid
