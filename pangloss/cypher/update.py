@@ -37,7 +37,7 @@ async def create_modification_node_or_no_update(
 
         user_identifier = Identifier()
         modification_uuid_identifier = Identifier()
-        query.match_query_strings.append(
+        query.match_query_strings_top.append(
             f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}}) // Find user"""
         )
 
@@ -147,20 +147,28 @@ async def build_update_relation_query(
             node_to_relate_identifier = Identifier()
             query.query_params[related_node_uuid_identifier] = str(related_node.uuid)
             # Match node where it is not attached with rel and attach it
-            query.call_query_strings.append(
-                f"""CALL ({source_node_identifier}) {{
+            query.match_query_strings_top.append(
+                f"""
                     MATCH ({node_to_relate_identifier} {{uuid: ${related_node_uuid_identifier}}})
-                    WHERE NOT ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-                    CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-                    SET {relation_identifier} = ${edge_properties_identifier}
-                }}"""
+                """
             )
-            query.call_query_strings.append(
-                f"""CALL ({source_node_identifier}) {{
-                    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
-                    SET {relation_identifier} = ${edge_properties_identifier}
-                }}"""
-            )
+            query.merge_query_strings.append(f"""    
+                    
+                    MERGE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+                    ON CREATE
+                    SET {relation_identifier} += ${edge_properties_identifier}
+                    ON MATCH 
+                    SET {relation_identifier} += ${edge_properties_identifier}
+                """)
+            # query.match_query_strings.append(
+            #    f"""
+            #        MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({node_to_relate_identifier})
+            #
+            #   """
+            # )
+            # query.set_query_strings.append(
+            #    f"""SET {relation_identifier} = ${edge_properties_identifier}"""
+            # )
 
     query.call_query_strings.append(
         f"""CALL ({source_node_identifier}) {{
@@ -217,9 +225,12 @@ async def build_update_node_query_object(
     )
 
     if head_node:
-        query.match_query_strings.append(
+        query.match_query_strings_top.append(
             f"""MATCH ({node_identifier}:BaseNode {{uuid: ${uuid_identifier}}})
-            SET {node_identifier} += ${node_data_identifier}"""
+            """
+        )
+        query.set_query_strings.append(
+            f"SET {node_identifier} += ${node_data_identifier}"
         )
 
     else:

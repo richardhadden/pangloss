@@ -1,3 +1,4 @@
+import collections
 import typing
 import uuid
 
@@ -47,11 +48,12 @@ class CreateQuery:
 
 
 class UpdateQuery:
-    match_query_strings: list[str]
+    match_query_string_top: collections.deque[str]
+    match_query_strings: collections.deque[str]
     create_query_strings: list[str]
     merge_query_strings: list[str]
     set_query_strings: list[str]
-    call_query_strings: list[str]
+    call_query_strings: collections.deque[str]
     delete_query_strings: list[str]
 
     query_params: dict[str, typing.Any]
@@ -60,11 +62,12 @@ class UpdateQuery:
     head_type: str | None
 
     def __init__(self):
-        self.match_query_strings = []
+        self.match_query_strings_top = collections.deque()
+        self.match_query_strings = collections.deque()
         self.create_query_strings = []
         self.set_query_strings = []
         self.merge_query_strings = []
-        self.call_query_strings = []
+        self.call_query_strings = collections.deque()
         self.delete_query_strings = []
         self.query_params = {}
         self.uuid = uuid.uuid4()
@@ -74,10 +77,10 @@ class UpdateQuery:
         if not self.return_identifier:
             raise Exception("UpdateQuery.to_query_string called on non-top-level node")
         return f"""
-    {"\n".join(self.match_query_strings[0:2])}
+    {"\n".join(list(self.match_query_strings_top))}
     {"\n".join(self.merge_query_strings)}
     WITH *
-    {"\n".join(self.match_query_strings[2:])}
+    {"\n".join(list(self.match_query_strings))}
     {"\n".join(self.create_query_strings)}
      
     {"\n".join(self.set_query_strings)}
