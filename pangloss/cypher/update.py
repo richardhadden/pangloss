@@ -9,14 +9,26 @@ from pangloss.cypher.utils import (
     convert_dict_for_writing,
     get_properties_as_writeable_dict,
 )
+from pangloss.model_config.models_base import (
+    ReferenceSetBase,
+    ReifiedRelation,
+    EditSetBase,
+    RootNode,
+    EmbeddedCreateBase,
+    EmbeddedSetBase,
+)
 
 if typing.TYPE_CHECKING:
-    from pangloss.model_config.models_base import EditSetBase, ReferenceSetBase
-    from pangloss.model_config.field_definitions import RelationFieldDefinition
+    from pangloss.model_config.field_definitions import (
+        RelationFieldDefinition,
+        EmbeddedFieldDefinition,
+    )
 
 
 async def create_modification_node_or_no_update(
-    instance: "EditSetBase", query: UpdateQuery, user: str = "DefaultUser"
+    instance: "EditSetBase | EmbeddedSetBase",
+    query: UpdateQuery,
+    user: str = "DefaultUser",
 ) -> bool:
     from pangloss.models import BaseNode
 
@@ -58,13 +70,6 @@ async def build_update_relation_query(
     related_nodes: list["ReferenceSetBase | EditSetBase"],
     relation_definition: "RelationFieldDefinition",
 ):
-    from pangloss.model_config.models_base import (
-        ReferenceSetBase,
-        ReifiedRelation,
-        EditSetBase,
-        RootNode,
-    )
-
     extant_related_node_uuids = [
         str(related_node.uuid)
         for related_node in related_nodes
@@ -189,8 +194,83 @@ async def build_update_relation_query(
     query.delete_query_strings.append(f"DELETE {existing_relation_identifier}")
 
 
+async def build_update_embedded_query(
+    query: UpdateQuery,
+    source_node_identifier: Identifier,
+    embedded_nodes: list["EmbeddedSetBase | EmbeddedCreateBase"],
+    embedded_definition: "EmbeddedFieldDefinition",
+):
+    extant_related_node_uuids = [
+        str(getattr(embedded_node, "uuid"))
+        for embedded_node in embedded_nodes
+        if hasattr(embedded_nodes, "uuid")
+    ]
+
+    extant_related_node_uuid_list_identifier = Identifier()
+    query.query_params[extant_related_node_uuid_list_identifier] = (
+        extant_related_node_uuids
+    )
+
+    for embedded_node in embedded_nodes:
+        relation_identifier = Identifier()
+        if isinstance(embedded_node, EmbeddedCreateBase):
+            extra_labels = ["Embedded", "DetachDelete"]
+
+            create_query, related_identifier, related_uuid = (
+                build_create_node_query_object(
+                    embedded_node,
+                    query,
+                    extra_labels=extra_labels,
+                )
+            )
+
+            query.query_params[extant_related_node_uuid_list_identifier].append(
+                str(related_uuid)
+            )
+
+            query.create_query_strings.append(
+                f"""
+                   CREATE ({source_node_identifier})-[{relation_identifier}:{embedded_definition.field_name.upper()}]->({related_identifier})
+                """
+            )
+
+        elif isinstance(embedded_node, EmbeddedSetBase):
+            query, related_node_identifier, _ = await build_update_node_query_object(
+                embedded_node, query
+            )
+
+            query.match_query_strings.append(
+                f"""
+                MATCH ({source_node_identifier})-[{relation_identifier}:{embedded_definition.field_name.upper()}]->({related_node_identifier})
+                """
+            )
+
+    to_delete_related_item_identifier = Identifier()
+    delete_path_identifier = Identifier()
+
+    existing_related_item_identifier = Identifier()
+    existing_relation_identifier = Identifier()
+
+    query.match_query_strings.append(
+        f"""
+            OPTIONAL MATCH ({source_node_identifier})-[:{embedded_definition.field_name.upper()}]->({to_delete_related_item_identifier}:DetachDelete)
+            WHERE NOT {to_delete_related_item_identifier}.uuid IN ${extant_related_node_uuid_list_identifier}
+            OPTIONAL MATCH {delete_path_identifier} = ({to_delete_related_item_identifier})((:DetachDelete)-->(:DetachDelete)){{0,}}(:DetachDelete)
+        """
+    )
+    query.delete_query_strings.append(f"""        
+            DETACH DELETE {to_delete_related_item_identifier}
+            DETACH DELETE {delete_path_identifier}""")
+    query.match_query_strings.append(f"""        
+            OPTIONAL MATCH ({source_node_identifier})-[{existing_relation_identifier}:{embedded_definition.field_name.upper()}]->({existing_related_item_identifier})
+            WHERE NOT {existing_related_item_identifier}.uuid IN ${extant_related_node_uuid_list_identifier}
+            
+        """)
+    query.delete_query_strings.append(f"DELETE {existing_relation_identifier}")
+
+
 async def build_update_node_query_object(
-    instance: "EditSetBase",
+    instance: "EditSetBase | EmbeddedSetBase",
     query: UpdateQuery | None = None,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
@@ -256,6 +336,14 @@ async def build_update_node_query_object(
             source_node_identifier=node_identifier,
             related_nodes=getattr(instance, relation_definition.field_name, []),
             relation_definition=relation_definition,
+        )
+
+    for embedded_definition in instance.field_definitions.embedded_fields:
+        await build_update_embedded_query(
+            query=query,
+            source_node_identifier=node_identifier,
+            embedded_nodes=getattr(instance, embedded_definition.field_name, []),
+            embedded_definition=embedded_definition,
         )
 
     return query, node_identifier, True

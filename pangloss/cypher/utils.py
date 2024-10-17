@@ -4,7 +4,14 @@ import uuid
 
 import pydantic
 
-from pangloss.model_config.models_base import RootNode, ReifiedRelation, EditSetBase
+if typing.TYPE_CHECKING:
+    from pangloss.model_config.models_base import (
+        RootNode,
+        ReifiedRelation,
+        EditSetBase,
+        EmbeddedCreateBase,
+        EmbeddedSetBase,
+    )
 
 
 class Identifier(str):
@@ -114,7 +121,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: RootNode | ReifiedRelation | EditSetBase,
+    instance: "RootNode | ReifiedRelation | EditSetBase | EmbeddedCreateBase | EmbeddedSetBase",
     extras: dict[str, typing.Any] | None = None,
 ):
     data = {}

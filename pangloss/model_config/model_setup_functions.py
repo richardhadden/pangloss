@@ -617,10 +617,10 @@ def create_embedded_set_model(cls: type[RootNode]):
 
 
 def create_embedded_view_model(cls: type[RootNode]):
-    embedded_set_model = pydantic.create_model(
+    embedded_view_model = pydantic.create_model(
         f"{cls.__name__}EmbeddedView", __base__=EmbeddedViewBase
     )
-    embedded_set_model.base_class = cls
+    embedded_view_model.base_class = cls
 
     fields = {
         field_name: field
@@ -628,7 +628,7 @@ def create_embedded_view_model(cls: type[RootNode]):
         if field_name != "label"
     }
 
-    embedded_set_model.model_fields = fields
+    embedded_view_model.model_fields.update(fields)
 
     for relation_definition in cls.field_definitions.relation_fields:
         concrete_types: list[
@@ -656,18 +656,18 @@ def create_embedded_view_model(cls: type[RootNode]):
                 for concrete_type in concrete_types
             ]
 
-        embedded_set_model.model_fields[relation_definition.field_name] = (
+        embedded_view_model.model_fields[relation_definition.field_name] = (
             pydantic.fields.FieldInfo.from_annotation(
                 list[typing.Union[*concrete_types]]  # type: ignore
             )
         )
 
-    embedded_set_model.model_rebuild(force=True)
+    embedded_view_model.model_rebuild(force=True)
 
     # It should not be necessary to initialise anything on this model
     # as it inherits the already-initialised fields from its container base class
 
-    return embedded_set_model
+    return embedded_view_model
 
 
 def initialise_embedded_nodes_on_base_model(

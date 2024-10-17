@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
         RootNode,
         ReifiedRelation,
         ReferenceSetBase,
+        EmbeddedCreateBase,
     )
 from pangloss.cypher.utils import UpdateQuery
 
@@ -59,7 +60,7 @@ def build_create_relationship(
     query.query_params[edge_properties_identifier] = edge_properties
 
     if relation_definition.field_metatype == "Embedded":
-        extra_labels = ["Embedded", "ReadInline", "DetachDelete"]
+        extra_labels = ["Embedded", "DetachDelete"]
         create_node_query, new_node_identifier, _ = build_create_node_query_object(
             typing.cast("RootNode", relation_to_target),
             query=query,
@@ -108,7 +109,7 @@ def build_create_relationship(
 
 
 def build_create_node_query_object(
-    instance: "RootNode | ReifiedRelation",
+    instance: "RootNode | ReifiedRelation | EmbeddedCreateBase",
     query: CreateQuery | UpdateQuery | None = None,
     extra_labels: list[str] | None = None,
     head_node: bool = False,

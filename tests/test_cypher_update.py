@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import typing
 
+import annotated_types
 import pytest
 import pytest_asyncio
 
@@ -756,7 +757,7 @@ async def test_update_embedded():
         precise_date: datetime.date
 
     class Event(BaseNode):
-        when: Embedded[Date]
+        when: typing.Annotated[Embedded[Date], annotated_types.MaxLen(2)]
 
     ModelManager.initialise_models(_defined_in_test=True)
 
@@ -771,14 +772,29 @@ async def test_update_embedded():
 
     event_from_db = await Event.get_view(uuid=event_in_db.uuid)
     assert event_from_db
+    assert event_from_db.when[0].uuid
 
     assert event_from_db.when[0].precise_date == datetime.date.today()
 
-    event = Event.EditSet(
+    event_update = Event.EditSet(
         uuid=event_from_db.uuid,
         type="Event",
         label="An Event",
-        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+        when=[
+            {
+                "type": "Date",
+                "precise_date": datetime.date.today() + datetime.timedelta(days=1),
+            }
+        ],
     )
 
-    # TODO: test event EditSet works properly, as it does not at the moment
+    success = await event_update.update()
+    assert success
+
+    event_from_db2 = await Event.get_view(uuid=event_in_db.uuid)
+    assert len(event_from_db2.when) == 1
+
+    print(event_from_db2.when[0].precise_date)
+    assert event_from_db2.when[
+        0
+    ].precise_date == datetime.date.today() + datetime.timedelta(days=1)
