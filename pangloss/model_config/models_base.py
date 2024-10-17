@@ -251,9 +251,21 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
         return {"type": self.type, "uuid": self.uuid}
 
 
+class EmbeddedCreateBase(pydantic.BaseModel, _SubNodeProxy):
+    """Model for creating an embedded node"""
+
+    type: str
+    model_config = {
+        "alias_generator": humps.camelize,
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+    }
+
+
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
     """Model for setting an embedded node"""
 
+    uuid: uuid.UUID
     type: str
     model_config = {
         "alias_generator": humps.camelize,
@@ -290,6 +302,7 @@ class RootNode(_GenericNode):
     EditSet: typing.ClassVar[type[EditSetBase]]
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
     ReferenceSet: typing.ClassVar[type[ReferenceSetBase]]
+    Embedded: typing.ClassVar[type[EmbeddedCreateBase]]
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
     EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
 

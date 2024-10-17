@@ -904,3 +904,56 @@ def test_model_edit_set_of_reified_relation():
     )
 
     assert a.intermediate_value
+
+
+@typing.no_type_check
+def test_embedded_node_edit_set():
+    class Date(BaseNode):
+        precise_date: datetime.date
+
+    class Event(BaseNode):
+        when: Embedded[Date]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+    )
+
+    print(Event.model_fields["when"].annotation)
+    print(
+        "Date on Event",
+        typing.get_args(Event.model_fields["when"].annotation)[0].model_fields.keys(),
+    )
+    print(typing.get_args(Event.model_fields["when"].annotation)[0])
+    print("Date as model", Date.model_fields.keys())
+    print("Date  EditSet", Date.EditSet.model_fields.keys())
+
+    event = Event.EditSet(
+        uuid=uuid.uuid4(),
+        type="Event",
+        label="An Event",
+        when=[
+            {
+                "uuid": uuid.uuid4(),
+                "type": "Date",
+                "precise_date": datetime.date.today(),
+            }
+        ],
+    )
+
+    print(Event.EditSet.model_fields["when"].annotation)
+
+    event = Event.EditSet(
+        uuid=uuid.uuid4(),
+        type="Event",
+        label="An Event",
+        when=[
+            {
+                "type": "Date",
+                "precise_date": datetime.date.today(),
+            }
+        ],
+    )

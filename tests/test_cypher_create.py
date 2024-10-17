@@ -561,6 +561,9 @@ async def test_create_with_reified_node():
 
     await event2.create()
 
+    person3 = Person(type="Person", label="Tobias Jones")
+    p3db = await person3.create()
+
     event3 = Event(
         type="Event",
         label="3An Event",
@@ -573,10 +576,15 @@ async def test_create_with_reified_node():
                         "type": "Identification[test_create_with_reified_node.<locals>.Person]",
                         "target": [
                             {
-                                "edge_properties": {"certainty": 1},
+                                "edge_properties": {"certainty": 50},
                                 "type": "Person",
                                 "uuid": person2_in_db.uuid,
-                            }
+                            },
+                            {
+                                "edge_properties": {"certainty": 50},
+                                "type": "Person",
+                                "uuid": p3db.uuid,
+                            },
                         ],
                     }
                 ],
@@ -585,7 +593,7 @@ async def test_create_with_reified_node():
                         "type": "Identification[test_create_with_reified_node.<locals>.Person]",
                         "target": [
                             {
-                                "edge_properties": {"certainty": 1},
+                                "edge_properties": {"certainty": 100},
                                 "type": "Person",
                                 "uuid": person1_in_db.uuid,
                             }

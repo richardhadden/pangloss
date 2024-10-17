@@ -20,6 +20,7 @@ from pangloss.model_config.field_definitions import (
 )
 from pangloss.model_config.models_base import (
     EditSetBase,
+    EmbeddedCreateBase,
     EmbeddedSetBase,
     EmbeddedViewBase,
     MultiKeyField,
@@ -576,6 +577,24 @@ def initialise_outgoing_relation_types_on_base_model(
         cls.model_fields[field.field_name].metadata = field.validators
 
 
+def create_embedded_create_model(cls: type[RootNode]) -> type[EmbeddedCreateBase]:
+    embedded_create_model = pydantic.create_model(
+        f"{cls.__name__}Embedded", __base__=EmbeddedCreateBase
+    )
+    embedded_create_model.base_class = cls
+
+    fields = {
+        field_name: field
+        for field_name, field in cls.model_fields.items()
+        if field_name != "label"
+    }
+
+    embedded_create_model.model_fields = fields
+    embedded_create_model.model_rebuild(force=True)
+
+    return embedded_create_model
+
+
 def create_embedded_set_model(cls: type[RootNode]):
     embedded_set_model = pydantic.create_model(
         f"{cls.__name__}EmbeddedSet", __base__=EmbeddedSetBase
@@ -657,9 +676,9 @@ def initialise_embedded_nodes_on_base_model(
     for embedded_field_definition in cls.field_definitions.embedded_fields:
         embedded_models = []
         for embedded_type in embedded_field_definition.field_concrete_types:
-            if not getattr(embedded_type, "EmbeddedSet", None):
-                embedded_type.EmbeddedSet = create_embedded_set_model(embedded_type)
-            embedded_models.append(embedded_type.EmbeddedSet)
+            if not getattr(embedded_type, "EmbeddedCreate", None):
+                embedded_type.Embedded = create_embedded_create_model(embedded_type)
+            embedded_models.append(embedded_type.Embedded)
 
         cls.model_fields[embedded_field_definition.field_name].annotation = list[
             typing.Union[*embedded_models]  # type: ignore
@@ -667,7 +686,6 @@ def initialise_embedded_nodes_on_base_model(
         cls.model_fields[
             embedded_field_definition.field_name
         ].metadata = embedded_field_definition.validators
-        # cls.model_fields[embedded_field_definition.field_name].discriminator = "type"
 
 
 def initialise_reified_relation(reified_relation: type[ReifiedRelation]):
@@ -856,7 +874,12 @@ def initialise_edit_view_type(cls: type[RootNode]):
     cls.EditView.base_class = cls
 
 
-def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
+def initialise_edit_set_type(
+    cls: type[RootNode] | type[ReifiedRelation], omit_fields: list[str] | None = None
+):
+    if not omit_fields:
+        omit_fields = []
+
     if not cls.__dict__.get("EditSet", None):
         cls.EditSet = pydantic.create_model(
             f"{cls.__name__}EditSet", __base__=EditSetBase
@@ -864,6 +887,8 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
         cls.EditSet.base_class = cls
 
     for property_field_definition in cls.field_definitions.property_fields:
+        if property_field_definition.field_name in omit_fields:
+            continue
         cls.EditSet.model_fields[property_field_definition.field_name] = (
             cls.model_fields[property_field_definition.field_name]
         )
@@ -967,17 +992,55 @@ def initialise_edit_set_type(cls: type[RootNode] | type[ReifiedRelation]):
     for embedded_definition in cls.field_definitions.embedded_fields:
         allowed_embedded_types = []
         for embedded_type in embedded_definition.field_concrete_types:
-            allowed_embedded_types.append(embedded_type)
+            # TODO: this embedded_type can't be the actual type;
 
-            if not embedded_type.__dict__.get("EditSet", None):
-                initialise_edit_set_type(embedded_type)
-            allowed_embedded_types.append(embedded_type.EditSet)
+            if not embedded_type.__dict__.get("EmbeddedSet", None):
+                embedded_type.EmbeddedSet = create_embedded_set_model(embedded_type)
 
-        cls.EditSet.model_fields[embedded_definition.field_name] = (
-            pydantic.fields.FieldInfo.from_annotation(
-                list[typing.Union[*allowed_embedded_types]]  # type: ignore
+            allowed_embedded_types.append(
+                typing.Annotated[
+                    embedded_type.Embedded,
+                    pydantic.Tag("New_" + embedded_type.__name__),
+                ]
             )
-        )
+
+            allowed_embedded_types.append(
+                typing.Annotated[
+                    embedded_type.EmbeddedSet,
+                    pydantic.Tag("Existing_" + embedded_type.__name__),
+                ]
+            )
+
+        def model_discriminator(v: typing.Any) -> str:
+            is_dict = isinstance(v, dict)
+
+            if (is_dict and not v.get("type", False)) and not hasattr(v, "type"):
+                raise Exception("Type not provided in request")
+
+            model_type = v.get("type") if is_dict else getattr(v, "type")
+            if not isinstance(model_type, str):
+                raise Exception("Type provided not a string")
+
+            if (is_dict and v.get("uuid", None)) or hasattr(v, "uuid"):
+                return "Existing_" + model_type
+
+            return "New_" + model_type
+
+        if allowed_embedded_types:
+            cls.EditSet.model_fields[embedded_definition.field_name] = (
+                pydantic.fields.FieldInfo.from_annotation(
+                    list[
+                        typing.Annotated[
+                            typing.Union[*allowed_embedded_types],  # type: ignore
+                            pydantic.Field(
+                                discriminator=pydantic.Discriminator(
+                                    model_discriminator
+                                ),
+                            ),
+                        ]
+                    ],
+                )
+            )
 
         cls.EditSet.model_fields[
             embedded_definition.field_name

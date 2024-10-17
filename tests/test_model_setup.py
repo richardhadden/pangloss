@@ -593,9 +593,7 @@ def test_initialise_embedded_node_on_base_model():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    assert (
-        Thing.model_fields["embedded_thing"].annotation == list[InnerThing.EmbeddedSet]
-    )
+    assert Thing.model_fields["embedded_thing"].annotation == list[InnerThing.Embedded]
     assert Thing.model_fields["embedded_thing"].metadata == [
         annotated_types.MinLen(1),
         annotated_types.MaxLen(1),
@@ -1115,10 +1113,17 @@ def test_initialise_edit_set_with_embedded_node():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    assert (
-        Thing.EditSet.model_fields["embedded"].annotation
-        == list[typing.Union[EmbeddedThing, EmbeddedThing.EditSet]]
-    )
+    assert typing.get_origin(Thing.EditSet.model_fields["embedded"].annotation) is list
+
+    union_type = typing.get_args(
+        typing.get_args(Thing.EditSet.model_fields["embedded"].annotation)[0]
+    )[0]
+    assert typing.get_origin(union_type) is typing.Union
+
+    assert [typing.get_args(t)[0] for t in typing.get_args(union_type)] == [
+        EmbeddedThing.Embedded,
+        EmbeddedThing.EmbeddedSet,
+    ]
 
     assert Thing.EditSet.model_fields["embedded"].metadata == [
         annotated_types.MinLen(1),

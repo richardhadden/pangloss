@@ -300,3 +300,4 @@ class Identification(ReifiedRelation[TIdentificationTarget]):
 ## Bugs:
 
 - Incoming relation does not allow subclasses
+- Embedded .Set is the full Set of the model, not of the Embedded.. so requires UUID, label etc. (maybe need to distinguish between EmbeddedSet and EmbeddedCreate??)
