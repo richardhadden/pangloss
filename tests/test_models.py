@@ -912,7 +912,7 @@ def test_embedded_node_edit_set():
         precise_date: datetime.date
 
     class Event(BaseNode):
-        when: Embedded[Date]
+        when: typing.Annotated[Embedded[Date], annotated_types.MaxLen(2)]
 
     ModelManager.initialise_models(_defined_in_test=True)
 
@@ -922,38 +922,25 @@ def test_embedded_node_edit_set():
         when=[{"type": "Date", "precise_date": datetime.date.today()}],
     )
 
-    print(Event.model_fields["when"].annotation)
-    print(
-        "Date on Event",
-        typing.get_args(Event.model_fields["when"].annotation)[0].model_fields.keys(),
-    )
-    print(typing.get_args(Event.model_fields["when"].annotation)[0])
-    print("Date as model", Date.model_fields.keys())
-    print("Date  EditSet", Date.EditSet.model_fields.keys())
-
+    # Test we can initialise the EditSet of Event with a new Date
+    # and an existing Date embedded nodes
     event = Event.EditSet(
         uuid=uuid.uuid4(),
         type="Event",
         label="An Event",
         when=[
+            {  # New date
+                "type": "Date",
+                "precise_date": datetime.date.today(),
+            },
             {
+                # Existing date
                 "uuid": uuid.uuid4(),
                 "type": "Date",
                 "precise_date": datetime.date.today(),
-            }
+            },
         ],
     )
 
-    print(Event.EditSet.model_fields["when"].annotation)
-
-    event = Event.EditSet(
-        uuid=uuid.uuid4(),
-        type="Event",
-        label="An Event",
-        when=[
-            {
-                "type": "Date",
-                "precise_date": datetime.date.today(),
-            }
-        ],
-    )
+    assert type(event.when[0]) is Date.Embedded
+    assert type(event.when[1]) is Date.EmbeddedSet
