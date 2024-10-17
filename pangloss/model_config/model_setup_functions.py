@@ -607,7 +607,7 @@ def create_embedded_set_model(cls: type[RootNode]):
         if field_name != "label"
     }
 
-    embedded_set_model.model_fields = fields
+    embedded_set_model.model_fields.update(fields)
     embedded_set_model.model_rebuild(force=True)
 
     # It should not be necessary to initialise anything on this model

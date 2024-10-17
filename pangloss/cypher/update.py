@@ -201,9 +201,9 @@ async def build_update_embedded_query(
     embedded_definition: "EmbeddedFieldDefinition",
 ):
     extant_related_node_uuids = [
-        str(getattr(embedded_node, "uuid"))
+        str(embedded_node.uuid)
         for embedded_node in embedded_nodes
-        if hasattr(embedded_nodes, "uuid")
+        if isinstance(embedded_node, EmbeddedSetBase)
     ]
 
     extant_related_node_uuid_list_identifier = Identifier()

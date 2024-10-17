@@ -755,16 +755,37 @@ async def test_update_nested_edit_inline(clear_database):
 async def test_update_embedded():
     class Date(BaseNode):
         precise_date: datetime.date
+        is_day_of_saint: typing.Annotated[
+            Saint, RelationConfig(reverse_name="is_saints_day")
+        ]
 
     class Event(BaseNode):
         when: typing.Annotated[Embedded[Date], annotated_types.MaxLen(2)]
 
+    class Saint(BaseNode):
+        pass
+
     ModelManager.initialise_models(_defined_in_test=True)
+
+    st_george = Saint(type="Saint", label="St George")
+    st_george_created = await st_george.create()
+
+    st_patrick = Saint(type="Saint", label="St Patrick")
+    st_patrick_created = await st_patrick.create()
+
+    st_david = Saint(type="Saint", label="St David")
+    st_david_created = await st_david.create()
 
     event = Event(
         type="Event",
         label="An Event",
-        when=[{"type": "Date", "precise_date": datetime.date.today()}],
+        when=[
+            {
+                "type": "Date",
+                "precise_date": datetime.date.today(),
+                "is_day_of_saint": [{"type": "Saint", "uuid": st_george_created.uuid}],
+            }
+        ],
     )
 
     event_in_db = await event.create()
@@ -773,17 +794,20 @@ async def test_update_embedded():
     event_from_db = await Event.get_view(uuid=event_in_db.uuid)
     assert event_from_db
     assert event_from_db.when[0].uuid
-
     assert event_from_db.when[0].precise_date == datetime.date.today()
+    assert event_from_db.when[0].is_day_of_saint[0].uuid == st_george_created.uuid
 
+    # First update references existing Embedded Node
     event_update = Event.EditSet(
         uuid=event_from_db.uuid,
         type="Event",
         label="An Event",
         when=[
             {
+                "uuid": event_from_db.when[0].uuid,
                 "type": "Date",
                 "precise_date": datetime.date.today() + datetime.timedelta(days=1),
+                "is_day_of_saint": [{"type": "Saint", "uuid": st_patrick_created.uuid}],
             }
         ],
     )
@@ -794,7 +818,32 @@ async def test_update_embedded():
     event_from_db2 = await Event.get_view(uuid=event_in_db.uuid)
     assert len(event_from_db2.when) == 1
 
-    print(event_from_db2.when[0].precise_date)
     assert event_from_db2.when[
         0
     ].precise_date == datetime.date.today() + datetime.timedelta(days=1)
+    assert event_from_db2.when[0].is_day_of_saint[0].uuid == st_patrick_created.uuid
+
+    # Second update creates new Embedded node replacing the old one
+    event_update = Event.EditSet(
+        uuid=event_from_db.uuid,
+        type="Event",
+        label="An Event",
+        when=[
+            {
+                # "uuid": event_from_db.when[0].uuid,
+                "type": "Date",
+                "precise_date": datetime.date.today() + datetime.timedelta(days=1),
+                "is_day_of_saint": [{"type": "Saint", "uuid": st_david_created.uuid}],
+            }
+        ],
+    )
+    success = await event_update.update()
+    assert success
+
+    event_from_db3 = await Event.get_view(uuid=event_in_db.uuid)
+    assert len(event_from_db2.when) == 1
+
+    assert event_from_db3.when[
+        0
+    ].precise_date == datetime.date.today() + datetime.timedelta(days=1)
+    assert event_from_db3.when[0].is_day_of_saint[0].uuid == st_david_created.uuid
