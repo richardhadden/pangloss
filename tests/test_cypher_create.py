@@ -426,6 +426,27 @@ async def speed():
     start = time.time()
     await event.get_view(uuid=event_in_db.uuid)
     print(time.time() - start)
+
+    event_update = Event.EditSet(
+        uuid=event_in_db.uuid,
+        type="Event",
+        label="An Event",
+        involves_person=[
+            {
+                "type": "Identification[test_speed.<locals>.Person]",
+                "target": [
+                    {
+                        "edge_properties": {"certainty": i},
+                        "uuid": person.uuid,
+                        "type": "Person",
+                    }
+                ],
+            }
+            for i, person in enumerate(persons)
+        ],
+    )
+
+    await event_update.update()
     assert False
 
 

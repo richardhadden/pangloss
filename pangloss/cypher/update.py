@@ -175,7 +175,7 @@ async def build_update_relation_query(
 
     existing_related_item_identifier = Identifier()
     existing_relation_identifier = Identifier()
-
+    # TODO: improve performance of query
     query.match_query_strings.append(
         f"""
             OPTIONAL MATCH ({source_node_identifier})-[:{relation_definition.field_name.upper()}]->({to_delete_related_item_identifier}:DetachDelete)
