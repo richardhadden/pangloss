@@ -131,6 +131,9 @@ def test_initialise_reference_view_on_models_function():
         name: str
         age: int
 
+    class SubThing(BaseNode):
+        pass
+
     class OtherThing(BaseNode):
         name: str
         age: int
@@ -155,6 +158,11 @@ def test_initialise_reference_view_on_models_function():
     )
     assert Thing.ReferenceView.model_fields["type"].default == "Thing"
 
+    initialise_reference_view_on_base_models(SubThing)
+
+    assert SubThing.ReferenceView
+    assert SubThing.ReferenceView.__name__ == "SubThingReferenceView"
+
     initialise_reference_view_on_base_models(OtherThing)
 
     assert OtherThing.ReferenceView
@@ -175,6 +183,9 @@ def test_initialise_reference_view_on_models_during_model_setup():
     class NewThing(BaseNode):
         pass
 
+    class SubNewThing(NewThing):
+        pass
+
     ModelManager.initialise_models(_defined_in_test=True)
 
     assert NewThing.ReferenceView
@@ -186,6 +197,11 @@ def test_initialise_reference_view_on_models_during_model_setup():
         == typing.Literal["NewThing"]
     )
     assert NewThing.ReferenceView.model_fields["type"].default == "NewThing"
+
+    assert SubNewThing.ReferenceView
+    assert SubNewThing.ReferenceView.__name__ == "SubNewThingReferenceView"
+
+    assert SubNewThing.ReferenceView.model_fields["type"].default == "SubNewThing"
 
 
 def test_initialise_basic_relation_field_on_model():
@@ -1214,6 +1230,7 @@ def test_initialisation_of_edit_set_with_inherited_type_works():
 
     assert {typing.get_args(t)[0] for t in typing.get_args(union_type)} == {
         Person.ReferenceSet,
+        Dude.ReferenceSet,
     }
 
     assert Dude.EditSet.__name__ == "DudeEditSet"

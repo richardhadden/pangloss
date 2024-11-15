@@ -466,7 +466,7 @@ def initialise_reference_set_on_base_models(cls: type[RootNode]):
     # If ReferenceSet manually defined on a class, and it's a subclass of
     # ReferenceSetBase, just override the `type` field to the class name
     if (
-        getattr(cls, "ReferenceSet", None)
+        cls.__dict__.get("ReferenceSet", None)
         and inspect.isclass(cls.ReferenceSet)
         and issubclass(cls.ReferenceSet, ReferenceSetBase)
     ):
@@ -477,7 +477,7 @@ def initialise_reference_set_on_base_models(cls: type[RootNode]):
 
     # If ReferenceSet is manually defined but does not fulfil requirement above (subclassing
     # ReferenceViewSet), raise an error
-    if getattr(cls, "ReferenceSet", None):
+    if cls.__dict__.get("ReferenceSet", None):
         raise PanglossConfigError(
             f"ReferenceSet defined on model '{cls.__name__}' must be class inheriting from pangloss.models.ReferenceSet"
         )
@@ -495,7 +495,7 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
     # If ReferenceView manually defined on a class, and it is a subclass
     # of ReferenceViewBase, just override the `type` field to the class name
     if (
-        getattr(cls, "ReferenceView", None)
+        cls.__dict__.get("ReferenceView", None)
         and inspect.isclass(cls.ReferenceView)
         and issubclass(cls.ReferenceView, ReferenceViewBase)
     ):
@@ -506,7 +506,7 @@ def initialise_reference_view_on_base_models(cls: type[RootNode]):
 
     # If ReferenceView is manually defined but does not fulfil requirement above (subclassing
     # ReferenceViewBase), raise an error
-    if getattr(cls, "ReferenceView", None):
+    if cls.__dict__.get("ReferenceView", None):
         raise PanglossConfigError(
             f"ReferenceView defined on model '{cls.__name__}' must be class inheriting from pangloss.models.ReferenceView"
         )

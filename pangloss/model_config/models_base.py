@@ -13,7 +13,7 @@ import pydantic
 
 
 if typing.TYPE_CHECKING:
-    from field_definitions import (
+    from pangloss.model_config.field_definitions import (
         ModelFieldDefinitions,
         IncomingRelationDefinition,
     )

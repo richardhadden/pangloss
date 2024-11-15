@@ -93,6 +93,7 @@ class BaseNode(RootNode):
 
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
+        print(self.__class__)
         query_object, *_ = build_create_node_query_object(self, head_node=True)
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
@@ -101,6 +102,7 @@ class BaseNode(RootNode):
         with time_query("Create query time"):
             result = await tx.run(query, query_object.query_params)
             record = await result.value()
+            print(record)
 
         return self.ReferenceView(**record[0])
 
