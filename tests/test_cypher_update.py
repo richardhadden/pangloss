@@ -847,3 +847,48 @@ async def test_update_embedded():
         0
     ].precise_date == datetime.date.today() + datetime.timedelta(days=1)
     assert event_from_db3.when[0].is_day_of_saint[0].uuid == st_david_created.uuid
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_speed():
+    return
+
+    class Event(BaseNode):
+        event_type: str
+        persons_involved: typing.Annotated[
+            Person, RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    persons = [Person(type="Person", label=f"Person{n}") for n in range(100)]
+    persons_created = []
+    for person in persons:
+        person_created = await person.create()
+        persons_created.append(person_created)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        event_type="Some type of event",
+        persons_involved=[
+            {"type": "Person", "uuid": p.uuid} for p in persons_created[10:50]
+        ],
+    )
+    created_event = await event.create()
+
+    event_to_update = Event.EditSet(
+        uuid=created_event.uuid,
+        type="Event",
+        label="An Event Updated",
+        event_type="Some updated type of event",
+        persons_involved=[{"type": "Person", "uuid": p.uuid} for p in persons_created][
+            30:80
+        ],
+    )
+
+    await event_to_update.update()

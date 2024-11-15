@@ -124,8 +124,6 @@ async def build_update_relation_query(
             query.create_query_strings.append(
                 f"""
                    CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_identifier})
-                     
-
                 """
             )
             query.set_query_strings.append(
@@ -140,20 +138,27 @@ async def build_update_relation_query(
                 related_node, query
             )
 
-            query.match_query_strings.append(
-                f"""
-                MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
-                """
-            )
-            query.set_query_strings.append(
-                f"SET {relation_identifier} = ${edge_properties_identifier}"
-            )
+            query.call_query_strings.append(f"""
+                CALL ({source_node_identifier}) {{
+                    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
+                    SET {relation_identifier} = ${edge_properties_identifier}
+                }}                                
+            """)
+            # query.match_query_strings.append(
+            #    f"""
+            #    MATCH ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({related_node_identifier})
+            #    """
+            # )
+            # query.set_query_strings.append(
+            #    f"SET {relation_identifier} = ${edge_properties_identifier}"
+            # )
 
         elif isinstance(related_node, ReferenceSetBase):
             related_node_uuid_identifier = Identifier()
             node_to_relate_identifier = Identifier()
             query.query_params[related_node_uuid_identifier] = str(related_node.uuid)
             # Match node where it is not attached with rel and attach it
+
             query.match_query_strings_top.append(
                 f"""
                 MATCH ({node_to_relate_identifier} {{uuid: ${related_node_uuid_identifier}}})
