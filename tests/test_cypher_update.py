@@ -525,6 +525,8 @@ async def test_update_with_reified_chain(clear_database):
 @typing.no_type_check
 @pytest.mark.asyncio
 async def test_update_nested_edit_inline(clear_database):
+    # TODO: this test needs to be made order-less (failing sometimes for no reason)
+
     class Factoid(BaseNode):
         statements: typing.Annotated[
             Statement,

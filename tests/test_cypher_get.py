@@ -38,6 +38,9 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
     class Person(BaseNode):
         pass
 
+    class Dude(BaseNode):
+        pass
+
     class IdentificationCertainty(EdgeModel):
         certainty: int
 
@@ -58,7 +61,7 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
     class Event(BaseNode):
         thrown_by: typing.Annotated[
             WithProxyActor[Identification[Person]],
-            RelationConfig(reverse_name="carried_out"),
+            RelationConfig(reverse_name="threw"),
         ]
 
     class Party(Event):
@@ -66,13 +69,11 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
 
     ModelManager.initialise_models(_defined_in_test=True)
 
-    print(Party.ReferenceView)
-
     person1 = Person(type="Person", label="JohnSmith")
     person1_in_db = await person1.create()
 
-    person2 = Person(type="Person", label="TobyJones")
-    person2_in_db = await person2.create()
+    dude1 = Dude(type="Dude", label="TobyJones")
+    dude1_in_db = await dude1.create()
 
     party = Party(
         type="Party",
@@ -99,8 +100,8 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
                         "target": [
                             {
                                 "edge_properties": {"certainty": 1},
-                                "type": "Person",
-                                "uuid": person2_in_db.uuid,
+                                "type": "Dude",
+                                "uuid": dude1_in_db.uuid,
                             }
                         ],
                     }
@@ -110,3 +111,12 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
     )
 
     party_in_db = await party.create()
+
+    person_view = await Person.get_view(uuid=person1_in_db.uuid)
+
+    assert person_view.threw[0].type == "Party"
+
+    assert (
+        person_view.threw[0].thrown_by[0].type
+        == "WithProxyActor[Identification[test_get_reverse_relation_via_reified_chain_with_subtype.<locals>.Person]]"
+    )

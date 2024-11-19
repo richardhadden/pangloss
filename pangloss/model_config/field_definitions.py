@@ -135,6 +135,8 @@ class RelationFieldDefinition(FieldDefinition):
 class IncomingRelationDefinition(FieldDefinition):
     reverse_name: str
     source_type: type["RootNode"] | type["ReifiedRelation"]
+
+    # TODO: this cann be one type, but multiple!
     source_concrete_type: (
         type["ReferenceViewBase"] | type["IncomingRelationView"] | type
     )
