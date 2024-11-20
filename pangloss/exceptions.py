@@ -4,3 +4,7 @@ class PanglossConfigError(Exception):
 
 class PanglossNotFoundError(Exception):
     pass
+
+
+class PanglossInitialisationError(Exception):
+    pass

@@ -235,6 +235,9 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
     head_uuid: typing.Optional[uuid.UUID] = None
     head_type: typing.Optional[str] = None
 
+    def __hash__(self):
+        return hash(self.uuid)
+
 
 class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
     """Base model for setting reference to a model

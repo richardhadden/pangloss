@@ -5,9 +5,14 @@ import time
 import typing
 import uuid
 
+import humps
+import pydantic
+
 from pangloss.cypher.create import build_create_node_query_object
+from pangloss.cypher.list import build_get_list_query
 from pangloss.cypher.read import build_view_read_query
 from pangloss.cypher.update import build_update_node_query_object
+
 from pangloss.database import write_transaction, Transaction, read_transaction
 from pangloss.exceptions import PanglossNotFoundError
 from pangloss.model_config.models_base import (
@@ -59,6 +64,44 @@ class BaseNode(RootNode):
 
         # Register the model with ModelManager
         ModelManager.register_model(cls)
+
+    @classmethod
+    @read_transaction
+    async def get_list(
+        cls, tx: Transaction, q: str | None = None, page: int = 1, page_size: int = 10
+    ):
+        from pangloss.model_config.model_setup_utils import get_concrete_model_types
+
+        query, params = build_get_list_query(
+            model=cls, q=q, page=page, page_size=page_size
+        )
+
+        concrete_reference_types = [
+            t.ReferenceView
+            for t in get_concrete_model_types(
+                cls, include_subclasses=True, follow_trait_subclasses=True
+            )
+        ]
+
+        return_types = pydantic.TypeAdapter(
+            typing.Annotated[
+                typing.Union[*concrete_reference_types],
+                pydantic.Field(discriminator="type"),
+            ],
+        )
+
+        with time_query(f"Get List query time: {cls.__name__}"):
+            result = await tx.run(typing.cast(typing.LiteralString, query), params)
+            result = await result.value()
+
+            return_value = result[0]
+            print(return_value["results"][0])
+            return_value["results"] = [
+                return_types.validate_python(humps.camelize(r), strict=False)
+                for r in return_value["results"]
+            ]
+
+        return return_value
 
     @classmethod
     @read_transaction

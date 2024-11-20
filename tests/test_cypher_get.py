@@ -34,7 +34,7 @@ async def clear_database():
 
 @typing.no_type_check
 @pytest.mark.asyncio
-async def test_get_reverse_relation_via_reified_chain_with_subtype():
+async def test_get_reverse_relation_via_reified_chain_with_subtype(clear_database):
     class Person(BaseNode):
         pass
 
@@ -120,3 +120,34 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
         person_view.threw[0].thrown_by[0].type
         == "WithProxyActor[Identification[test_get_reverse_relation_via_reified_chain_with_subtype.<locals>.Person]]"
     )
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_cypher_get_list():
+    class Person(BaseNode):
+        pass
+
+    class Dude(Person):
+        pass
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    persons = []
+    for i in range(20):
+        person = Person(type="Person", label=f"Person {i}")
+        person_in_db = await person.create()
+        persons.append(person_in_db)
+
+    dudes = []
+    for i in range(5):
+        dude = Dude(type="Dude", label=f"Dude {i}")
+        dude_in_db = await dude.create()
+        dudes.append(dude_in_db)
+
+    persons_from_db = await Person.get_list(page_size=10)
+    assert persons_from_db["count"] == 25
+    assert persons_from_db["page"] == 1
+    assert persons_from_db["totalPages"] == 3
+
+    assert set(persons_from_db["results"]) == set([*dudes[-5:], *persons[-5:]])
