@@ -944,3 +944,64 @@ def test_embedded_node_edit_set():
 
     assert type(event.when[0]) is Date.Embedded
     assert type(event.when[1]) is Date.EmbeddedSet
+
+
+@typing.no_type_check
+def test_incoming_from_reified_to_subclass():
+    class Person(BaseNode):
+        pass
+
+    class Dude(Person):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class Event(BaseNode):
+        involves_person: typing.Annotated[
+            Identification[Person], RelationConfig(reverse_name="is_involved_in")
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    event = Event(
+        type="Event",
+        label="An Event",
+        involves_person=[
+            {
+                "type": "Identification[test_incoming_from_reified_to_subclass.<locals>.Person]",
+                "target": [
+                    {
+                        "type": "Dude",
+                        "uuid": uuid.uuid4(),
+                    }
+                ],
+            }
+        ],
+    )
+
+    Person.View(
+        uuid=uuid.uuid4(),
+        type="Person",
+        label="John Smith",
+        is_involved_in=[
+            {
+                "type": "Event",
+                "uuid": uuid.uuid4(),
+                "label": "An Event",
+                "involves_person": [
+                    {
+                        "uuid": uuid.uuid4(),
+                        "type": "Identification[test_incoming_from_reified_to_subclass.<locals>.Person]",
+                        "target": [
+                            {
+                                "type": "Dude",
+                                "uuid": uuid.uuid4(),
+                                "label": "A Dude",
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    )

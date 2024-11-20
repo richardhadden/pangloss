@@ -38,7 +38,7 @@ async def test_get_reverse_relation_via_reified_chain_with_subtype():
     class Person(BaseNode):
         pass
 
-    class Dude(BaseNode):
+    class Dude(Person):
         pass
 
     class IdentificationCertainty(EdgeModel):
