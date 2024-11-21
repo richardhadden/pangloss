@@ -24,7 +24,7 @@ from fastapi.openapi.models import (
 from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 from jwt.exceptions import InvalidTokenError
-from pydantic import BaseModel, Field, validate_email, SecretStr
+from pydantic import BaseModel, Field, validate_email, SecretStr, EmailStr
 from pydantic_core import PydanticCustomError
 from rich import print
 import typer
@@ -91,7 +91,7 @@ class TokenData(BaseModel):
 
 class User(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     full_name: str | None = None
     admin: bool = Field(default=False, json_schema_extra={"readOnly": True})
     disabled: bool = Field(default=False, json_schema_extra={"readOnly": True})
@@ -113,7 +113,7 @@ class UserInDB(User):
     @write_transaction
     async def write_user(self, tx: Transaction):
         query = """
-        CREATE (user:User)
+        CREATE (user:PGUser:PGInternal:PGCore)
         SET user = $user
         RETURN user.username
         """
@@ -126,7 +126,7 @@ class UserInDB(User):
     @read_transaction
     async def get(cls, tx: Transaction, username: str) -> "UserInDB | None":
         query = """
-        MATCH (user:User)
+        MATCH (user:PGUser)
         WHERE user.username = $username
         RETURN user
         """
@@ -297,7 +297,7 @@ def get_email():
         return get_email()
 
 
-async def create_user(username: str, email: str, password: str, admin: bool):
+async def create_user(username: str, email: EmailStr, password: str, admin: bool):
     user_to_create = UserInDB(
         username=username,
         email=email,

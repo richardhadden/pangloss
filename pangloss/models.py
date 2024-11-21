@@ -93,9 +93,10 @@ class BaseNode(RootNode):
         with time_query(f"Get List query time: {cls.__name__}"):
             result = await tx.run(typing.cast(typing.LiteralString, query), params)
             result = await result.value()
-
+            if not result:
+                return {"count": 0, "results": [], "totalPages": 0}
             return_value = result[0]
-            print(return_value["results"][0])
+
             return_value["results"] = [
                 return_types.validate_python(humps.camelize(r), strict=False)
                 for r in return_value["results"]
@@ -134,8 +135,10 @@ class BaseNode(RootNode):
 
         return cls.EditView(**record[0])
 
+    # TODO: add users as call to create and update!
     @write_transaction
     async def create(self, tx: Transaction) -> ReferenceViewBase:
+        print("CREATING CALLED")
         query_object, *_ = build_create_node_query_object(self, head_node=True)
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:

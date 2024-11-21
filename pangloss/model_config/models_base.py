@@ -318,6 +318,9 @@ class RootNode(_GenericNode):
 
     __abstract__: typing.ClassVar[bool] = True
 
+    __create__: typing.ClassVar[bool] = True
+    __edit__: typing.ClassVar[bool] = True
+
     def __init_subclass__(cls):
         # Needs to be set on a per-class basis on subclassing, not
         # inherited for each class

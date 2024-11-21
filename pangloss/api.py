@@ -111,12 +111,15 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
             if getattr(model, "__create__", False):
 
                 def _create(model: type[RootNode]):
+                    print("creating create for ", model)
+
                     async def create(
                         entity: model,
                         current_user: typing.Annotated[
                             User, Depends(get_current_active_user)
                         ],
                     ) -> model.ReferenceView:  # type: ignore
+                        print(entity)
                         result = await entity.create(username=current_user.username)
                         return result
 
@@ -132,7 +135,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
             if getattr(model, "__edit__", False):
 
                 def _get_edit(model: type[RootNode]):
-                    async def get_edit(uid: uuid.UUID) -> model.Edit:  # type: ignore
+                    async def get_edit(uid: uuid.UUID) -> model.EditView:  # type: ignore
                         try:
                             result = await model.get_edit_view(uid=uid)
                         except PanglossNotFoundError:
