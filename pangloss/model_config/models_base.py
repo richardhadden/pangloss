@@ -192,8 +192,10 @@ class EditViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 class EditSetBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     """Base model for inputting edited model"""
 
-    async def update(self) -> bool:
-        return await typing.cast(type["BaseNode"], self.base_class)._update_method(self)
+    async def update(self, username: str | None = None) -> bool:
+        return await typing.cast(type["BaseNode"], self.base_class)._update_method(
+            self, username=username
+        )
 
 
 class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
@@ -205,6 +207,8 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     head_uuid: typing.Optional[uuid.UUID] = None
     head_type: typing.Optional[str] = None
 
+    # TODO: Remove the created Optional and adjust tests accordingly
+
     def __init__(self, *args, **kwargs):
         kwargs = collect_multi_key_field_to_dict(kwargs)
         super().__init__(*args, **kwargs)
@@ -212,10 +216,10 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
 
 class HeadViewBase(ViewBase):
     label: str
-    created_when: datetime.datetime
-    created_by: str
-    modified_when: datetime.datetime | None
-    modified_by: str | None
+    created_by: typing.Optional[str]
+    created_when: typing.Optional[datetime.datetime]
+    modified_by: typing.Optional[str]
+    modified_when: typing.Optional[datetime.datetime]
 
 
 # Reference types need to be separated, so that additional fields for viewing

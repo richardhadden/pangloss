@@ -28,7 +28,7 @@ if typing.TYPE_CHECKING:
 async def create_modification_node_or_no_update(
     instance: "EditSetBase | EmbeddedSetBase",
     query: UpdateQuery,
-    user: str = "DefaultUser",
+    username: str = "DefaultUser",
 ) -> bool:
     from pangloss.models import BaseNode
 
@@ -49,8 +49,10 @@ async def create_modification_node_or_no_update(
 
         user_identifier = Identifier()
         modification_uuid_identifier = Identifier()
+        query.query_params[user_identifier] = username
+
         query.match_query_strings_top.append(
-            f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}}) // Find user"""
+            f"""MATCH ({user_identifier}:PGUser {{username: ${user_identifier}}}) // Find user"""
         )
 
         query.create_query_strings.append(
@@ -279,8 +281,11 @@ async def build_update_node_query_object(
     query: UpdateQuery | None = None,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
-    user: str = "DefaultUser",
+    username: str | None = "DefaultUser",
 ) -> tuple[UpdateQuery, Identifier, bool]:
+    if not username:
+        username = "DefaultUser"
+
     if not query:
         query = UpdateQuery()
 
@@ -294,7 +299,9 @@ async def build_update_node_query_object(
     if head_node:
         query.return_identifier = node_identifier
 
-        should_update = await create_modification_node_or_no_update(instance, query)
+        should_update = await create_modification_node_or_no_update(
+            instance, query, username=username
+        )
 
         if not should_update:
             return query, node_identifier, should_update

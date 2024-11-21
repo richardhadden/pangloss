@@ -7,7 +7,7 @@ if typing.TYPE_CHECKING:
 def build_get_list_query(
     model: type["RootNode"], q: typing.Optional[str], page: int = 1, page_size: int = 10
 ) -> tuple[str, dict]:
-    query = f"""CALL {{
+    query = f"""CALL () {{
                         MATCH (node:{model.__name__} WHERE NOT node.is_deleted)
                         WITH collect(node) AS ns, COUNT (DISTINCT node) as total
                         UNWIND ns AS m

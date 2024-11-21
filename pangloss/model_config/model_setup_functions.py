@@ -869,7 +869,9 @@ def initialise_edit_view_type(cls: type[RootNode]):
     cls.EditView = pydantic.create_model(
         f"{cls.__name__}EditView", __base__=EditViewBase
     )
-    cls.EditView.model_fields = copy.copy(cls.View.model_fields)
+
+    for k, v in copy.copy(cls.View.model_fields).items():
+        cls.EditView.model_fields[k] = v
     cls.EditView.model_rebuild(force=True)
     cls.EditView.base_class = cls
 

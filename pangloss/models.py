@@ -94,7 +94,7 @@ class BaseNode(RootNode):
             result = await tx.run(typing.cast(typing.LiteralString, query), params)
             result = await result.value()
             if not result:
-                return {"count": 0, "results": [], "totalPages": 0}
+                return {"count": 0, "results": [], "totalPages": 0, "page": 0}
             return_value = result[0]
 
             return_value["results"] = [
@@ -135,11 +135,13 @@ class BaseNode(RootNode):
 
         return cls.EditView(**record[0])
 
-    # TODO: add users as call to create and update!
     @write_transaction
-    async def create(self, tx: Transaction) -> ReferenceViewBase:
-        print("CREATING CALLED")
-        query_object, *_ = build_create_node_query_object(self, head_node=True)
+    async def create(
+        self, tx: Transaction, current_username: str | None = None
+    ) -> ReferenceViewBase:
+        query_object, *_ = build_create_node_query_object(
+            self, head_node=True, username=current_username
+        )
         query = typing.cast(typing.LiteralString, query_object.to_query_string())
         with open("create_query_dump.cypher", "w") as f:
             f.write(f"{query}\n\n//{str(query_object.query_params)}")
@@ -152,9 +154,11 @@ class BaseNode(RootNode):
 
     @classmethod
     @write_transaction
-    async def _update_method(cls, tx: Transaction, instance) -> bool:
+    async def _update_method(
+        cls, tx: Transaction, instance, username: str | None = None
+    ) -> bool:
         query_object, _, should_update = await build_update_node_query_object(
-            instance, head_node=True
+            instance, head_node=True, username=username
         )
         if should_update:
             query = typing.cast(typing.LiteralString, query_object.to_query_string())
@@ -167,6 +171,7 @@ class BaseNode(RootNode):
                 value = await result.value()
 
             if value:
+                print(value)
                 return value[0]
             else:
                 return False

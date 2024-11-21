@@ -119,6 +119,20 @@ async def test_login(user, client: httpx.AsyncClient):
     assert response.cookies["logged_in_user_name"]
 
 
+@pytest.mark.asyncio
+async def test_create_person_when_not_logged_in_raises_401(client: httpx.AsyncClient):
+    response = await client.post(
+        "/api/Person/new",
+        data={
+            "label": "Toby Jones",
+            "type": "Person",
+            "name": "Toby Jones",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
 @pytest_asyncio.fixture
 async def logged_in_client(user, client):
     response = await client.post(
@@ -135,16 +149,66 @@ async def logged_in_client(user, client):
 
 
 @pytest.mark.asyncio
-async def test_create_person(logged_in_client: httpx.AsyncClient):
-    resp = await logged_in_client.post(
+async def test_create_and_get_person(logged_in_client: httpx.AsyncClient):
+    create_resp = await logged_in_client.post(
         "/api/Person/new",
-        data={
+        json={
             "label": "Toby Jones",
             "type": "Person",
+            "name": "Toby Jones",
         },
     )
 
-    assert resp.status_code == 200
+    assert create_resp.status_code == 200
+    create_resp_data = create_resp.json()
+    assert create_resp_data["type"] == "Person"
+    assert create_resp_data["label"] == "Toby Jones"
+    assert create_resp_data["uuid"]
+
+    get_resp = await logged_in_client.get(f"/api/Person/{create_resp_data["uuid"]}")
+    get_resp_data = get_resp.json()
+    assert get_resp_data["uuid"] == create_resp_data["uuid"]
+    assert get_resp_data["createdBy"] == "jsmith"
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_update_person(logged_in_client: httpx.AsyncClient):
+    create_resp = await logged_in_client.post(
+        "/api/Person/new",
+        json={
+            "label": "Toby Jones",
+            "type": "Person",
+            "name": "Toby Jones",
+        },
+    )
+
+    assert create_resp.status_code == 200
+    create_resp_data = create_resp.json()
+
+    edit_resp = await logged_in_client.get(
+        f"/api/Person/edit/{create_resp_data["uuid"]}"
+    )
+    assert edit_resp.status_code == 200
+    assert edit_resp.json()
+
+    person_edit = edit_resp.json()
+    person_edit["label"] = "Toby Jones Updated"
+
+    update_resp = await logged_in_client.patch(
+        f"/api/Person/edit/{create_resp_data["uuid"]}", json=person_edit
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json() == {"detail": "Update successful"}
+
+    get_resp = await logged_in_client.get(
+        f"/api/Person/{create_resp_data["uuid"]}",
+    )
+
+    get_resp_data = get_resp.json()
+    assert get_resp_data["label"] == "Toby Jones Updated"
+    assert get_resp_data["modifiedBy"] == "jsmith"
+    assert get_resp_data["modifiedWhen"]
 
 
 '''

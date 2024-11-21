@@ -3,16 +3,17 @@ import typing
 
 
 if typing.TYPE_CHECKING:
-    from pangloss.model_config.models_base import RootNode, ReifiedRelationNode
+    from pangloss.model_config.models_base import ReifiedRelationNode
+    from pangloss.models import BaseNode
 
 
 class ModelManager:
-    registered_models: list[type["RootNode"]] = []
+    registered_models: list[type["BaseNode"]] = []
     registered_reified_relation_nodes: list[type["ReifiedRelationNode"]] = []
     registered_model_names: set[str]
 
     @classmethod
-    def register_model(cls, model: type["RootNode"]):
+    def register_model(cls, model: type["BaseNode"]):
         cls.registered_models.append(model)
 
     @classmethod

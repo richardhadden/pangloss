@@ -1,83 +1,36 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 
-import bcrypt
 from fastapi import (
     Depends,
     HTTPException,
     status,
     Response,
-    Request,
     APIRouter,
     FastAPI,
 )
 
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.openapi.models import (
-    OAuth2,
-    OAuthFlows as OAuthFlowsModel,
-    OAuthFlowPassword,
-)
-from fastapi.security.utils import get_authorization_scheme_param
-import jwt
 from jwt.exceptions import InvalidTokenError
-from pydantic import BaseModel, Field, validate_email, SecretStr, EmailStr
+from pydantic import BaseModel, Field, validate_email, EmailStr
 from pydantic_core import PydanticCustomError
 from rich import print
 import typer
 
-
+from pangloss.auth import (
+    create_access_token,
+    decode_token,
+    get_password_hash,
+    oauth2_scheme,
+    verify_password,
+)
 from pangloss.database import read_transaction, write_transaction, Transaction
 from pangloss.initialisation import (
     initialise_pangloss_application,
     get_project_settings,
 )
-
-
-# to get a string like this run:
-# openssl rand -hex 32
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-
-class OAuth2PasswordBearerWithCookie(OAuth2):
-    auto_error: bool = True
-
-    def __hash__(self):
-        return 1
-
-    def __init__(
-        self,
-        tokenUrl: str,
-        scheme_name: Optional[str] = None,
-        scopes: Optional[dict[str, str]] = None,
-        auto_error: bool = True,
-    ):
-        if not scopes:
-            scopes = {}
-        flows = OAuthFlowsModel(password=OAuthFlowPassword(tokenUrl=tokenUrl))
-        super().__init__(flows=flows)
-
-    async def __call__(self, request: Request) -> Optional[str]:
-        authorization: str | None = request.cookies.get(
-            "access_token"
-        )  # changed to accept access token from httpOnly Cookie
-
-        scheme, param = get_authorization_scheme_param(authorization)
-        if not authorization or scheme.lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not authenticated",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            else:
-                return None
-        return param
 
 
 class Token(BaseModel):
@@ -140,37 +93,14 @@ class UserInDB(User):
             return None
 
 
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="login")
-
-
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(
-        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-    )
-
-
-def get_password_hash(password):
-    return bcrypt.hashpw(password, bcrypt.gensalt())
-
-
 async def authenticate_user(username: str, password: str):
     user = await UserInDB.get(username=username)
     if not user:
         return False
+
     if not verify_password(password, user.hashed_password):
         return False
     return user
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
@@ -180,7 +110,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_token(token)
 
         username: str | None = payload.get("sub")
         if username is None:
@@ -226,10 +156,8 @@ def setup_user_routes(_app: FastAPI, settings):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
             )
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
+
+        access_token = create_access_token(data={"sub": user.username})
         response.set_cookie(
             key="access_token", value=f"Bearer {access_token}", httponly=True
         )  # set HttpOnly cookie in response
@@ -273,9 +201,7 @@ def setup_user_routes(_app: FastAPI, settings):
         user_to_create = UserInDB(
             username=new_user.username,
             email=new_user.email,
-            hashed_password=get_password_hash(new_user.password.encode("utf-8")).decode(
-                "utf-8"
-            ),
+            hashed_password=get_password_hash(new_user.password),
         )
         result = await user_to_create.write_user()
         return result
@@ -301,9 +227,12 @@ async def create_user(username: str, email: EmailStr, password: str, admin: bool
     user_to_create = UserInDB(
         username=username,
         email=email,
-        hashed_password=get_password_hash(password.encode("utf-8")).decode("utf-8"),
+        hashed_password=get_password_hash(password),
         admin=admin,
     )
+
+    assert verify_password(password, user_to_create.hashed_password)
+
     result = await user_to_create.write_user()
     return result
 
@@ -324,7 +253,7 @@ def create(
     password = str(
         typer.prompt(
             "Password",
-            type=SecretStr,
+            type=str,
             confirmation_prompt="Repeat password to confirm",
             hide_input=True,
         )
@@ -336,9 +265,9 @@ def create(
         create_user(
             username=username,
             email=email,
-            password=password,
+            password=password.strip(),
             admin=admin,
         )
     )
 
-    print(f"\n[green bold]Done! Created user '{username}'[/green bold]")
+    print(f"\n[green bold]Done! Created user '{username}' [/green bold]")

@@ -113,8 +113,11 @@ def build_create_node_query_object(
     query: CreateQuery | UpdateQuery | None = None,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
-    user: str = "DefaultUser",
+    username: str | None = "DefaultUser",
 ) -> tuple[CreateQuery | UpdateQuery, Identifier, uuid.UUID]:
+    if not username:
+        username = "DefaultUser"
+
     if not query:
         query = CreateQuery()
 
@@ -154,6 +157,8 @@ def build_create_node_query_object(
 
     if head_node:
         user_identifier = Identifier()
+        query.query_params[user_identifier] = username
+
         creation_node_identifier = Identifier()
         creation_data_identifier = Identifier()
 
@@ -164,7 +169,7 @@ def build_create_node_query_object(
 
         query.query_params[creation_data_identifier] = diff_from_empty
         query.match_query_strings.append(
-            f"""MATCH ({user_identifier}:PGUser {{username: "{user}"}})"""
+            f"""MATCH ({user_identifier}:PGUser {{username: ${user_identifier}}})"""
         )
 
         query.create_query_strings.append(
