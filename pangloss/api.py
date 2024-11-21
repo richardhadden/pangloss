@@ -162,7 +162,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
 
             if getattr(model, "__edit__", False):
                 router.add_api_route(
-                    "/edit/{uuid}",
+                    "/{uuid}/edit",
                     endpoint=build_get_edit_handler(model),
                     methods={"get"},
                     name=f"{model.__name__}.Edit.Get",
@@ -170,7 +170,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
                 )
 
                 router.add_api_route(
-                    "/edit/{uuid}",
+                    "/{uuid}/edit",
                     endpoint=build_patch_edit_handler(model),
                     methods={"patch"},
                     name=f"{model.__name__}.Edit.Patch",

@@ -187,7 +187,7 @@ async def test_update_person(logged_in_client: httpx.AsyncClient):
     create_resp_data = create_resp.json()
 
     edit_resp = await logged_in_client.get(
-        f"/api/Person/edit/{create_resp_data["uuid"]}"
+        f"/api/Person/{create_resp_data["uuid"]}/edit"
     )
     assert edit_resp.status_code == 200
     assert edit_resp.json()
@@ -196,7 +196,7 @@ async def test_update_person(logged_in_client: httpx.AsyncClient):
     person_edit["label"] = "Toby Jones Updated"
 
     update_resp = await logged_in_client.patch(
-        f"/api/Person/edit/{create_resp_data["uuid"]}", json=person_edit
+        f"/api/Person/{create_resp_data["uuid"]}/edit", json=person_edit
     )
     assert update_resp.status_code == 200
     assert update_resp.json() == {"detail": "Update successful"}

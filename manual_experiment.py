@@ -1,36 +1,15 @@
-from __future__ import annotations
+from pydantic import BaseModel
 
-from typing import Annotated
-import uuid
-
-from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
-from pangloss.model_config.model_manager import ModelManager
+import typing
 
 
-class Person(BaseNode):
+class BaseConfig(BaseModel):
+    name: str
+
+
+class Thing(BaseModel):
+    Settings: typing.ClassVar[type[BaseConfig]]
+
+
+class SubThing(Thing):
     pass
-
-
-class Identification[T](ReifiedRelation[T]):
-    pass
-
-
-class Event(BaseNode):
-    carried_out_by: Annotated[
-        Identification[Person], RelationConfig(reverse_name="carried_out")
-    ]
-
-
-ModelManager.initialise_models()
-
-
-event = Event(
-    type="Event",
-    label="A Nice Event",
-    carried_out_by=[
-        {
-            "type": "Identification[Person]",
-            "target": [{"type": "Person", "uuid": uuid.uuid4()}],
-        }
-    ],
-)
