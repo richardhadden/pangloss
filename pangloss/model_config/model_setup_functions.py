@@ -1051,11 +1051,17 @@ def initialise_edit_set_type(
     cls.EditSet.model_rebuild(force=True)
 
 
-def delete_subclassed_relations(cls: type[RootNode]):
+def initialise_subclassed_relations(cls: type[RootNode]):
+    """Identifies relation fields that override another inherited relation and
+    removes the inherited relation field from the class, adding its relation-
+    and reverse-relation labels to the field definition"""
+
     to_delete = []
     for relation_definition in cls.field_definitions.relation_fields:
         if relation_definition.subclasses_relation:
             for subclassed_relation in relation_definition.subclasses_relation:
+                # Check we are actually trying to subclass something that exists
+                # on the class
                 if subclassed_relation not in cls.model_fields:
                     raise PanglossConfigError(
                         f"Relation '{cls.__name__}.{relation_definition.field_name}' "
@@ -1064,41 +1070,26 @@ def delete_subclassed_relations(cls: type[RootNode]):
                         f"does not exist on any parent class of '{cls.__name__}'"
                     )
 
-                del cls.model_fields[subclassed_relation]
-
+                # If so, mark for deletion
                 to_delete.append(subclassed_relation)
 
-                # cls.model_rebuild(force=True)
-                relation_definition.relation_labels.add(subclassed_relation)
+                # Add the relation labels from the inherited field
+                relation_definition.relation_labels.update(
+                    cls.field_definitions[subclassed_relation].relation_labels  # type: ignore
+                )
 
-        # Now get all the labels by going up the object hierarchy and finding
-        # fields with the subclassed name and getting its label
-        for cl in cls.mro():
-            if relation_definition.subclasses_relation:
-                if issubclass(cl, RootNode):
-                    for subclassed_relation in relation_definition.subclasses_relation:
-                        if subclassed_relation in cl.model_fields:
-                            relation_definition.relation_labels.update(
-                                cl.field_definitions[
-                                    subclassed_relation
-                                ].relation_labels  # type: ignore
-                            )
+                # Add reverse relation labels from inherited field
+                relation_definition.reverse_relation_labels.update(
+                    typing.cast(
+                        RelationFieldDefinition,
+                        cls.field_definitions[subclassed_relation],
+                    ).reverse_relation_labels
+                )
 
-                            for fd in cl.field_definitions.relation_fields:
-                                if fd.field_name == subclassed_relation:
-                                    relation_definition.reverse_relation_labels.update(
-                                        fd.reverse_relation_labels
-                                    )
-                elif issubclass(cl, HeritableTrait):
-                    for subclassed_relation in relation_definition.subclasses_relation:
-                        if subclassed_relation in cl.__annotations__:
-                            relation_definition.reverse_relation_labels.update(
-                                typing.cast(
-                                    RelationFieldDefinition,
-                                    cls.field_definitions[subclassed_relation],
-                                ).reverse_relation_labels
-                            )
+                # Delete the subclassed relation from model fields
+                del cls.model_fields[subclassed_relation]
 
+    # Remove all items from the field definition
     for item in to_delete:
         del cls.field_definitions.fields[item]
     cls.model_rebuild(force=True)

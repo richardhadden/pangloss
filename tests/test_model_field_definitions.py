@@ -728,16 +728,24 @@ def test_override_relation_in_relation_definition_from_trait():
     class StatementWithPerson(HeritableTrait):
         person: typing.Annotated[Person, RelationConfig(reverse_name="is_person_in")]
 
+    class LocatableStatement(HeritableTrait):
+        located_person: typing.Annotated[
+            Person, RelationConfig(reverse_name="person_in_locatable_event")
+        ]
+
     class SinglePersonStatement(StatementWithPerson):
         actor: typing.Annotated[
             Person,
             RelationConfig(reverse_name="is_actor_in", subclasses_relation=["person"]),
         ]
 
-    class Event(BaseNode, SinglePersonStatement):
+    class Event(BaseNode, SinglePersonStatement, LocatableStatement):
         has_subject: typing.Annotated[
             Person,
-            RelationConfig(reverse_name="is_subject_of", subclasses_relation=["actor"]),
+            RelationConfig(
+                reverse_name="is_subject_of",
+                subclasses_relation=["actor", "located_person"],
+            ),
         ]
 
     class Party(Event):
@@ -758,10 +766,11 @@ def test_override_relation_in_relation_definition_from_trait():
     assert isinstance(has_invitee_definition, RelationFieldDefinition)
     assert has_invitee_definition.subclasses_relation == frozenset({"has_subject"})
     assert set(has_invitee_definition.relation_labels) == {
-        "is_person_in",
+        "person",
         "actor",
         "has_subject",
         "has_invitee",
+        "located_person",
     }
 
     assert set(has_invitee_definition.reverse_relation_labels) == {
@@ -769,4 +778,5 @@ def test_override_relation_in_relation_definition_from_trait():
         "is_subject_of",
         "is_person_in",
         "is_invited_to",
+        "person_in_locatable_event",
     }

@@ -43,7 +43,7 @@ class ModelManager:
             initialise_incoming_relations_on_view_types_for_base,
             initialise_edit_view_type,
             initialise_edit_set_type,
-            delete_subclassed_relations,
+            initialise_subclassed_relations,
             initialise_model_labels,
         )
 
@@ -57,7 +57,7 @@ class ModelManager:
             initialise_model_field_definitions(model)
 
         for model in cls.registered_models:
-            delete_subclassed_relations(model)
+            initialise_subclassed_relations(model)
 
         for model in cls.registered_models:
             initialise_reference_set_on_base_models(model)
