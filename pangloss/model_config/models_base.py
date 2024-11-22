@@ -330,6 +330,7 @@ class RootNode(_GenericNode):
     incoming_relation_definitions: typing.ClassVar[
         dict[str, set["IncomingRelationDefinition"]]
     ]
+    subclassed_fields_to_delete: typing.ClassVar[list[str]]
     labels: typing.ClassVar[set[str]]
     Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
 
@@ -337,6 +338,7 @@ class RootNode(_GenericNode):
         # Needs to be set on a per-class basis on subclassing, not
         # inherited for each class
         cls.field_definitions_initialised = False
+        cls.subclassed_fields_to_delete = []
 
         initialise_model_meta_inheritance(cls)
 

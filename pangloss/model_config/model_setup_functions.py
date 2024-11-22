@@ -1056,7 +1056,7 @@ def initialise_subclassed_relations(cls: type[RootNode]):
     removes the inherited relation field from the class, adding its relation-
     and reverse-relation labels to the field definition"""
 
-    to_delete = []
+    # to_delete = []
     for relation_definition in cls.field_definitions.relation_fields:
         if relation_definition.subclasses_relation:
             for subclassed_relation in relation_definition.subclasses_relation:
@@ -1071,7 +1071,7 @@ def initialise_subclassed_relations(cls: type[RootNode]):
                     )
 
                 # If so, mark for deletion
-                to_delete.append(subclassed_relation)
+                cls.subclassed_fields_to_delete.append(subclassed_relation)
 
                 # Add the relation labels from the inherited field
                 relation_definition.relation_labels.update(
@@ -1087,12 +1087,8 @@ def initialise_subclassed_relations(cls: type[RootNode]):
                 )
 
                 # Delete the subclassed relation from model fields
-                del cls.model_fields[subclassed_relation]
 
     # Remove all items from the field definition
-    for item in to_delete:
-        del cls.field_definitions.fields[item]
-    cls.model_rebuild(force=True)
 
 
 def initialise_model_labels(cls: type[RootNode]) -> None:

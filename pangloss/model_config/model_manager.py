@@ -60,6 +60,14 @@ class ModelManager:
             initialise_subclassed_relations(model)
 
         for model in cls.registered_models:
+            for subclassed_field_name in model.subclassed_fields_to_delete:
+                if subclassed_field_name in model.model_fields:
+                    del model.model_fields[subclassed_field_name]
+
+                    del model.field_definitions.fields[subclassed_field_name]
+            model.model_rebuild(force=True)
+
+        for model in cls.registered_models:
             initialise_reference_set_on_base_models(model)
 
         for model in cls.registered_models:

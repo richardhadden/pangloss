@@ -755,6 +755,13 @@ def test_override_relation_in_relation_definition_from_trait():
                 reverse_name="is_invited_to", subclasses_relation=["has_subject"]
             ),
         ]
+        has_host: typing.Annotated[
+            Person,
+            RelationConfig(
+                reverse_name="is_host_of",
+                subclasses_relation=["person", "located_person"],
+            ),
+        ]
 
     ModelManager.initialise_models(_defined_in_test=True)
 
@@ -779,4 +786,18 @@ def test_override_relation_in_relation_definition_from_trait():
         "is_person_in",
         "is_invited_to",
         "person_in_locatable_event",
+    }
+
+    has_host_definition = Party.field_definitions["has_host"]
+    assert isinstance(has_host_definition, RelationFieldDefinition)
+    assert set(has_host_definition.relation_labels) == {
+        "person",
+        "located_person",
+        "has_host",
+    }
+
+    assert set(has_host_definition.reverse_relation_labels) == {
+        "is_person_in",
+        "person_in_locatable_event",
+        "is_host_of",
     }
