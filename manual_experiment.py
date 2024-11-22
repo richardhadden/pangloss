@@ -3,13 +3,17 @@ from pydantic import BaseModel
 import typing
 
 
-class BaseConfig(BaseModel):
-    name: str
+class BaseMeta(BaseModel):
+    abstract: bool = False
+    create: bool = True
+    edit: bool = True
+    delete: bool = True
 
 
 class Thing(BaseModel):
-    Settings: typing.ClassVar[type[BaseConfig]]
+    Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
 
 
 class SubThing(Thing):
-    pass
+    class Meta(BaseMeta):
+        abstract = 1

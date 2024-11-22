@@ -143,7 +143,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
             openapi_extra={"requiresAuth": True},
         )
 
-        if not model.__abstract__:
+        if not model.Meta.abstract:
             router.add_api_route(
                 "/{uuid}",
                 endpoint=build_get_handler(model),
@@ -151,7 +151,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
                 operation_id=f"{model.__name__}View",
             )
 
-            if getattr(model, "__create__", False):
+            if model.Meta.create:
                 router.add_api_route(
                     "/new",
                     endpoint=build_create_handler(model),
@@ -160,7 +160,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
                     operation_id=f"{model.__name__}Create",
                 )
 
-            if getattr(model, "__edit__", False):
+            if model.Meta.edit:
                 router.add_api_route(
                     "/{uuid}/edit",
                     endpoint=build_get_edit_handler(model),
@@ -177,7 +177,7 @@ def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
                     operation_id=f"{model.__name__}EditPatch",
                 )
 
-            if getattr(model, "__delete__", False):
+            if model.Meta.delete:
                 router.add_api_route(
                     "/{uuid}",
                     endpoint=build_delete_handler(model),

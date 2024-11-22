@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import dataclasses
 import datetime
+import inspect
 import typing
 import uuid
 
@@ -11,6 +12,7 @@ import humps
 import neo4j
 import pydantic
 
+from pangloss.exceptions import PanglossConfigError
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
@@ -298,6 +300,16 @@ class EmbeddedViewBase(pydantic.BaseModel, _SubNodeProxy):
         return value
 
 
+@dataclasses.dataclass
+class BaseMeta:
+    """Base class for BaseNode Meta fields"""
+
+    abstract: bool = False
+    create: bool = True
+    edit: bool = True
+    delete: bool = True
+
+
 class RootNode(_GenericNode):
     """Default base model on creation"""
 
@@ -319,16 +331,14 @@ class RootNode(_GenericNode):
         dict[str, set["IncomingRelationDefinition"]]
     ]
     labels: typing.ClassVar[set[str]]
-
-    __abstract__: typing.ClassVar[bool] = True
-
-    __create__: typing.ClassVar[bool] = True
-    __edit__: typing.ClassVar[bool] = True
+    Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
 
     def __init_subclass__(cls):
         # Needs to be set on a per-class basis on subclassing, not
         # inherited for each class
         cls.field_definitions_initialised = False
+
+        initialise_model_meta_inheritance(cls)
 
 
 class HeritableTrait:
@@ -367,3 +377,61 @@ class RelationConfig:
     create_inline: bool = False
     edit_inline: bool = False
     delete_related_on_detach: bool = False
+
+
+def initialise_model_meta_inheritance(cls: type[RootNode]):
+    # Check cls.Meta is a subclass of BaseMeta
+    if hasattr(cls, "Meta") and not issubclass(cls.Meta, BaseMeta):
+        raise PanglossConfigError(
+            f"Model <{cls.__name__}> has a Meta object not inherited from BaseMeta"
+        )
+
+    # Check BaseMeta is not used with some name other than cls.Meta
+    for class_var_name in cls.__class_vars__:
+        if (
+            getattr(cls, class_var_name, None)
+            and inspect.isclass(getattr(cls, class_var_name))
+            and issubclass(getattr(cls, class_var_name), BaseMeta)
+            and class_var_name != "Meta"
+        ):
+            raise PanglossConfigError(
+                f"Error with model <{cls.__name__}>: BaseMeta must be inherited from by a class called Meta"
+            )
+
+    # Check BaseMeta is not used with some name other than cls.Meta, this time in the class dict
+    for field_name in cls.__dict__:
+        if (
+            getattr(cls, field_name, None)
+            and inspect.isclass(getattr(cls, field_name))
+            and issubclass(getattr(cls, field_name), BaseMeta)
+            and field_name != "Meta"
+        ):
+            raise PanglossConfigError(
+                f"Error with model <{cls.__name__}>: BaseMeta must be inherited from by a class called Meta"
+            )
+
+    parent_class = [c for c in cls.mro() if issubclass(c, RootNode) and c is not cls][0]
+    parent_meta = parent_class.Meta
+
+    if "Meta" not in cls.__dict__:
+        meta_settings = {}
+        for field_name in BaseMeta.__dataclass_fields__:
+            meta_settings[field_name] = getattr(parent_meta, field_name)
+        meta_settings["abstract"] = False
+
+        cls.Meta = type("Meta", (BaseMeta,), meta_settings)
+
+    else:
+        meta_settings = {}
+        for field_name in BaseMeta.__dataclass_fields__:
+            if field_name == "abstract":
+                continue
+
+            if field_name in cls.Meta.__dict__:
+                meta_settings[field_name] = cls.Meta.__dict__[field_name]
+            else:
+                meta_settings[field_name] = parent_meta.__dict__[field_name]
+        if "abstract" in cls.Meta.__dict__ and cls.Meta.__dict__["abstract"] is True:
+            meta_settings["abstract"] = True
+
+        cls.Meta = type("Meta", (BaseMeta,), meta_settings)

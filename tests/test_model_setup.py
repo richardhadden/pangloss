@@ -18,6 +18,7 @@ from pangloss.model_config.model_setup_functions import (
     initialise_reified_relation,
 )
 from pangloss.model_config.models_base import (
+    BaseMeta,
     ReferenceSetBase,
     ReferenceViewBase,
     ReifiedRelationNode,
@@ -1273,3 +1274,49 @@ def test_override_relation():
     assert "has_invitee" in Party.EditSet.model_fields
     assert "has_subject" not in Party.EditSet.model_fields
     assert "has_subject" in Event.EditSet.model_fields
+
+
+def test_meta_not_inheriting_from_base_meta_raises_error():
+    with pytest.raises(PanglossConfigError):
+
+        class Thing(BaseNode):
+            class Meta:
+                pass
+
+
+def test_base_meta_not_inherited_by_class_not_called_meta_raises_error():
+    with pytest.raises(PanglossConfigError):
+
+        class Thing(BaseNode):
+            class SomeShit(BaseMeta):
+                abstract = True
+
+
+def test_base_meta_inherits_except_abstract():
+    class Thing(BaseNode):
+        class Meta(BaseMeta):
+            abstract = True
+            create = False
+
+    class SubThing(Thing):
+        pass
+
+    class SubSubThing(SubThing):
+        class Meta(BaseMeta):
+            abstract = True
+            delete = False
+
+    assert Thing.Meta.abstract
+    assert not Thing.Meta.create
+    assert Thing.Meta.edit
+    assert Thing.Meta.delete
+
+    assert not SubThing.Meta.abstract
+    assert not SubThing.Meta.create
+    assert SubThing.Meta.edit
+    assert SubThing.Meta.delete
+
+    assert SubSubThing.Meta.abstract
+    assert not SubSubThing.Meta.create
+    assert SubSubThing.Meta.edit
+    assert not SubSubThing.Meta.delete
