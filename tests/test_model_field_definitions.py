@@ -689,7 +689,7 @@ def test_override_relation_in_relation_definition():
         has_invitee: typing.Annotated[
             Person,
             RelationConfig(
-                reverse_name="is_invited_to", subclasses_relation="has_subject"
+                reverse_name="is_invited_to", subclasses_relation=["has_subject"]
             ),
         ]
 
@@ -699,7 +699,7 @@ def test_override_relation_in_relation_definition():
 
     assert has_invitee_definition
     assert isinstance(has_invitee_definition, RelationFieldDefinition)
-    assert has_invitee_definition.subclasses_relation == "has_subject"
+    assert has_invitee_definition.subclasses_relation == frozenset({"has_subject"})
     assert set(has_invitee_definition.relation_labels) == {
         "has_subject",
         "has_invitee",
@@ -719,3 +719,54 @@ def test_override_relation_in_relation_definition():
     ][0]
 
     assert item.field_name == "has_invitee"
+
+
+def test_override_relation_in_relation_definition_from_trait():
+    class Person(BaseNode):
+        pass
+
+    class StatementWithPerson(HeritableTrait):
+        person: typing.Annotated[Person, RelationConfig(reverse_name="is_person_in")]
+
+    class SinglePersonStatement(StatementWithPerson):
+        actor: typing.Annotated[
+            Person,
+            RelationConfig(reverse_name="is_actor_in", subclasses_relation=["person"]),
+        ]
+
+    class Event(BaseNode, SinglePersonStatement):
+        has_subject: typing.Annotated[
+            Person,
+            RelationConfig(reverse_name="is_subject_of", subclasses_relation=["actor"]),
+        ]
+
+    class Party(Event):
+        has_invitee: typing.Annotated[
+            Person,
+            RelationConfig(
+                reverse_name="is_invited_to", subclasses_relation=["has_subject"]
+            ),
+        ]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert "actor" not in Party.field_definitions
+
+    has_invitee_definition = Party.field_definitions["has_invitee"]
+
+    assert has_invitee_definition
+    assert isinstance(has_invitee_definition, RelationFieldDefinition)
+    assert has_invitee_definition.subclasses_relation == frozenset({"has_subject"})
+    assert set(has_invitee_definition.relation_labels) == {
+        "is_person_in",
+        "actor",
+        "has_subject",
+        "has_invitee",
+    }
+
+    assert set(has_invitee_definition.reverse_relation_labels) == {
+        "is_actor_in",
+        "is_subject_of",
+        "is_person_in",
+        "is_invited_to",
+    }

@@ -1253,7 +1253,7 @@ def test_override_relation():
         has_invitee: typing.Annotated[
             Person,
             RelationConfig(
-                reverse_name="is_invited_to", subclasses_relation="has_subject"
+                reverse_name="is_invited_to", subclasses_relation=["has_subject"]
             ),
         ]
 

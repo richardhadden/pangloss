@@ -1055,44 +1055,49 @@ def delete_subclassed_relations(cls: type[RootNode]):
     to_delete = []
     for relation_definition in cls.field_definitions.relation_fields:
         if relation_definition.subclasses_relation:
-            if relation_definition.subclasses_relation not in cls.model_fields:
-                raise PanglossConfigError(
-                    f"Relation '{cls.__name__}.{relation_definition.field_name}' "
-                    f"is trying to subclass the relation "
-                    f"'{relation_definition.subclasses_relation}', but this "
-                    f"does not exist on any parent class of '{cls.__name__}'"
-                )
+            for subclassed_relation in relation_definition.subclasses_relation:
+                if subclassed_relation not in cls.model_fields:
+                    raise PanglossConfigError(
+                        f"Relation '{cls.__name__}.{relation_definition.field_name}' "
+                        f"is trying to subclass the relation "
+                        f"'{subclassed_relation}', but this "
+                        f"does not exist on any parent class of '{cls.__name__}'"
+                    )
 
-            del cls.model_fields[relation_definition.subclasses_relation]
+                del cls.model_fields[subclassed_relation]
 
-            to_delete.append(relation_definition.subclasses_relation)
+                to_delete.append(subclassed_relation)
 
-            # cls.model_rebuild(force=True)
-            relation_definition.relation_labels.add(
-                relation_definition.subclasses_relation
-            )
+                # cls.model_rebuild(force=True)
+                relation_definition.relation_labels.add(subclassed_relation)
 
+        # Now get all the labels by going up the object hierarchy and finding
+        # fields with the subclassed name and getting its label
         for cl in cls.mro():
-            if cl is RootNode:
-                break
-            if issubclass(cl, RootNode):
-                if relation_definition.subclasses_relation in cl.model_fields:
-                    # TODO: no idea what this 'extra_label' variable is for
-                    # extra_label = cl.outgoing_relations[
-                    #    relation_definition.relation_config.subclasses_relation
-                    # ].relation_config.relation_labels
-                    # print("extra label")
-                    relation_definition.relation_labels.update(
-                        cl.field_definitions[
-                            relation_definition.subclasses_relation
-                        ].relation_labels  # type: ignore
-                    )
+            if relation_definition.subclasses_relation:
+                if issubclass(cl, RootNode):
+                    for subclassed_relation in relation_definition.subclasses_relation:
+                        if subclassed_relation in cl.model_fields:
+                            relation_definition.relation_labels.update(
+                                cl.field_definitions[
+                                    subclassed_relation
+                                ].relation_labels  # type: ignore
+                            )
 
-                    relation_definition.reverse_relation_labels.update(
-                        fd.reverse_name
-                        for fd in cl.field_definitions.relation_fields
-                        if fd.field_name == relation_definition.subclasses_relation
-                    )
+                            for fd in cl.field_definitions.relation_fields:
+                                if fd.field_name == subclassed_relation:
+                                    relation_definition.reverse_relation_labels.update(
+                                        fd.reverse_relation_labels
+                                    )
+                elif issubclass(cl, HeritableTrait):
+                    for subclassed_relation in relation_definition.subclasses_relation:
+                        if subclassed_relation in cl.__annotations__:
+                            relation_definition.reverse_relation_labels.update(
+                                typing.cast(
+                                    RelationFieldDefinition,
+                                    cls.field_definitions[subclassed_relation],
+                                ).reverse_relation_labels
+                            )
 
     for item in to_delete:
         del cls.field_definitions.fields[item]
