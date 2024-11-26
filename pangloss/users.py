@@ -144,7 +144,7 @@ async def get_current_admin_user(
 
 
 def setup_user_routes(_app: FastAPI, settings):
-    api_router = APIRouter(prefix="/api/users", tags=["User"])
+    api_router = APIRouter(prefix="/api/users", tags=["Pangloss.User"])
 
     @api_router.post("/login", response_model=Token, name="UserLogin")
     async def login_for_access_token(

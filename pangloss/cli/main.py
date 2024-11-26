@@ -1,28 +1,48 @@
-import subprocess
-import typing
 import os
+import pathlib
+import subprocess
+import sys
+import typing
 from pathlib import Path
 
-
+import tomllib
+import typer
 from cookiecutter.exceptions import OutputDirExistsException
 from cookiecutter.main import cookiecutter
 from rich import print
 from rich.panel import Panel
 
-
-import typer
-
-
-# from pangloss.model_setup.model_manager import ModelManager
-from pangloss.users import user_cli
-
 # from pangloss.types_generation import type_generation_cli
 # from pangloss.translation import translation_cli
 # from pangloss.indexes import install_indexes_and_constraints
 from pangloss.database import initialise_database_driver
+from pangloss.exceptions import PanglossInitialisationError
 from pangloss.initialisation import get_project_settings
 
+# from pangloss.model_setup.model_manager import ModelManager
+from pangloss.users import user_cli
+
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+
+project_path = None
+if "--project" in sys.argv:
+    project_path = sys.argv[sys.argv.index("--project") + 1]
+else:
+    try:
+        f = pathlib.Path("pyproject.toml")
+        if f.is_file:
+            data = f.read_text()
+            data = tomllib.loads(data)
+            project_path = data["tool"]["pangloss"]["config"]["project"]
+    except Exception:
+        pass
+
+
+if not project_path:
+    raise PanglossInitialisationError(
+        "No Pangloss Project specified in pyproject.toml or via --project flag"
+    )
+
 
 cli_app = typer.Typer(
     add_completion=False,
@@ -31,17 +51,6 @@ cli_app = typer.Typer(
 )
 
 cli_app.add_typer(user_cli, name="users")
-# cli_app.add_typer(type_generation_cli, name="types")
-# cli_app.add_typer(translation_cli, name="translation")
-
-
-@cli_app.command()
-def registercli(
-    project: typing.Annotated[
-        Path, typer.Option(exists=True, help="The path of the project to run")
-    ],
-):
-    print(project)
 
 
 @cli_app.command(help="Create new project")
@@ -118,20 +127,15 @@ def createproject(project_name: typing.Annotated[str, typer.Argument()]):
         )
 
 
-@cli_app.command(help="Does Nothing")
-def start_app(name: str):
-    print("[green]Hello world![/green]")
-
-
 Project = typing.Annotated[
     Path, typer.Option(exists=True, help="The path of the project to run")
 ]
 
 
 @cli_app.command(help="Starts development server")
-def run(project: Project):
-    settings = get_project_settings(str(project))
-    reload_watch_list = ["--reload-dir", project]
+def run():
+    settings = get_project_settings(str(project_path))
+    reload_watch_list = ["--reload-dir", project_path]
     for installed_app in settings.INSTALLED_APPS:
         m = __import__(installed_app)
 
@@ -140,7 +144,7 @@ def run(project: Project):
 
     panel = Panel(
         (
-            f"Autoreloading on!\n\n   Watching project: [bold green]{str(project)}[/bold green]\n   "
+            f"Autoreloading on!\n\n   Watching project: [bold green]{str(project_path)}[/bold green]\n   "
             f"Watching installed apps: {", ".join(f"[bold blue]{a}[/bold blue]" for a in settings.INSTALLED_APPS)}"
         ),
         title="📜 Starting Pangloss development server!",
@@ -150,7 +154,7 @@ def run(project: Project):
     print("\n\n", panel, "\n\n")
     sc_command = [
         "uvicorn",
-        f"{str(project)}.main:app",
+        f"{str(project_path)}.main:app",
         "--lifespan",
         "on",
         "--reload",
@@ -164,25 +168,26 @@ def setup_database(project: Project):
     install_indexes_and_constraints()
 
 
+settings = get_project_settings(project_path)
+
+initialise_database_driver(settings)
+for app in settings.INSTALLED_APPS:
+    __import__(f"{app}.models")
+    try:
+        m = __import__(f"{app}.cli")
+
+        c = m.cli.__dict__.get("cli")
+        if c:
+            cli_app.add_typer(c, name=c.info.name)
+    except ModuleNotFoundError:
+        raise PanglossInitialisationError(
+            f"Could not find module {app} declared in {project_path}.settings.INSTALLED_APPS"
+        )
+
+
 def cli():
     """Initialises the Typer-based CLI by checking installed app folders
     for a cli.py file and finding Typer apps inside."""
-    import sys
 
-    if "--project" in sys.argv:
-        project_path = sys.argv[sys.argv.index("--project") + 1]
-        if project_path:
-            settings = get_project_settings(project_path)
-            initialise_database_driver(settings)
-            for app in settings.INSTALLED_APPS:
-                __import__(f"{app}.models")
-                try:
-                    m = __import__(f"{app}.cli")
-                    c = m.cli.__dict__.get("cli")
-                    if c:
-                        cli_app.add_typer(c, name=c.info.name)
-                except ModuleNotFoundError:
-                    pass
-
-            # ModelManager.initialise_models(depth=3)
+    # ModelManager.initialise_models(depth=3)
     return cli_app()

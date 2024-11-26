@@ -3,13 +3,15 @@ import uuid
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, AnyHttpUrl
-from pydantic_settings import BaseSettings
 
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.exceptions import PanglossNotFoundError
 from pangloss.users import User, get_current_active_user
 from pangloss.model_config.model_setup_utils import get_all_subclasses
 from pangloss.models import BaseNode
+
+if typing.TYPE_CHECKING:
+    from pangloss.settings import BaseSettings
 
 
 class SuccessResponse(BaseModel):
@@ -129,10 +131,13 @@ def build_patch_edit_handler(model: type[BaseNode]):
     return patch_edit
 
 
-def setup_api_routes(_app: FastAPI, settings: BaseSettings) -> FastAPI:
+def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
     api_router = APIRouter(prefix="/api")
     for model in ModelManager.registered_models:
-        router = APIRouter(prefix=f"/{model.__name__}", tags=[model.__name__])
+        router = APIRouter(
+            prefix=f"/{model.__name__}",
+            tags=[model.__name__],
+        )
 
         router.add_api_route(
             "/",
