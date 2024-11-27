@@ -591,16 +591,10 @@ def create_embedded_create_model(cls: type[RootNode]) -> type[EmbeddedCreateBase
     )
     embedded_create_model.base_class = cls
 
-    fields = {
-        field_name: field
-        for field_name, field in cls.model_fields.items()
-        if field_name != "label"
-    }
     for field_name, field in cls.model_fields.items():
         if field_name != "label":
             embedded_create_model.model_fields[field_name] = field
 
-    # embedded_create_model.model_fields = fields
     embedded_create_model.model_rebuild(force=True)
 
     return embedded_create_model

@@ -116,16 +116,9 @@ class MultiKeyField[T](pydantic.BaseModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls):
-        # TODO: for "reasons", this creates a circular import!
-        """from pangloss.model_config.model_setup_functions import (
-            initialise_model_field_definitions,
-        )
-
-        # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
-        # cls.field_definitions_initialised = False
-
-        initialise_model_field_definitions
-        """
+        # Needs to be set on a per-class basis on subclassing, not
+        # inherited for each class
+        cls.field_definitions_initialised = False
 
 
 class ReifiedRelation[T](pydantic.BaseModel):
