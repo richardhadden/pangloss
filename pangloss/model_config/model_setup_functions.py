@@ -9,45 +9,45 @@ import pydantic
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
-    IncomingRelationDefinition,
-    ModelFieldDefinitions,
-    FieldDefinition,
-    LiteralFieldDefinition,
-    ListFieldDefinition,
     EmbeddedFieldDefinition,
+    FieldDefinition,
+    IncomingRelationDefinition,
+    ListFieldDefinition,
+    LiteralFieldDefinition,
+    ModelFieldDefinitions,
     MultiKeyFieldDefinition,
     RelationFieldDefinition,
 )
-from pangloss.model_config.models_base import (
-    EditSetBase,
-    EmbeddedCreateBase,
-    EmbeddedSetBase,
-    EmbeddedViewBase,
-    MultiKeyField,
-    ReifiedRelationNode,
-    RootNode,
-    Embedded,
-    RelationConfig,
-    ReifiedRelation,
-    HeritableTrait,
-    NonHeritableTrait,
-    ReferenceSetBase,
-    ReferenceViewBase,
-    HeadViewBase,
-    ViewBase,
-    EditViewBase,
-    ReifiedRelationViewBase,
-)
+from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import (
+    create_reference_set_model_with_property_model,
     create_reference_view_model_with_property_model,
     get_non_heritable_mixins_as_direct_ancestors,
     get_non_heritable_traits_as_indirect_ancestors,
-    create_reference_set_model_with_property_model,
     get_paths_to_target_node,
     recurse_embedded_models_for_all_outgoing_relation_field_definitions,
 )
-
-from pangloss.model_config.model_manager import ModelManager
+from pangloss.model_config.models_base import (
+    EdgeModel,
+    EditSetBase,
+    EditViewBase,
+    Embedded,
+    EmbeddedCreateBase,
+    EmbeddedSetBase,
+    EmbeddedViewBase,
+    HeadViewBase,
+    HeritableTrait,
+    MultiKeyField,
+    NonHeritableTrait,
+    ReferenceSetBase,
+    ReferenceViewBase,
+    ReifiedRelation,
+    ReifiedRelationNode,
+    ReifiedRelationViewBase,
+    RelationConfig,
+    RootNode,
+    ViewBase,
+)
 
 
 def get_relation_config_from_field_metadata(
@@ -73,7 +73,7 @@ def is_relation_field(
     field_annotation,
     field_metadata,
     field_name: str,
-    model: type["RootNode"] | type["ReifiedRelation"],
+    model: type["RootNode"] | type["ReifiedRelation"] | type[MultiKeyField],
 ) -> bool:
     relation_config = get_relation_config_from_field_metadata(field_metadata)
 
@@ -122,7 +122,11 @@ def is_relation_field(
 
 
 def build_field_definition_from_annotation(
-    model: type[RootNode] | type[ReifiedRelation],
+    model: type[RootNode]
+    | type[ReifiedRelation]
+    | type[ReferenceSetBase]
+    | type[MultiKeyField]
+    | type[EdgeModel],
     field_name: str,
     field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
@@ -433,7 +437,11 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
 
 
 def initialise_model_field_definitions(
-    cls: type[RootNode] | type[ReifiedRelation],
+    cls: type[RootNode]
+    | type[ReifiedRelation]
+    | type[ReferenceSetBase]
+    | type[EdgeModel]
+    | type[MultiKeyField],
 ):
     """Creates a model field_definition object for each field
     of a model"""
@@ -588,8 +596,11 @@ def create_embedded_create_model(cls: type[RootNode]) -> type[EmbeddedCreateBase
         for field_name, field in cls.model_fields.items()
         if field_name != "label"
     }
+    for field_name, field in cls.model_fields.items():
+        if field_name != "label":
+            embedded_create_model.model_fields[field_name] = field
 
-    embedded_create_model.model_fields = fields
+    # embedded_create_model.model_fields = fields
     embedded_create_model.model_rebuild(force=True)
 
     return embedded_create_model

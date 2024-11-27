@@ -6,17 +6,17 @@ import typing
 
 import annotated_types
 
-from pangloss.model_config.models_base import (
-    RootNode,
-    EdgeModel,
-    ReifiedRelation,
-    HeritableTrait,
-    NonHeritableTrait,
-    IncomingRelationView,
-    ReferenceViewBase,
-    MultiKeyField,
-)
 from pangloss.model_config.model_setup_utils import get_concrete_model_types
+from pangloss.model_config.models_base import (
+    EdgeModel,
+    HeritableTrait,
+    IncomingRelationView,
+    MultiKeyField,
+    NonHeritableTrait,
+    ReferenceViewBase,
+    ReifiedRelation,
+    RootNode,
+)
 
 
 @dataclasses.dataclass

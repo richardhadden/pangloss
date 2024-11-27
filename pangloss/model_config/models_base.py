@@ -16,8 +16,8 @@ from pangloss.exceptions import PanglossConfigError
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
-        ModelFieldDefinitions,
         IncomingRelationDefinition,
+        ModelFieldDefinitions,
     )
     from pangloss.models import BaseNode
 
@@ -110,6 +110,22 @@ class _ExtantNodeMixin:
 
 class MultiKeyField[T](pydantic.BaseModel):
     value: T
+
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        # TODO: for "reasons", this creates a circular import!
+        """from pangloss.model_config.model_setup_functions import (
+            initialise_model_field_definitions,
+        )
+
+        # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
+        # cls.field_definitions_initialised = False
+
+        initialise_model_field_definitions
+        """
 
 
 class ReifiedRelation[T](pydantic.BaseModel):
@@ -253,11 +269,24 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
     type: str
     uuid: uuid.UUID
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
     model_config = STANDARD_MODEL_CONFIG
 
     def _as_dict(self):
         return {"type": self.type, "uuid": self.uuid}
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        from pangloss.model_config.model_setup_functions import (
+            initialise_model_field_definitions,
+        )
+
+        # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
+        cls.field_definitions_initialised = False
+
+        initialise_model_field_definitions(cls)
 
 
 class EmbeddedCreateBase(pydantic.BaseModel, _SubNodeProxy):
@@ -366,6 +395,20 @@ class IncomingRelationView(pydantic.BaseModel):
 class EdgeModel(pydantic.BaseModel):
     show_in_reverse_relation: typing.ClassVar[bool] = False
     model_config = STANDARD_MODEL_CONFIG
+
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls) -> None:
+        from pangloss.model_config.model_setup_functions import (
+            initialise_model_field_definitions,
+        )
+
+        # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
+        cls.field_definitions_initialised = False
+
+        initialise_model_field_definitions(cls)
 
 
 @dataclasses.dataclass
