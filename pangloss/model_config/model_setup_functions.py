@@ -73,7 +73,14 @@ def is_relation_field(
     field_annotation,
     field_metadata,
     field_name: str,
-    model: type["RootNode"] | type["ReifiedRelation"] | type[MultiKeyField],
+    model: type[RootNode]
+    | type[ReifiedRelation]
+    | type[ReferenceSetBase]
+    | type[MultiKeyField]
+    | type[EdgeModel]
+    | type[ReferenceViewBase]
+    | type[EmbeddedCreateBase]
+    | type[ViewBase],
 ) -> bool:
     relation_config = get_relation_config_from_field_metadata(field_metadata)
 
@@ -126,7 +133,10 @@ def build_field_definition_from_annotation(
     | type[ReifiedRelation]
     | type[ReferenceSetBase]
     | type[MultiKeyField]
-    | type[EdgeModel],
+    | type[EdgeModel]
+    | type[ReferenceViewBase]
+    | type[EmbeddedCreateBase]
+    | type[ViewBase],
     field_name: str,
     field: pydantic.fields.FieldInfo,
 ) -> FieldDefinition:
@@ -342,7 +352,16 @@ def build_incoming_relation_definitions(source_class: type[RootNode]):
                                 f"{source_class.__name__}__from__{field_name}__{target_node.__name__}__View",
                                 __base__=ViewBase,
                                 base_class=source_class,
+                                field_definitions_initialised=(
+                                    typing.ClassVar[bool],
+                                    ...,
+                                ),
+                                field_definitions=(
+                                    typing.ClassVar["ModelFieldDefinitions"],
+                                    ...,
+                                ),
                             )
+                            source_concrete_class.field_definitions_initialised = False
 
                         source_concrete_class.model_fields[field_name] = (
                             source_class.View.model_fields[field_name]
@@ -441,7 +460,10 @@ def initialise_model_field_definitions(
     | type[ReifiedRelation]
     | type[ReferenceSetBase]
     | type[EdgeModel]
-    | type[MultiKeyField],
+    | type[MultiKeyField]
+    | type[EmbeddedCreateBase]
+    | type[ReferenceViewBase]
+    | type[ViewBase],
 ):
     """Creates a model field_definition object for each field
     of a model"""
@@ -497,6 +519,7 @@ def initialise_reference_set_on_base_models(cls: type[RootNode]):
         type=(typing.Literal[cls.__name__], cls.__name__),  # type: ignore
     )
     cls.ReferenceSet.base_class = cls
+    initialise_model_field_definitions(cls.ReferenceSet)
 
 
 def initialise_reference_view_on_base_models(cls: type[RootNode]):

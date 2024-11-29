@@ -1,14 +1,14 @@
 import typing
 import uuid
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel, AnyHttpUrl
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from pydantic import AnyHttpUrl, BaseModel
 
-from pangloss.model_config.model_manager import ModelManager
 from pangloss.exceptions import PanglossNotFoundError
-from pangloss.users import User, get_current_active_user
+from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_utils import get_all_subclasses
 from pangloss.models import BaseNode
+from pangloss.users import User, get_current_active_user
 
 if typing.TYPE_CHECKING:
     from pangloss.settings import BaseSettings
@@ -64,7 +64,7 @@ def build_list_handler(model: type[BaseNode]):
             if page - 1 >= 1
             else None
         )
-        return result
+        return result  # type: ignore
 
     return list
 
@@ -133,7 +133,9 @@ def build_patch_edit_handler(model: type[BaseNode]):
 
 def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
     api_router = APIRouter(prefix="/api")
-    for model in ModelManager.registered_models:
+    for model in sorted(
+        ModelManager.registered_models, key=lambda model: model.__name__
+    ):
         router = APIRouter(
             prefix=f"/{model.__name__}",
             tags=[model.__name__],

@@ -175,7 +175,6 @@ for app in settings.INSTALLED_APPS:
     __import__(f"{app}.models")
     try:
         m = __import__(f"{app}.cli")
-
         c = m.cli.__dict__.get("cli")
         if c:
             cli_app.add_typer(c, name=c.info.name)

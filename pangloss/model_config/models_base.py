@@ -98,7 +98,7 @@ class _ExtantNodeMixin:
 
     uuid: uuid.UUID
 
-    is_deleted: bool = False
+    # TODO: move off of here onto actually useful places (shouldn't be on EditView)
 
     @pydantic.field_validator("*", mode="before")
     @classmethod
@@ -109,6 +109,11 @@ class _ExtantNodeMixin:
 
 
 class MultiKeyField[T](pydantic.BaseModel):
+    """Define a field with multiple additional fields.
+
+    The main field type is supplied by the type param T and is assigned to the `value` field.
+    Additional fields may be defined on the subclassed model."""
+
     value: T
 
     field_definitions_initialised: typing.ClassVar[bool]
@@ -175,6 +180,13 @@ class ReifiedRelationViewBase(pydantic.BaseModel, _SubNodeProxy):
     generated: typing.ClassVar[bool] = True
     model_config = STANDARD_MODEL_CONFIG
 
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        cls.field_definitions_initialised = False
+
 
 def collect_multi_key_field_to_dict(kwargs: dict) -> dict:
     # Transform MultiKeyField from `field_name____subfield_name = value`
@@ -217,12 +229,18 @@ class ViewBase(_GenericNode, _ExtantNodeMixin, _SubNodeProxy):
     generated: typing.ClassVar[bool] = True
     head_uuid: typing.Optional[uuid.UUID] = None
     head_type: typing.Optional[str] = None
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
 
     # TODO: Remove the created Optional and adjust tests accordingly
 
     def __init__(self, *args, **kwargs):
         kwargs = collect_multi_key_field_to_dict(kwargs)
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        cls.field_definitions_initialised = False
 
 
 class HeadViewBase(ViewBase):
@@ -231,6 +249,7 @@ class HeadViewBase(ViewBase):
     created_when: typing.Optional[datetime.datetime]
     modified_by: typing.Optional[str]
     modified_when: typing.Optional[datetime.datetime]
+    is_deleted: bool = False
 
 
 # Reference types need to be separated, so that additional fields for viewing
@@ -250,8 +269,15 @@ class ReferenceViewBase(_GenericNode, _SubNodeProxy):
     head_uuid: typing.Optional[uuid.UUID] = None
     head_type: typing.Optional[str] = None
 
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
     def __hash__(self):
         return hash(self.uuid)
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        cls.field_definitions_initialised = False
 
 
 class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
@@ -272,14 +298,10 @@ class ReferenceSetBase(pydantic.BaseModel, _SubNodeProxy):
 
     @classmethod
     def __pydantic_init_subclass__(cls):
-        from pangloss.model_config.model_setup_functions import (
-            initialise_model_field_definitions,
-        )
-
         # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
         cls.field_definitions_initialised = False
 
-        initialise_model_field_definitions(cls)
+        # initialise_model_field_definitions(cls)
 
 
 class EmbeddedCreateBase(pydantic.BaseModel, _SubNodeProxy):
@@ -291,6 +313,15 @@ class EmbeddedCreateBase(pydantic.BaseModel, _SubNodeProxy):
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
     }
+
+    field_definitions_initialised: typing.ClassVar[bool]
+    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        # Needs to be set on a per-class basis on subclassing, not
+        # inherited for each class
+        cls.field_definitions_initialised = False
 
 
 class EmbeddedSetBase(pydantic.BaseModel, _SubNodeProxy):
@@ -398,7 +429,6 @@ class EdgeModel(pydantic.BaseModel):
             initialise_model_field_definitions,
         )
 
-        # TODO: WRITE TEST THAT THIS ACTUALLY WORKS!
         cls.field_definitions_initialised = False
 
         initialise_model_field_definitions(cls)

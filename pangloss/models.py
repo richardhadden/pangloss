@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import time
 import typing
 import uuid
+from contextlib import contextmanager
 
 import humps
 import pydantic
@@ -12,23 +12,22 @@ from pangloss.cypher.create import build_create_node_query_object
 from pangloss.cypher.list import build_get_list_query
 from pangloss.cypher.read import build_view_read_query
 from pangloss.cypher.update import build_update_node_query_object
-
-from pangloss.database import write_transaction, Transaction, read_transaction
+from pangloss.database import Transaction, read_transaction, write_transaction
 from pangloss.exceptions import PanglossNotFoundError
-from pangloss.model_config.models_base import (
-    RootNode,
-    Embedded,
-    RelationConfig,
-    ReifiedRelation,
-    HeritableTrait,
-    NonHeritableTrait,
-    EdgeModel,
-    ReifiedRelationNode,
-    MultiKeyField,
-    ReferenceViewBase,
-)
 from pangloss.model_config.model_manager import ModelManager
-
+from pangloss.model_config.models_base import (
+    BaseMeta,
+    EdgeModel,
+    Embedded,
+    HeritableTrait,
+    MultiKeyField,
+    NonHeritableTrait,
+    ReferenceViewBase,
+    ReifiedRelation,
+    ReifiedRelationNode,
+    RelationConfig,
+    RootNode,
+)
 
 # This is doing nothing, just making sure the import is being used
 # so won't be cleared up by linters
@@ -41,6 +40,7 @@ from pangloss.model_config.model_manager import ModelManager
     EdgeModel,
     ReifiedRelationNode,
     MultiKeyField,
+    BaseMeta,
 )  # type: ignore
 
 

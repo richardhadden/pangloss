@@ -6,9 +6,9 @@ import typing
 import pydantic
 
 from pangloss.model_config.models_base import (
-    ReferenceViewBase,
     EdgeModel,
     ReferenceSetBase,
+    ReferenceViewBase,
 )
 from pangloss.models import (
     BaseNode,
@@ -19,8 +19,8 @@ from pangloss.models import (
 )
 
 if typing.TYPE_CHECKING:
-    from pangloss.model_config.models_base import RootNode
     from pangloss.model_config.field_definitions import RelationFieldDefinition
+    from pangloss.model_config.models_base import RootNode
 
 
 def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
@@ -263,12 +263,14 @@ def create_reference_set_model_with_property_model(
     edge_model: type[EdgeModel],
     field_name: str,
 ) -> type[ReferenceSetBase]:
-    return pydantic.create_model(
+    model = pydantic.create_model(
         f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceSet",
         __base__=ReferenceSetBase,
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         edge_properties=(edge_model, ...),
     )
+    model.base_class = target_model
+    return model
 
 
 @functools.cache
@@ -278,12 +280,14 @@ def create_reference_view_model_with_property_model(
     edge_model: type[EdgeModel],
     field_name: str,
 ) -> type[ReferenceViewBase]:
-    return pydantic.create_model(
+    model = pydantic.create_model(
         f"{origin_model.__name__}__{field_name}__{target_model.__name__}__ReferenceView",
         __base__=ReferenceViewBase,
         type=(typing.Literal[target_model.__name__], target_model.__name__),  # type: ignore
         edge_properties=(edge_model, ...),
     )
+    model.base_class = target_model
+    return model
 
 
 def recurse_embedded_models_for_all_outgoing_relation_field_definitions(
@@ -360,8 +364,8 @@ class ReifiedRelationTree:
 
 def recurse_reified_relation_definitions_into_tree(cls: type[ReifiedRelation], ttree):
     from pangloss.model_config.models_base import (
-        RootNode,
         ReifiedRelation,
+        RootNode,
     )
 
     for outgoing_relation_definition in cls.field_definitions.relation_fields:
