@@ -12,11 +12,12 @@ from cookiecutter.main import cookiecutter
 from rich import print
 from rich.panel import Panel
 
-# from pangloss.types_generation import type_generation_cli
-# from pangloss.translation import translation_cli
-# from pangloss.indexes import install_indexes_and_constraints
 from pangloss.database import initialise_database_driver
 from pangloss.exceptions import PanglossInitialisationError
+
+# from pangloss.types_generation import type_generation_cli
+# from pangloss.translation import translation_cli
+from pangloss.indexes import install_indexes_and_constraints
 from pangloss.initialisation import get_project_settings
 
 # from pangloss.model_setup.model_manager import ModelManager
@@ -164,7 +165,7 @@ def run():
 
 
 @cli_app.command()
-def setup_database(project: Project):
+def setup_database():
     install_indexes_and_constraints()
 
 
@@ -173,6 +174,10 @@ settings = get_project_settings(project_path)
 initialise_database_driver(settings)
 for app in settings.INSTALLED_APPS:
     __import__(f"{app}.models")
+    try:
+        __import__(f"{app}.background_tasks")
+    except ModuleNotFoundError:
+        pass
     try:
         m = __import__(f"{app}.cli")
         c = m.cli.__dict__.get("cli")

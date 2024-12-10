@@ -1,16 +1,17 @@
-import pytest
-import pytest_asyncio
-
+import asyncio
 import typing
+import uuid
 
 import httpx
+import pytest
+import pytest_asyncio
 from pydantic import AnyHttpUrl
 
-from pangloss.model_config.model_manager import ModelManager
-from pangloss.settings import BaseSettings
 from pangloss.application import get_application
 from pangloss.database import Database
-from pangloss.users import create_user, UserInDB
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.settings import BaseSettings
+from pangloss.users import UserInDB, create_user
 
 
 class Settings(BaseSettings):
@@ -32,7 +33,7 @@ settings = Settings()
 application = get_application(settings)
 
 
-@pytest_asyncio.fixture(scope="function", autouse=True)
+@pytest_asyncio.fixture(scope="function")
 async def clear_database():
     # await Database.dangerously_clear_database()
     try:
@@ -209,6 +210,60 @@ async def test_update_person(logged_in_client: httpx.AsyncClient):
     assert get_resp_data["label"] == "Toby Jones Updated"
     assert get_resp_data["modifiedBy"] == "jsmith"
     assert get_resp_data["modifiedWhen"]
+
+
+@pytest_asyncio.fixture
+async def created_person(logged_in_client: httpx.AsyncClient) -> dict:
+    create_resp = await logged_in_client.post(
+        "/api/Person/new",
+        json={
+            "label": "Toby Jones",
+            "type": "Person",
+            "name": "Toby Jones",
+        },
+    )
+
+    assert create_resp.status_code == 200
+    create_resp_data = create_resp.json()
+    return create_resp_data
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_list_request(logged_in_client: httpx.AsyncClient, created_person):
+    await asyncio.sleep(1)  # Stick a delay here so the index has a change to refresh
+    # Can probably get away with less than a second (~0.08 seems ok) but
+    # a second won't hurt
+    response = await logged_in_client.get("/api/Person/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 1
+    assert uuid.UUID(data["results"][0]["uuid"]) == uuid.UUID(created_person["uuid"])
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_list_request_with_full_text_query(logged_in_client: httpx.AsyncClient):
+    create_resp = await logged_in_client.post(
+        "/api/Person/new",
+        json={
+            "label": "Toby Jones",
+            "type": "Person",
+            "name": "Toby Jones",
+        },
+    )
+
+    assert create_resp.status_code == 200
+    create_resp_data = create_resp.json()
+    await asyncio.sleep(0.08)  # Stick a delay here so the index has a change to refresh
+    # Can probably get away with less than a second (~0.08 seems ok) but
+    # a second won't hurt
+    response = await logged_in_client.get("/api/Person/?q=toby")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 1
+    assert uuid.UUID(data["results"][0]["uuid"]) == uuid.UUID(create_resp_data["uuid"])
 
 
 '''

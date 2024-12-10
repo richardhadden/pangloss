@@ -4,13 +4,12 @@ import logging
 import sys
 
 from fastapi import FastAPI
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
-
+from pangloss.database import initialise_database_driver
 from pangloss.settings import BaseSettings
 from pangloss.users import setup_user_routes
-from pangloss.database import initialise_database_driver
 
 logger = logging.getLogger("uvicorn.info")
 RunningBackgroundTasks = []
@@ -19,15 +18,16 @@ RunningBackgroundTasks = []
 def get_application(settings: BaseSettings):
     DEVELOPMENT_MODE = "--reload" in sys.argv  # Dumb hack!
 
-    from pangloss.model_config.model_manager import ModelManager
     from pangloss.api import setup_api_routes
     from pangloss.background_tasks import (
-        BackgroundTaskRegistry,
         BackgroundTaskCloseRegistry,
+        BackgroundTaskRegistry,
     )
+    from pangloss.model_config.model_manager import ModelManager
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
+        print("RUNNING LIFESPAN")
         # Load the ML model
         for task in BackgroundTaskRegistry:
             if not DEVELOPMENT_MODE or task["run_in_dev"]:
@@ -50,12 +50,14 @@ def get_application(settings: BaseSettings):
         logging.info("Background tasks closed")
 
     for installed_app in settings.INSTALLED_APPS:
+        __import__(installed_app)
+
         __import__(f"{installed_app}.models")
+
         try:
             __import__(f"{installed_app}.background_tasks")
-        except ModuleNotFoundError:
-            pass
-        __import__(installed_app)
+        except Exception as e:
+            print("failing to import", installed_app, "bg tasks", e)
 
     ModelManager.initialise_models(_defined_in_test=True)
     initialise_database_driver(settings)

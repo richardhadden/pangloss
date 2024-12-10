@@ -6,11 +6,11 @@ import pydantic
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
-        RootNode,
-        ReifiedRelation,
         EditSetBase,
         EmbeddedCreateBase,
         EmbeddedSetBase,
+        ReifiedRelation,
+        RootNode,
     )
 
 
@@ -123,7 +123,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 def get_properties_as_writeable_dict(
     instance: "RootNode | ReifiedRelation | EditSetBase | EmbeddedCreateBase | EmbeddedSetBase",
     extras: dict[str, typing.Any] | None = None,
-):
+) -> dict[str, typing.Any]:
     data = {}
     for property_definition in instance.field_definitions.property_fields:
         if property_definition.field_metatype == "MultiKeyField":

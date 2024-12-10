@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import functools
+import uuid
 from typing import (
     Awaitable,
     Callable,
     Concatenate,
 )
-import uuid
 
 import neo4j
 from rich import print
 
 from pangloss.background_tasks import background_task_close
-
 
 # Define a transaction type, for short
 Transaction = neo4j.AsyncManagedTransaction
@@ -132,3 +131,13 @@ class Database:
             """MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})"""
         )
         await result.consume()
+
+    @classmethod
+    @write_transaction
+    async def _cypher_write(cls, tx: Transaction, query: str, params: dict = {}):
+        result = await tx.run(
+            query,  # type: ignore
+            **params,
+        )
+        records = await result.values()
+        return records

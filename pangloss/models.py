@@ -70,11 +70,15 @@ class BaseNode(RootNode):
     async def get_list(
         cls, tx: Transaction, q: str | None = None, page: int = 1, page_size: int = 10
     ):
+        print("Calling get list")
         from pangloss.model_config.model_setup_utils import get_concrete_model_types
 
         query, params = build_get_list_query(
             model=cls, q=q, page=page, page_size=page_size
         )
+
+        with open("list_query_dump.cypher", "w") as f:
+            f.write(query)
 
         concrete_reference_types = [
             t.ReferenceView
@@ -93,6 +97,7 @@ class BaseNode(RootNode):
         with time_query(f"Get List query time: {cls.__name__}"):
             result = await tx.run(typing.cast(typing.LiteralString, query), params)
             result = await result.value()
+
             if not result:
                 return {"count": 0, "results": [], "totalPages": 0, "page": 0}
             return_value = result[0]

@@ -37,6 +37,7 @@ def build_list_handler(model: type[BaseNode]):
     # Lists should also show any subclass of the model type,
     # so we need to allow this by getting all subclasses
     model_subclasses = get_all_subclasses(model)
+    model_subclasses.add(model)
     allowed_types = (
         typing.Union[*(m.ReferenceView for m in model_subclasses)]  # type: ignore
         if model_subclasses
@@ -46,7 +47,7 @@ def build_list_handler(model: type[BaseNode]):
     async def list(
         request: Request,
         # current_user: typing.Annotated[User, Depends(get_current_active_user)], # Don't lock down list view
-        q: typing.Optional[str] = "",
+        q: str = "",
         page: int = 1,
         pageSize: int = 50,
     ) -> ListResponse[allowed_types]:  # type: ignore

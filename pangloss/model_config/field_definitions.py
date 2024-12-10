@@ -22,6 +22,8 @@ from pangloss.model_config.models_base import (
 @dataclasses.dataclass
 class FieldDefinition:
     field_name: str
+    # field_metatype: str
+    # field_annotated_type: type
 
 
 type MappedCypherTypes = (
@@ -117,6 +119,7 @@ class RelationFieldDefinition(FieldDefinition):
     field_metatype: typing.Literal["Relation"] = "Relation"
     relation_labels: set[str] = dataclasses.field(default_factory=set)
     reverse_relation_labels: set[str] = dataclasses.field(default_factory=set)
+    default_type: typing.Optional[str] = None
 
     def __post_init__(self):
         # Type checker is confused by return type of get_concrete_model_types
@@ -137,6 +140,7 @@ class IncomingRelationDefinition(FieldDefinition):
     source_type: type["RootNode"] | type["ReifiedRelation"]
 
     # TODO: this cann be one type, but multiple!
+    # No no no, it should be singular... One rel def per type!
     source_concrete_type: (
         type["ReferenceViewBase"] | type["IncomingRelationView"] | type
     )

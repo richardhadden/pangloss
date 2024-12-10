@@ -446,6 +446,7 @@ class RelationConfig:
     create_inline: bool = False
     edit_inline: bool = False
     delete_related_on_detach: bool = False
+    default_type: typing.Optional[str] = None
 
     def __hash__(self):
         if self.subclasses_relation:
