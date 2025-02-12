@@ -5,6 +5,8 @@ import pytest
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import (
+    ListFieldDefinition,
+    PropertyFieldDefinition,
     RelationDefinition,
     RelationFieldDefinition,
     RelationToReifiedDefinition,
@@ -294,7 +296,7 @@ def test_create_relation_field_with_relation_to_union_defined_with_typing_union(
     )
 
 
-def test_create_relation_field_to_reified_with_union_of_types():
+def test_build_relation_field_to_reified_with_union_of_types():
     class Intermediate[T](ReifiedRelation[T]):
         pass
 
@@ -337,21 +339,87 @@ def test_create_relation_field_to_reified_with_union_of_types():
         == Cat | Dog
     )
 
+    assert isinstance(
+        rel_to_reified_union_field_definition.field_type_definitions[1],
+        RelationDefinition,
+    )
+    assert (
+        rel_to_reified_union_field_definition.field_type_definitions[1].annotated_type
+        is Cat
+    )
 
-def test_build_create_model():
-    from pydantic import BaseModel
 
-    class Intermediate[T](ReifiedRelation[T]):
+def test_build_field_definition_for_literal_value():
+    class Person(BaseNode):
         pass
 
-    class Thing(BaseModel):
+    string_field_definition = build_field_definition(
+        "string_field",
+        str,
+        Person,
+    )
+
+    assert isinstance(string_field_definition, PropertyFieldDefinition)
+    assert string_field_definition.field_annotation is str
+
+    string_field_definition = build_field_definition(
+        "int_field",
+        int,
+        Person,
+    )
+
+    assert isinstance(string_field_definition, PropertyFieldDefinition)
+    assert string_field_definition.field_annotation is int
+
+    annotated_string_field_definition = build_field_definition(
+        "annotated_string_field",
+        typing.Annotated[str, annotated_types.MaxLen(2), annotated_types.MinLen(1)],
+        Person,
+    )
+
+    assert isinstance(annotated_string_field_definition, PropertyFieldDefinition)
+    assert annotated_string_field_definition.field_annotation is str
+    assert annotated_string_field_definition.validators == [
+        annotated_types.MaxLen(2),
+        annotated_types.MinLen(1),
+    ]
+
+
+def test_build_field_definition_for_list_type():
+    class Person(BaseNode):
         pass
 
-    class Event(BaseNode):
-        done_by: typing.Annotated[
-            Intermediate[Thing], RelationConfig(reverse_name="did")
-        ]
+    list_string_field_definition = build_field_definition(
+        "string_field",
+        list[str],
+        Person,
+    )
 
-    Intermediate[Thing](type="Thing", target=Thing())
+    assert isinstance(list_string_field_definition, ListFieldDefinition)
+    assert list_string_field_definition.field_annotation is str
 
-    assert False
+    list_string_field_definition = build_field_definition(
+        "string_field",
+        typing.Annotated[list[str], annotated_types.MaxLen(2)],
+        Person,
+    )
+
+    assert isinstance(list_string_field_definition, ListFieldDefinition)
+    assert list_string_field_definition.field_annotation is str
+    assert list_string_field_definition.validators == [annotated_types.MaxLen(2)]
+
+    list_string_field_definition = build_field_definition(
+        "string_field",
+        typing.Annotated[
+            list[typing.Annotated[str, annotated_types.MaxLen(10)]],
+            annotated_types.MaxLen(2),
+        ],
+        Person,
+    )
+
+    assert isinstance(list_string_field_definition, ListFieldDefinition)
+    assert list_string_field_definition.field_annotation is str
+    assert list_string_field_definition.validators == [annotated_types.MaxLen(2)]
+    assert list_string_field_definition.internal_type_validators == [
+        annotated_types.MaxLen(10)
+    ]

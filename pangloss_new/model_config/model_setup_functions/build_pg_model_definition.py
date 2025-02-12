@@ -8,6 +8,8 @@ import annotated_types
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import (
     FieldDefinition,
+    ListFieldDefinition,
+    PropertyFieldDefinition,
     RelationDefinition,
     RelationFieldDefinition,
     RelationToReifiedDefinition,
@@ -152,18 +154,13 @@ def build_relation_fields_definitions(
     ReifiedRelation[Union[RootNode | ReifiedRelation]] -> ReifiedRelationDefinition
     """
 
-    # Check for possible generic type, i.e. Annotated[Intermediate[Type], ...]
-    # and resolve foward ref                          ^^^^^^^^^^^^
-    possible_generic_type = typing.get_origin(primary_type)
-    possible_generic_type = resolve_forward_ref(possible_generic_type)
-
-    # If the generic type is a ReifiedRelation, it is a ReifiedRelation
-    if pg_is_subclass(possible_generic_type, ReifiedRelation):
+    # If the primary type is a ReifiedRelation, it is a ReifiedRelation
+    if issubclass(primary_type, ReifiedRelation):
         possible_generic_type = typing.cast(
-            type[ReifiedRelation], possible_generic_type
+            type[ReifiedRelation], primary_type.__pydantic_generic_metadata__["origin"]
         )
 
-        inner_types = typing.get_args(primary_type)
+        inner_types = primary_type.__pydantic_generic_metadata__["args"]
         inner_types = typing.cast(
             list[type[RootNode | ReifiedRelation]],
             [resolve_forward_ref(inner_type) for inner_type in inner_types],
@@ -192,128 +189,211 @@ def build_relation_fields_definitions(
         return []
 
 
+def is_annotated(ann: typing.Any) -> bool:
+    return typing.get_origin(ann) is typing.Annotated
+
+
+def is_union(ann: typing.Any) -> bool:
+    # Check if is a union type via various mechanisms:
+    # - Union of RootNode and ReifiedRelation can only be checked by __origin__
+    # - Union of other types using "|" syntax are instances of types.UnionType
+    # - Union of other types using typing.Union are equal to typing.Union
+    return (
+        getattr(ann, "__origin__", None) is typing.Union
+        or isinstance(ann, types.UnionType)
+        or ann == typing.Union
+    )
+
+
 def build_field_definition(
     field_name: str, annotation: typing.Any, model
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
-    if typing.get_origin(annotation) is typing.Annotated:
+    if is_annotated(annotation):
+        validators = []
         # Get the first argument from the Annotated: should be the actual type
         primary_type = typing.get_args(annotation)[0]
 
         # Resolve any forward refs if required
-
         primary_type = resolve_forward_ref(primary_type)
+    else:
+        annotation = resolve_forward_ref(annotation)
 
-        # Check if is a union type via various mechanisms:
-        # - Union of RootNode and ReifiedRelation can only be checked by __origin__
-        # - Union of other types using "|" syntax are instances of types.UnionType
-        # - Union of other types using typing.Union are equal to typing.Union
-        if (
-            getattr(primary_type, "__origin__", None) is typing.Union
-            or isinstance(primary_type, types.UnionType)
-            or primary_type == typing.Union
+    if is_annotated(annotation) and is_union(primary_type):
+        # Union can be of RootNode/ReifiedRelation type or literal
+        # If literal, raise error
+
+        union_types = typing.get_args(primary_type)
+
+        if not all(
+            pg_is_subclass(t, (RootNode, Trait, ReifiedRelation)) for t in union_types
         ):
-            # Union can be of RootNode/ReifiedRelation type or literal
-            # If literal, raise error
+            raise PanglossConfigError(
+                f"{field_name} on {model.__name__} contains a mix of relations"
+                " and literal value types, or a mix of literal value types"
+            )
 
-            union_types = typing.get_args(primary_type)
-
-            if not all(
-                pg_is_subclass(t, (RootNode, Trait, ReifiedRelation))
-                for t in union_types
-            ):
-                raise PanglossConfigError(
-                    f"{field_name} on {model.__name__} contains a mix of relations and literal value types"
+        relation_fields_definitions = []
+        for union_type in union_types:
+            relation_fields_definitions.extend(
+                build_relation_fields_definitions(
+                    field_name=field_name,
+                    annotation=annotation,
+                    model=model,
+                    primary_type=union_type,
                 )
-
-            relation_fields_definitions = []
-            for union_type in union_types:
-                relation_fields_definitions.extend(
-                    build_relation_fields_definitions(
-                        field_name=field_name,
-                        annotation=annotation,
-                        model=model,
-                        primary_type=union_type,
-                    )
-                )
-
-            relation_config = get_relation_config_from_field_metadata(
-                typing.get_args(annotation)[1:], field_name=field_name, model=model
             )
 
-            # Check the annotation for additional validators
-            additional_validators = [
-                metadata_item
-                for metadata_item in typing.get_args(annotation)
-                if isinstance(metadata_item, annotated_types.BaseMetadata)
-            ]
+        relation_config = get_relation_config_from_field_metadata(
+            typing.get_args(annotation)[1:], field_name=field_name, model=model
+        )
 
-            # Convert relation_config to dict for splat-unpacking below
-            relation_config_dict = dataclasses.asdict(relation_config)
+        # Check the annotation for additional validators
+        additional_validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
 
-            # Update the validators in the relation_config_dict to include
-            # additional_validators. n.b. must be done after converting to dict
-            # as relation_config validators will have been turned to dict!
-            relation_config_dict["validators"] = [
-                *relation_config.validators,
-                *additional_validators,
-            ]
+        # Convert relation_config to dict for splat-unpacking below
+        relation_config_dict = dataclasses.asdict(relation_config)
 
-            field_definition = RelationFieldDefinition(
-                field_name=field_name,
-                field_metatype="RelationField",
-                field_annotation=typing.cast(type[RootNode], primary_type),
-                field_type_definitions=relation_fields_definitions,
-                **relation_config_dict,
-            )
+        # Update the validators in the relation_config_dict to include
+        # additional_validators. n.b. must be done after converting to dict
+        # as relation_config validators will have been turned to dict!
+        relation_config_dict["validators"] = [
+            *relation_config.validators,
+            *additional_validators,
+        ]
 
-            return field_definition
+        field_definition = RelationFieldDefinition(
+            field_name=field_name,
+            field_metatype="RelationField",
+            field_annotation=typing.cast(type[RootNode], primary_type),
+            field_type_definitions=relation_fields_definitions,
+            **relation_config_dict,
+        )
 
-        elif pg_is_subclass(primary_type, (RootNode, ReifiedRelation, Trait)):
-            # If primary type is one class, build relation_definition here and get
-            # relation fields definitions
-            relation_fields_definitions = build_relation_fields_definitions(
-                field_name=field_name,
-                annotation=annotation,
-                model=model,
-                primary_type=primary_type,
-            )
-            # Get the RelationConfig instance from annotation
-            relation_config = get_relation_config_from_field_metadata(
-                typing.get_args(annotation)[1:], field_name=field_name, model=model
-            )
+        return field_definition
 
-            # Check the annotation for additional validators
-            additional_validators = [
-                metadata_item
-                for metadata_item in typing.get_args(annotation)
-                if isinstance(metadata_item, annotated_types.BaseMetadata)
-            ]
+    if is_annotated(annotation) and pg_is_subclass(
+        primary_type, (RootNode, ReifiedRelation, Trait)
+    ):
+        # If primary type is one class, build relation_definition here and get
+        # relation fields definitions
+        relation_fields_definitions = build_relation_fields_definitions(
+            field_name=field_name,
+            annotation=annotation,
+            model=model,
+            primary_type=primary_type,
+        )
+        # Get the RelationConfig instance from annotation
+        relation_config = get_relation_config_from_field_metadata(
+            typing.get_args(annotation)[1:], field_name=field_name, model=model
+        )
 
-            # Convert relation_config to dict for splat-unpacking below
-            relation_config_dict = dataclasses.asdict(relation_config)
+        # Check the annotation for additional validators
+        additional_validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
 
-            # Update the validators in the relation_config_dict to include
-            # additional_validators. n.b. must be done after converting to dict
-            # as relation_config validators will have been turned to dict!
-            relation_config_dict["validators"] = [
-                *relation_config.validators,
-                *additional_validators,
-            ]
+        # Convert relation_config to dict for splat-unpacking below
+        relation_config_dict = dataclasses.asdict(relation_config)
 
-            field_definition = RelationFieldDefinition(
-                field_name=field_name,
-                field_metatype="RelationField",
-                field_annotation=typing.cast(type[RootNode], primary_type),
-                field_type_definitions=relation_fields_definitions,
-                **relation_config_dict,
-            )
+        # Update the validators in the relation_config_dict to include
+        # additional_validators. n.b. must be done after converting to dict
+        # as relation_config validators will have been turned to dict!
+        relation_config_dict["validators"] = [
+            *relation_config.validators,
+            *additional_validators,
+        ]
 
-            return field_definition
+        field_definition = RelationFieldDefinition(
+            field_name=field_name,
+            field_metatype="RelationField",
+            field_annotation=typing.cast(type[RootNode], primary_type),
+            field_type_definitions=relation_fields_definitions,
+            **relation_config_dict,
+        )
 
-    print("RETURNING MISSING")
-    return "MISSING"
+        return field_definition
+
+    if (
+        is_annotated(annotation)
+        and typing.get_origin(primary_type) is list
+        and is_annotated(typing.get_args(primary_type)[0])
+    ):
+        # Annotation of list and inner type, e.g.
+        # Annotated[list[Annotated[str, MaxLen(10)]], MaxLen(2)]
+
+        inner_type = typing.get_args(typing.get_args(primary_type)[0])[0]
+        validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        internal_type_validators = [
+            metadata_item
+            for metadata_item in typing.get_args(typing.get_args(primary_type)[0])
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        return ListFieldDefinition(
+            field_name=field_name,
+            field_annotation=inner_type,
+            field_metatype="ListField",
+            validators=validators,
+            internal_type_validators=internal_type_validators,
+        )
+
+    if is_annotated(annotation) and typing.get_origin(primary_type) is list:
+        # Annotation of list type
+        # Annotated[list[str], MaxLen(2)]
+        validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        return ListFieldDefinition(
+            field_name=field_name,
+            field_annotation=typing.get_args(primary_type)[0],
+            field_metatype="ListField",
+            validators=validators,
+        )
+
+    if is_annotated(annotation) and primary_type:
+        # Annotation of base property type
+        # e.g. Annotated[str, MaxLen(10)]
+        validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        return PropertyFieldDefinition(
+            field_name=field_name,
+            field_annotation=primary_type,
+            field_metatype="PropertyField",
+            validators=validators,
+        )
+
+    if typing.get_origin(annotation) is list:
+        # List of base property type
+        # e.g. list[str]
+        return ListFieldDefinition(
+            field_name=field_name,
+            field_annotation=typing.get_args(annotation)[0],
+            field_metatype="ListField",
+        )
+
+    # Finally, any base annotation value
+    # e.g. str
+    return PropertyFieldDefinition(
+        field_name=field_name,
+        field_annotation=annotation,
+        field_metatype="PropertyField",
+    )
 
 
 def build_pg_model_definitions(cls: type[BaseNode]) -> None:

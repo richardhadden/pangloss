@@ -26,10 +26,17 @@ class ModelManager:
         cls.base_models[base_model.__name__] = base_model
 
     @classmethod
-    def register_reified_relation_model(cls, reified_relation_model):
-        cls.reified_relation_models[reified_relation_model.__name__] = (
-            reified_relation_model
-        )
+    def register_reified_relation_model(
+        cls, reified_relation_model: type["ReifiedRelation"]
+    ):
+        # Supposedly, this checks whether the model is a "root" generic class
+        # e.g. Intermediate[T]
+        # or the "instantiation" of a generic class, e.g. Intermediate[Cat]
+        # If the former, add it to model manager
+        if reified_relation_model.__pydantic_generic_metadata__["origin"]:
+            cls.reified_relation_models[reified_relation_model.__name__] = (
+                reified_relation_model
+            )
 
     @classmethod
     def initialise_models(cls, _defined_in_test: bool = False):

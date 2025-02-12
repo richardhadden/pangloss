@@ -138,9 +138,12 @@ class ReferenceSetBase(BaseModel):
     id: uuid.UUID | HttpUrl
 
 
-class ReifiedBase:
-    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
+class ReifiedBase(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
+
+    Create: typing.ClassVar[type[CreateBase]]
+
+    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
 
 
 class ReifiedRelation[T](ReifiedBase):

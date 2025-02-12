@@ -56,6 +56,12 @@ class ListFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
+    """Validators for the list type as a whole"""
+
+    internal_type_validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
+    """Validators for each item in the list type"""
 
 
 @dataclasses.dataclass
