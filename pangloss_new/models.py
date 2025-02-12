@@ -1,4 +1,5 @@
 from pangloss_new.model_config.models_base import (
+    Embedded,
     ReifiedRelation,
     RelationConfig,
     RootNode,
@@ -7,6 +8,7 @@ from pangloss_new.model_config.models_base import (
 reexported = (
     ReifiedRelation,
     RelationConfig,
+    Embedded,
 )
 
 

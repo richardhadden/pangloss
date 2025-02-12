@@ -5,6 +5,7 @@ import pytest
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import (
+    EmbeddedFieldDefinition,
     ListFieldDefinition,
     PropertyFieldDefinition,
     RelationDefinition,
@@ -15,7 +16,7 @@ from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
 )
-from pangloss_new.models import BaseNode, ReifiedRelation, RelationConfig
+from pangloss_new.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
 
 def test_model_annotations():
@@ -422,4 +423,49 @@ def test_build_field_definition_for_list_type():
     assert list_string_field_definition.validators == [annotated_types.MaxLen(2)]
     assert list_string_field_definition.internal_type_validators == [
         annotated_types.MaxLen(10)
+    ]
+
+    list_string_field_definition = build_field_definition(
+        "string_field", list[typing.Annotated[str, annotated_types.MaxLen(1)]], Person
+    )
+    assert isinstance(list_string_field_definition, ListFieldDefinition)
+    assert list_string_field_definition.field_annotation is str
+    assert list_string_field_definition.internal_type_validators == [
+        annotated_types.MaxLen(1)
+    ]
+
+
+def test_build_field_definition_for_embedded_type():
+    class Person(BaseNode):
+        pass
+
+    class Cat(BaseNode):
+        pass
+
+    with pytest.raises(PanglossConfigError):
+        embedded_field_definition = build_field_definition(
+            "embedded_field", Embedded[str], Person
+        )
+
+    embedded_field_definition = build_field_definition(
+        "embedded_field", Embedded["Cat"], Person
+    )
+
+    assert isinstance(embedded_field_definition, EmbeddedFieldDefinition)
+    assert embedded_field_definition.field_annotation is Cat
+    assert embedded_field_definition.validators == [
+        annotated_types.MinLen(1),
+        annotated_types.MaxLen(1),
+    ]
+
+    embedded_field_definition = build_field_definition(
+        "embedded_field",
+        typing.Annotated[Embedded["Cat"], annotated_types.MaxLen(10)],
+        Person,
+    )
+
+    assert isinstance(embedded_field_definition, EmbeddedFieldDefinition)
+    assert embedded_field_definition.field_annotation is Cat
+    assert embedded_field_definition.validators == [
+        annotated_types.MaxLen(10),
     ]

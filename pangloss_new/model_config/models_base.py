@@ -171,6 +171,10 @@ class ReifiedRelationViewBase(BaseModel):
     head_type: typing.Optional[str] = None
 
 
+class Embedded[T]:
+    embedded_type: T
+
+
 class EmbeddedCreateBase(BaseModel):
     """Base model for creating an embedded node (same as RootNode without id)"""
 

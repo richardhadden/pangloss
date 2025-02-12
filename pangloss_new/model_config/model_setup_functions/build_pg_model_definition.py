@@ -7,6 +7,7 @@ import annotated_types
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import (
+    EmbeddedFieldDefinition,
     FieldDefinition,
     ListFieldDefinition,
     PropertyFieldDefinition,
@@ -27,7 +28,7 @@ from pangloss_new.model_config.models_base import (
     Trait,
     ViewBase,
 )
-from pangloss_new.models import BaseNode
+from pangloss_new.models import BaseNode, Embedded
 
 
 def get_relation_config_from_field_metadata(
@@ -62,7 +63,7 @@ def is_relation_field__(
     field_annotation = typing.get_args(annotation)[0]
 
     relation_config = get_relation_config_from_field_metadata(
-        typing.get_args(annotation)[1:]
+        typing.get_args(annotation)[1:], field_name=field_name, model=model
     )
 
     # If annotation type is a Union
@@ -210,6 +211,7 @@ def build_field_definition(
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
+
     if is_annotated(annotation):
         validators = []
         # Get the first argument from the Annotated: should be the actual type
@@ -363,6 +365,24 @@ def build_field_definition(
             validators=validators,
         )
 
+    if (
+        is_annotated(annotation)
+        and typing.get_origin(typing.get_args(annotation)[0]) is Embedded
+    ):
+        inner_type = typing.get_args(typing.get_args(annotation)[0])[0]
+        inner_type = resolve_forward_ref(inner_type)
+        inner_type = typing.cast(type[RootNode], inner_type)
+        validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        return EmbeddedFieldDefinition(
+            field_name=field_name,
+            field_annotation=inner_type,
+            validators=validators,
+        )
+
     if is_annotated(annotation) and primary_type:
         # Annotation of base property type
         # e.g. Annotated[str, MaxLen(10)]
@@ -376,6 +396,33 @@ def build_field_definition(
             field_annotation=primary_type,
             field_metatype="PropertyField",
             validators=validators,
+        )
+    if typing.get_origin(annotation) is list and is_annotated(
+        typing.get_args(annotation)[0]
+    ):
+        # List of annotated type
+        # e.g. list[typing.Annotated[str, annotated_types.MaxLen(1)]]
+
+        internal_type_validators = [
+            metadata_item
+            for metadata_item in typing.get_args(typing.get_args(annotation)[0])
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+        return ListFieldDefinition(
+            field_name=field_name,
+            field_annotation=typing.get_args(typing.get_args(annotation)[0])[0],
+            internal_type_validators=internal_type_validators,
+        )
+
+    if typing.get_origin(annotation) is Embedded:
+        inner_type = resolve_forward_ref(typing.get_args(annotation)[0])
+        if not pg_is_subclass(inner_type, (RootNode,)):
+            raise PanglossConfigError(
+                f"{model.__name__} {field_name}: cannot embed a literal type, only subclass of BaseNode"
+            )
+        inner_type = typing.cast(type[RootNode], inner_type)
+        return EmbeddedFieldDefinition(
+            field_name=field_name, field_annotation=inner_type
         )
 
     if typing.get_origin(annotation) is list:
