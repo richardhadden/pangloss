@@ -10,6 +10,7 @@ from pangloss_new.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     FieldDefinition,
     ListFieldDefinition,
+    MultiKeyFieldDefinition,
     PropertyFieldDefinition,
     RelationDefinition,
     RelationFieldDefinition,
@@ -432,6 +433,17 @@ def build_field_definition(
             field_name=field_name,
             field_annotation=typing.get_args(annotation)[0],
             field_metatype="ListField",
+        )
+
+    if inspect.isclass(annotation) and issubclass(annotation, MultiKeyField):
+        multi_key_field_type = annotation.__pydantic_generic_metadata__["origin"]
+        multi_key_field_value_type = annotation.__pydantic_generic_metadata__["args"][0]
+        print(multi_key_field_type)
+        return MultiKeyFieldDefinition(
+            field_name=field_name,
+            field_annotation=annotation,
+            multi_key_field_type=multi_key_field_type,
+            multi_key_field_value_type=multi_key_field_value_type,
         )
 
     # Finally, any base annotation value

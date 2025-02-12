@@ -44,9 +44,14 @@ class PropertyFieldDefinition(FieldDefinition):
 
 
 @dataclasses.dataclass
-class MultiKeyFieldDefinition(PropertyFieldDefinition):
+class MultiKeyFieldDefinition(FieldDefinition):
     field_annotation: type["MultiKeyField[MappedCypherTypes]"]
+    multi_key_field_type: type["MultiKeyField"]
+    multi_key_field_value_type: typing.Any
     field_metatype: typing.Literal["MultiKeyField"] = "MultiKeyField"
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
 
 
 @dataclasses.dataclass
@@ -190,7 +195,7 @@ class ModelFieldDefinitions:
     def property_fields(
         self,
     ) -> FieldSubset[
-        PropertyFieldDefinition | ListFieldDefinition | MultiKeyFieldDefinition,
+        PropertyFieldDefinition | ListFieldDefinition | MultiKeyFieldDefinition
     ]:
         items = {
             field_name: field

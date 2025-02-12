@@ -7,6 +7,7 @@ from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     ListFieldDefinition,
+    MultiKeyFieldDefinition,
     PropertyFieldDefinition,
     RelationDefinition,
     RelationFieldDefinition,
@@ -16,6 +17,7 @@ from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
 )
+from pangloss_new.model_config.models_base import MultiKeyField
 from pangloss_new.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
 
@@ -469,3 +471,19 @@ def test_build_field_definition_for_embedded_type():
     assert embedded_field_definition.validators == [
         annotated_types.MaxLen(10),
     ]
+
+
+def test_build_multi_key_field_definition():
+    class Person(BaseNode):
+        pass
+
+    class UncertainValue[T](MultiKeyField[T]):
+        certainty: int
+
+    multi_key_field_definition = build_field_definition(
+        "multi_key_field", UncertainValue[str], Person
+    )
+    assert isinstance(multi_key_field_definition, MultiKeyFieldDefinition)
+    assert multi_key_field_definition.field_annotation is UncertainValue[str]
+    assert multi_key_field_definition.multi_key_field_type is UncertainValue
+    assert multi_key_field_definition.multi_key_field_value_type is str
