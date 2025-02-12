@@ -436,7 +436,9 @@ def build_field_definition(
         )
 
     if inspect.isclass(annotation) and issubclass(annotation, MultiKeyField):
-        multi_key_field_type = annotation.__pydantic_generic_metadata__["origin"]
+        multi_key_field_type = typing.cast(
+            type[MultiKeyField], annotation.__pydantic_generic_metadata__["origin"]
+        )
         multi_key_field_value_type = annotation.__pydantic_generic_metadata__["args"][0]
         print(multi_key_field_type)
         return MultiKeyFieldDefinition(
