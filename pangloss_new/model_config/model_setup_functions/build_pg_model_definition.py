@@ -10,11 +10,13 @@ from pangloss_new.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     FieldDefinition,
     ListFieldDefinition,
+    ModelFieldDefinitions,
     MultiKeyFieldDefinition,
     PropertyFieldDefinition,
     RelationDefinition,
     RelationFieldDefinition,
     RelationToReifiedDefinition,
+    RelationToTypeVarDefinition,
     TypeParamsToTypeMap,
 )
 from pangloss_new.model_config.models_base import (
@@ -23,13 +25,14 @@ from pangloss_new.model_config.models_base import (
     MultiKeyField,
     ReferenceSetBase,
     ReferenceViewBase,
+    ReifiedBase,
     ReifiedRelation,
     RelationConfig,
     RootNode,
     Trait,
     ViewBase,
 )
-from pangloss_new.models import BaseNode, Embedded
+from pangloss_new.models import Embedded
 
 
 def get_relation_config_from_field_metadata(
@@ -155,9 +158,15 @@ def build_relation_fields_definitions(
     ReifiedRelation[RootNode] -> [ReifiedRelationDefinition] TICK
     ReifiedRelation[Union[RootNode | ReifiedRelation]] -> ReifiedRelationDefinition
     """
+    if isinstance(primary_type, typing.TypeVar):
+        return [
+            RelationToTypeVarDefinition(
+                annotated_type=primary_type, typevar_name=primary_type.__name__
+            )
+        ]
 
     # If the primary type is a ReifiedRelation, it is a ReifiedRelation
-    if issubclass(primary_type, ReifiedRelation):
+    elif issubclass(primary_type, ReifiedRelation):
         possible_generic_type = typing.cast(
             type[ReifiedRelation], primary_type.__pydantic_generic_metadata__["origin"]
         )
@@ -208,20 +217,74 @@ def is_union(ann: typing.Any) -> bool:
 
 
 def build_field_definition(
-    field_name: str, annotation: typing.Any, model
+    field_name: str,
+    annotation: typing.Any,
+    model: type[RootNode] | type[ReifiedBase] | type[EdgeModel],
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
 
-    if is_annotated(annotation):
+    if issubclass(model, (ReifiedBase, EdgeModel)):
+        # ReifiedBase is already necessarily a pydantic.BaseModel, which interprets
+        # the annotation as a string; so need to do the actual lookups of types on the model
+        # and then can reconstruct the type back to the unadulterated Python format
+        # i.e. typing.Annotated[<Type>, *<Metadata>]
+        # so we can use the same code below
+        primary_type = model.model_fields[field_name].annotation
+
+        if metadata := model.model_fields[field_name].metadata:
+            annotation = typing.Annotated[primary_type, *metadata]
+
+    elif is_annotated(annotation):
+        # If it is an annotation, unpack to get the primary type
         validators = []
         # Get the first argument from the Annotated: should be the actual type
         primary_type = typing.get_args(annotation)[0]
 
         # Resolve any forward refs if required
         primary_type = resolve_forward_ref(primary_type)
+
     else:
         annotation = resolve_forward_ref(annotation)
+
+    if is_annotated(annotation) and isinstance(primary_type, typing.TypeVar):
+        relation_fields_definitions = build_relation_fields_definitions(
+            field_name=field_name,
+            annotation=annotation,
+            model=model,
+            primary_type=primary_type,
+        )
+
+        relation_config = get_relation_config_from_field_metadata(
+            typing.get_args(annotation)[1:], field_name=field_name, model=model
+        )
+
+        # Check the annotation for additional validators
+        additional_validators = [
+            metadata_item
+            for metadata_item in typing.get_args(annotation)
+            if isinstance(metadata_item, annotated_types.BaseMetadata)
+        ]
+
+        # Convert relation_config to dict for splat-unpacking below
+        relation_config_dict = dataclasses.asdict(relation_config)
+
+        # Update the validators in the relation_config_dict to include
+        # additional_validators. n.b. must be done after converting to dict
+        # as relation_config validators will have been turned to dict!
+        relation_config_dict["validators"] = [
+            *relation_config.validators,
+            *additional_validators,
+        ]
+
+        field_definition = RelationFieldDefinition(
+            field_name=field_name,
+            field_metatype="RelationField",
+            field_annotation=primary_type,
+            field_type_definitions=relation_fields_definitions,
+            **relation_config_dict,
+        )
+        return field_definition
 
     if is_annotated(annotation) and is_union(primary_type):
         # Union can be of RootNode/ReifiedRelation type or literal
@@ -387,11 +450,13 @@ def build_field_definition(
     if is_annotated(annotation) and primary_type:
         # Annotation of base property type
         # e.g. Annotated[str, MaxLen(10)]
+
         validators = [
             metadata_item
             for metadata_item in typing.get_args(annotation)
             if isinstance(metadata_item, annotated_types.BaseMetadata)
         ]
+
         return PropertyFieldDefinition(
             field_name=field_name,
             field_annotation=primary_type,
@@ -426,7 +491,7 @@ def build_field_definition(
             )
 
         inner_type = typing.cast(types.UnionType, inner_type)
-        print(inner_type)
+
         return EmbeddedFieldDefinition(
             field_name=field_name, field_annotation=inner_type
         )
@@ -456,7 +521,7 @@ def build_field_definition(
             type[MultiKeyField], annotation.__pydantic_generic_metadata__["origin"]
         )
         multi_key_field_value_type = annotation.__pydantic_generic_metadata__["args"][0]
-        print(multi_key_field_type)
+
         return MultiKeyFieldDefinition(
             field_name=field_name,
             field_annotation=annotation,
@@ -473,8 +538,11 @@ def build_field_definition(
     )
 
 
-def build_pg_model_definitions(cls: type[BaseNode]) -> None:
-    print(f"===== Building field def for {cls.__name__} ======")
+def build_pg_model_definitions(
+    cls: type["RootNode"] | type["ReifiedBase"] | type["EdgeModel"],
+) -> None:
+    defs = {}
     for field_name, annotation in cls.__pg_annotations__.items():
-        print("----", field_name, "----")
-        build_field_definition(field_name, annotation, model=cls)
+        defs[field_name] = build_field_definition(field_name, annotation, model=cls)
+
+    cls.__pg_field_definitions__ = ModelFieldDefinitions(defs)

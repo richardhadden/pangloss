@@ -91,6 +91,12 @@ class RelationDefinition:
 
 
 @dataclasses.dataclass
+class RelationToTypeVarDefinition(RelationDefinition):
+    annotated_type: typing.TypeVar
+    typevar_name: str
+
+
+@dataclasses.dataclass
 class TypeParamsToTypeMap:
     type_param: typing.TypeVar | typing.ParamSpec | typing.TypeVarTuple
     type: type["RootNode"] | type["ReifiedRelation"]
@@ -114,6 +120,7 @@ class RelationFieldDefinition(FieldDefinition):
         | type["HeritableTrait"]
         | type["NonHeritableTrait"]
         | type["ReifiedRelation"]
+        | typing.TypeVar
     )
     reverse_name: str
 

@@ -12,12 +12,17 @@ from pangloss_new.model_config.field_definitions import (
     RelationDefinition,
     RelationFieldDefinition,
     RelationToReifiedDefinition,
+    RelationToTypeVarDefinition,
 )
 from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
 )
-from pangloss_new.model_config.models_base import HeritableTrait, MultiKeyField
+from pangloss_new.model_config.models_base import (
+    EdgeModel,
+    HeritableTrait,
+    MultiKeyField,
+)
 from pangloss_new.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
 
@@ -546,7 +551,7 @@ def test_build_relation_to_union_of_node_and_trait():
     relation_to_union = build_field_definition(
         "relation_to_union",
         typing.Annotated[
-            Purchaseable | Cat, RelationConfig(reverse_name="is_related_to_union")
+            "Purchaseable | Cat", RelationConfig(reverse_name="is_related_to_union")
         ],
         Person,
     )
@@ -556,6 +561,83 @@ def test_build_relation_to_union_of_node_and_trait():
     assert isinstance(relation_to_union.field_type_definitions[0], RelationDefinition)
     assert relation_to_union.field_type_definitions[0].annotated_type is Purchaseable
     assert relation_to_union.field_type_definitions[1].annotated_type is Cat
+
+
+def test_build_model_field_definitions():
+    class Cat(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        name: str
+        has_cat: typing.Annotated[Cat, RelationConfig(reverse_name="is_owned_by")]
+        embedded_dog: Embedded[Dog]
+
+    ModelManager.initialise_models(_defined_in_test=True)
+
+    assert Person.__pg_field_definitions__["has_cat"]
+    assert Person.__pg_field_definitions__.relation_fields["has_cat"]
+    assert Person.__pg_field_definitions__["name"]
+    assert Person.__pg_field_definitions__.property_fields["name"]
+    assert "name" in Person.__pg_field_definitions__
+    assert "name" in Person.__pg_field_definitions__.property_fields
+    assert "name" not in Person.__pg_field_definitions__.relation_fields
+
+
+def test_build_model_field_definition_on_reified():
+    class Cat(BaseNode):
+        pass
+
+    class Intermediate[T](ReifiedRelation[T]):
+        value: str
+        has_cat: typing.Annotated[Cat, RelationConfig("cat_in_intermediate")]
+
+    ModelManager.initialise_models()
+
+    assert Intermediate.__pg_field_definitions__["has_cat"]
+    assert isinstance(
+        Intermediate.__pg_field_definitions__["has_cat"], RelationFieldDefinition
+    )
+
+    target_definition = Intermediate.__pg_field_definitions__["target"]
+    assert target_definition
+    assert isinstance(target_definition, RelationFieldDefinition)
+
+    assert isinstance(
+        target_definition.field_type_definitions[0], RelationToTypeVarDefinition
+    )
+
+    assert target_definition.field_type_definitions[0].typevar_name == "T"
+    assert target_definition.field_type_definitions[0].annotated_type.__name__ == "T"
+
+    value_defintion = Intermediate.__pg_field_definitions__["value"]
+    assert isinstance(value_defintion, PropertyFieldDefinition)
+
+
+def test_edge_model_field_definitions():
+    class Thing[T](MultiKeyField[T]):
+        other: str
+
+    class Edge(EdgeModel):
+        number: int
+        name: str
+        multikeyfield: Thing[int]
+
+    ModelManager.initialise_models()
+
+    number_definition = Edge.__pg_field_definitions__["number"]
+    assert isinstance(number_definition, PropertyFieldDefinition)
+    assert number_definition.field_annotation is int
+
+    name_definition = Edge.__pg_field_definitions__["name"]
+    assert isinstance(name_definition, PropertyFieldDefinition)
+    assert name_definition.field_annotation is str
+
+    multikeyfield_definition = Edge.__pg_field_definitions__["multikeyfield"]
+    assert isinstance(multikeyfield_definition, MultiKeyFieldDefinition)
+    assert multikeyfield_definition.multi_key_field_type is Thing
 
 
 """

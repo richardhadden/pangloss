@@ -24,12 +24,14 @@ class EdgeModel(BaseModel):
     show_in_reverse_relation: typing.ClassVar[bool] = False
     model_config = STANDARD_MODEL_CONFIG
 
-    field_definitions_initialised: typing.ClassVar[bool]
-    field_definitions: typing.ClassVar["ModelFieldDefinitions"]
+    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
+    __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @classmethod
     def __pydantic_init_subclass__(cls) -> None:
-        pass
+        from pangloss_new.model_config.model_manager import ModelManager
+
+        ModelManager.register_edge_model(cls)
 
 
 class _BaseClassProxy:
@@ -78,7 +80,7 @@ class RootNode:
         @classmethod
         def get(cls, id: uuid.UUID | HttpUrl):
             # TODO: Sketching API so far
-            pass
+            return cls.__pg_base_class__.HeadView()
 
     def __init_subclass__(cls):
         from pangloss_new.model_config.model_manager import ModelManager
@@ -144,6 +146,7 @@ class ReifiedBase(BaseModel):
     Create: typing.ClassVar[type[CreateBase]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
+    __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
 
 class ReifiedRelation[T](ReifiedBase):
@@ -236,3 +239,6 @@ class RelationConfig:
         if self.subclasses_relation:
             self.subclasses_relation = frozenset(self.subclasses_relation)
         return hash(self.__dict__)
+
+    def __post_init__(self):
+        self.reverse_name = self.reverse_name.lower().replace(" ", "_")
