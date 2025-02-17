@@ -17,7 +17,7 @@ from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
 )
-from pangloss_new.model_config.models_base import MultiKeyField
+from pangloss_new.model_config.models_base import HeritableTrait, MultiKeyField
 from pangloss_new.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
 
@@ -473,6 +473,23 @@ def test_build_field_definition_for_embedded_type():
     ]
 
 
+def test_build_field_definition_for_embedded_union():
+    class Person(BaseNode):
+        pass
+
+    class Cat(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    embedded_field_definition = build_field_definition(
+        "embedded_field", Embedded[Cat | Dog], Person
+    )
+    assert isinstance(embedded_field_definition, EmbeddedFieldDefinition)
+    assert embedded_field_definition.field_annotation == Cat | Dog
+
+
 def test_build_multi_key_field_definition():
     class Person(BaseNode):
         pass
@@ -487,3 +504,62 @@ def test_build_multi_key_field_definition():
     assert multi_key_field_definition.field_annotation is UncertainValue[str]
     assert multi_key_field_definition.multi_key_field_type is UncertainValue
     assert multi_key_field_definition.multi_key_field_value_type is str
+
+
+def test_build_relation_to_trait_field_definition():
+    class Purchaseable(HeritableTrait):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    relation_to_trait_field_definition = build_field_definition(
+        "relation_to_trait",
+        annotation=typing.Annotated[
+            Purchaseable, RelationConfig(reverse_name="is_related_to_trait")
+        ],
+        model=Person,
+    )
+
+    assert isinstance(relation_to_trait_field_definition, RelationFieldDefinition)
+
+    assert relation_to_trait_field_definition.field_annotation is Purchaseable
+    assert isinstance(
+        relation_to_trait_field_definition.field_type_definitions[0], RelationDefinition
+    )
+    assert (
+        relation_to_trait_field_definition.field_type_definitions[0].annotated_type
+        is Purchaseable
+    )
+
+
+def test_build_relation_to_union_of_node_and_trait():
+    class Purchaseable(HeritableTrait):
+        pass
+
+    class Cat(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    relation_to_union = build_field_definition(
+        "relation_to_union",
+        typing.Annotated[
+            Purchaseable | Cat, RelationConfig(reverse_name="is_related_to_union")
+        ],
+        Person,
+    )
+
+    assert isinstance(relation_to_union, RelationFieldDefinition)
+    assert relation_to_union.field_annotation == Purchaseable | Cat
+    assert isinstance(relation_to_union.field_type_definitions[0], RelationDefinition)
+    assert relation_to_union.field_type_definitions[0].annotated_type is Purchaseable
+    assert relation_to_union.field_type_definitions[1].annotated_type is Cat
+
+
+"""
+TODO: 
+    - Use 'field_annotation' consistently (for actual annotation)
+    - Relation to trait/embedded traits
+"""

@@ -415,6 +415,22 @@ def build_field_definition(
             internal_type_validators=internal_type_validators,
         )
 
+    if typing.get_origin(annotation) is Embedded and is_union(
+        inner_type := resolve_forward_ref(typing.get_args(annotation)[0])
+    ):
+        if not all(
+            pg_is_subclass(t, (RootNode, Trait)) for t in typing.get_args(inner_type)
+        ):
+            raise PanglossConfigError(
+                f"{model.__name__} {field_name}: cannot embed a literal typing, only subclass of BaseNode"
+            )
+
+        inner_type = typing.cast(types.UnionType, inner_type)
+        print(inner_type)
+        return EmbeddedFieldDefinition(
+            field_name=field_name, field_annotation=inner_type
+        )
+
     if typing.get_origin(annotation) is Embedded:
         inner_type = resolve_forward_ref(typing.get_args(annotation)[0])
         if not pg_is_subclass(inner_type, (RootNode,)):
