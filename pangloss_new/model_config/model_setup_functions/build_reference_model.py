@@ -2,7 +2,6 @@ import typing
 
 from pydantic import create_model
 
-from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
@@ -29,22 +28,6 @@ def build_reference_view(model: type["RootNode"]):
     extra_fields = {}
 
     if model.Meta.label_field:
-        if model.Meta.label_field not in model.__pg_field_definitions__:
-            raise PanglossConfigError(
-                f"{model.__name__}: trying to use field "
-                f"'{model.Meta.label_field}' for label but it is not"
-                "a field on the model"
-            )
-        if (
-            model.__pg_field_definitions__[model.Meta.label_field].field_metatype  # type: ignore
-            != "PropertyField"
-        ):
-            raise PanglossConfigError(
-                f"{model.__name__}: trying to use field "
-                f"'{model.Meta.label_field}' for label but it is not"
-                " a property field"
-            )
-
         extra_fields[model.Meta.label_field] = build_property_type_field(
             typing.cast(
                 PropertyFieldDefinition,
