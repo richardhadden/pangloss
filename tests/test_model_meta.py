@@ -1,8 +1,10 @@
+import typing
+
 import pytest
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.models import BaseMeta, BaseNode
+from pangloss_new.models import BaseMeta, BaseNode, RelationConfig
 
 
 def test_base_meta_not_inherited_by_class_not_called_meta_raises_error():
@@ -53,3 +55,30 @@ def test_base_meta_inherits_except_abstract():
     assert not Other.Meta.view
 
     assert not Other.Meta.view
+
+
+def test_error_if_meta_label_field_not_a_field():
+    with pytest.raises(PanglossConfigError):
+
+        class Entity(BaseNode):
+            name: str
+
+            class Meta(BaseMeta):
+                label_field = "wank"
+
+        ModelManager.initialise_models()
+
+
+def test_error_if_meta_label_field_not_a_property_field():
+    with pytest.raises(PanglossConfigError):
+
+        class Cat(BaseNode):
+            pass
+
+        class Entity(BaseNode):
+            has_cat: typing.Annotated[Cat, RelationConfig(reverse_name="is_cat_of")]
+
+            class Meta(BaseMeta):
+                label_field = "has_cat"
+
+        ModelManager.initialise_models()

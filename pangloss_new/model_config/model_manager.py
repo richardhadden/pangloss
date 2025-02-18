@@ -73,14 +73,14 @@ class ModelManager:
             set_type_to_literal_on_base_model(model)
             build_pg_annotations(model)
 
-        for model_name, model in cls.base_models.items():
-            initialise_model_meta_inheritance(model)
-
         for model_name, model in cls.reified_relation_models.items():
             set_type_to_literal_on_base_model(model)
 
         for model_name, model in cls.base_models.items():
             build_pg_model_definitions(model)
+
+        for model_name, model in cls.base_models.items():
+            initialise_model_meta_inheritance(model)
 
         for model_name, model in cls.reified_relation_models.items():
             build_pg_annotations(model)

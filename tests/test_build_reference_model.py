@@ -5,7 +5,7 @@ from ulid import ULID
 
 from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.models_base import ReferenceSetBase, ReferenceViewBase
-from pangloss_new.models import BaseNode
+from pangloss_new.models import BaseMeta, BaseNode
 from pangloss_new.utils import gen_ulid, url
 
 
@@ -57,7 +57,7 @@ def test_reference_view_on_model():
         Entity.ReferenceView.model_fields["type"].annotation == typing.Literal["Entity"]
     )
     assert Entity.ReferenceView.model_fields["type"].default == "Entity"
-    Entity.ReferenceView.model_fields.keys()
+    assert set(Entity.ReferenceView.model_fields.keys()) == set(["id", "type", "label"])
 
     e = Entity.ReferenceView(id=gen_ulid(), type="Entity", label="An Entity")
     assert isinstance(e.id, ULID)
@@ -65,3 +65,16 @@ def test_reference_view_on_model():
 
     assert Person.ReferenceView
     assert issubclass(Person.ReferenceView, ReferenceViewBase)
+
+
+def test_reference_view_on_model_with_label_field():
+    class Entity(BaseNode):
+        name: str
+
+        class Meta(BaseMeta):
+            label_field = "name"
+
+    ModelManager.initialise_models()
+
+    assert "name" in Entity.ReferenceView.model_fields
+    assert Entity.ReferenceView.model_fields["name"].annotation is str

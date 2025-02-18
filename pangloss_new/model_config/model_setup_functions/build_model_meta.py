@@ -1,6 +1,7 @@
 import inspect
 
 from pangloss_new.exceptions import PanglossConfigError
+from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
 from pangloss_new.model_config.models_base import BaseMeta, RootNode
 
 
@@ -65,3 +66,22 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
             meta_settings["abstract"] = True
 
         model.Meta = type("Meta", (BaseMeta,), meta_settings)
+
+        if (
+            model.Meta.label_field
+            and model.Meta.label_field not in model.__pg_field_definitions__
+        ):
+            raise PanglossConfigError(
+                f"{model.__name__}: trying to use field "
+                f"'{model.Meta.label_field}' for label but it is not"
+                "a field on the model"
+            )
+        if model.Meta.label_field and not isinstance(
+            model.__pg_field_definitions__[model.Meta.label_field],
+            PropertyFieldDefinition,
+        ):
+            raise PanglossConfigError(
+                f"{model.__name__}: trying to use field "
+                f"'{model.Meta.label_field}' for label but it is not"
+                "a PropertyField"
+            )
