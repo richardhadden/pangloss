@@ -7,7 +7,8 @@ from collections import ChainMap
 
 import annotated_types
 import humps
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict
+from pydantic_extra_types.ulid import ULID
 
 if typing.TYPE_CHECKING:
     from pangloss_new.model_config.field_definitions import ModelFieldDefinitions
@@ -42,6 +43,24 @@ class _BaseClassProxy:
         return self.__pg_base_class__.__pg_field_definitions__
 
 
+@dataclasses.dataclass
+class BaseMeta:
+    """Base class for BaseNode Meta fields"""
+
+    abstract: bool = False
+    create: bool = True
+    edit: bool = True
+    delete: bool = True
+    view: bool = True
+    search: bool = True
+
+    create_by_reference: bool = False
+    "Allow creation by reference by providing a URI/ULID and a label"
+
+    label_field: str | None = None
+    """Alternative field to be displayed as label"""
+
+
 class RootNode:
     """Base class for basic BaseModel"""
 
@@ -53,11 +72,14 @@ class RootNode:
     EditHeadView: typing.ClassVar[type[EditHeadViewBase]]
     EditView: typing.ClassVar[type[EditViewBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]
+    ReferenceCreateBase: typing.ClassVar[type[ReferenceCreateBase]] | None = None
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
-    ReferenceSet: typing.ClassVar[type[ReferenceViewBase]]
+    ReferenceSet: typing.ClassVar[type[ReferenceSetBase]]
     EmbeddedCreate: typing.ClassVar[type[EmbeddedCreateBase]]
     EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
+
+    Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -66,7 +88,7 @@ class RootNode:
         __pg_base_class__: typing.ClassVar[type[RootNode]]
 
         @classmethod
-        def get(cls, uuid: uuid.UUID | HttpUrl) -> EditHeadViewBase:
+        def get(cls, uuid: uuid.UUID | AnyHttpUrl) -> EditHeadViewBase:
             # TODO: Sketching API so far
             return cls.__pg_base_class__.EditHeadView()
 
@@ -78,7 +100,7 @@ class RootNode:
         __pg_base_class__: typing.ClassVar[type[RootNode]]
 
         @classmethod
-        def get(cls, id: uuid.UUID | HttpUrl):
+        def get(cls, id: uuid.UUID | AnyHttpUrl):
             # TODO: Sketching API so far
             return cls.__pg_base_class__.HeadView()
 
@@ -87,10 +109,14 @@ class RootNode:
 
         ModelManager.register_base_model(cls)
 
+    def __new__(cls, *args, **kwargs):
+        return cls.Create(*args, **kwargs)
+
 
 class CreateBase(BaseModel):
-    # id: No ID required as we are creating
+    # id: Can take an optional ID or URI
 
+    id: ULID | AnyHttpUrl | None = None
     label: str
 
 
@@ -125,19 +151,27 @@ class HeadViewBase(ViewBase):
     id: uuid.UUID
 
 
-class ReferenceViewBase(BaseModel):
+class ReferenceViewBase(BaseModel, _BaseClassProxy):
     """Base model for viewing a Reference to an entity"""
 
     type: str
-    id: uuid.UUID
+    id: ULID
     label: str
 
 
-class ReferenceSetBase(BaseModel):
+class ReferenceCreateBase(BaseModel, _BaseClassProxy):
     """Base model for setting a Reference to an entity"""
 
     type: str
-    id: uuid.UUID | HttpUrl
+    id: ULID | AnyHttpUrl
+    label: str
+
+
+class ReferenceSetBase(BaseModel, _BaseClassProxy):
+    """Base model for setting a Reference to an entity"""
+
+    type: str
+    id: ULID | AnyHttpUrl
 
 
 class ReifiedBase(BaseModel):

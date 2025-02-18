@@ -49,11 +49,21 @@ class ModelManager:
 
     @classmethod
     def initialise_models(cls, _defined_in_test: bool = False):
+        from pangloss_new.model_config.model_setup_functions.build_create_model import (
+            build_create_model,
+        )
+        from pangloss_new.model_config.model_setup_functions.build_model_meta import (
+            initialise_model_meta_inheritance,
+        )
         from pangloss_new.model_config.model_setup_functions.build_pg_annotations import (
             build_pg_annotations,
         )
         from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
             build_pg_model_definitions,
+        )
+        from pangloss_new.model_config.model_setup_functions.build_reference_model import (
+            build_reference_set,
+            build_reference_view,
         )
         from pangloss_new.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
@@ -63,6 +73,9 @@ class ModelManager:
             set_type_to_literal_on_base_model(model)
             build_pg_annotations(model)
 
+        for model_name, model in cls.base_models.items():
+            initialise_model_meta_inheritance(model)
+
         for model_name, model in cls.reified_relation_models.items():
             set_type_to_literal_on_base_model(model)
 
@@ -80,3 +93,10 @@ class ModelManager:
 
         for model_name, model in cls.edge_models.items():
             build_pg_model_definitions(model)
+
+        for model_name, model in cls.base_models.items():
+            build_reference_set(model)
+            build_reference_view(model)
+
+        for model_name, model in cls.base_models.items():
+            build_create_model(model)

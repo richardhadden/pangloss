@@ -1,6 +1,8 @@
 from pangloss_new.model_config.models_base import (
+    BaseMeta,
     Embedded,
     MultiKeyField,
+    ReferenceSetBase,
     ReifiedRelation,
     RelationConfig,
     RootNode,
@@ -11,6 +13,8 @@ reexported = (
     RelationConfig,
     Embedded,
     MultiKeyField,
+    BaseMeta,
+    ReferenceSetBase,
 )
 
 

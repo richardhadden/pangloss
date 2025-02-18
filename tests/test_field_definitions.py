@@ -643,5 +643,4 @@ def test_edge_model_field_definitions():
 """
 TODO: 
     - Use 'field_annotation' consistently (for actual annotation)
-    - Relation to trait/embedded traits
 """
