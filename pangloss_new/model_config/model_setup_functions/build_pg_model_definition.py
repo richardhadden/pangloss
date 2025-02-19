@@ -13,6 +13,7 @@ from pangloss_new.model_config.field_definitions import (
     ModelFieldDefinitions,
     MultiKeyFieldDefinition,
     PropertyFieldDefinition,
+    RelationDefinition,
     RelationFieldDefinition,
     RelationToNodeDefinition,
     RelationToReifiedDefinition,
@@ -150,7 +151,7 @@ def resolve_forward_ref(cls: typing.Any):
 
 def build_relation_fields_definitions(
     field_name: str, annotation: typing.Any, model, primary_type
-) -> list[RelationToNodeDefinition]:
+) -> list[RelationDefinition]:
     """Possible primary_types:
 
     RootNode -> [RelationDefinition] TICK
@@ -406,7 +407,6 @@ def build_field_definition(
         return ListFieldDefinition(
             field_name=field_name,
             field_annotation=inner_type,
-            field_metatype="ListField",
             validators=validators,
             internal_type_validators=internal_type_validators,
         )
@@ -422,7 +422,6 @@ def build_field_definition(
         return ListFieldDefinition(
             field_name=field_name,
             field_annotation=typing.get_args(primary_type)[0],
-            field_metatype="ListField",
             validators=validators,
         )
 
@@ -509,7 +508,6 @@ def build_field_definition(
         return ListFieldDefinition(
             field_name=field_name,
             field_annotation=typing.get_args(annotation)[0],
-            field_metatype="ListField",
         )
 
     if inspect.isclass(annotation) and issubclass(annotation, MultiKeyField):
