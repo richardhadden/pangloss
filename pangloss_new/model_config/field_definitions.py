@@ -20,7 +20,14 @@ if typing.TYPE_CHECKING:
 @dataclasses.dataclass
 class FieldDefinition:
     field_name: str
-    field_metatype: typing.ClassVar[typing.Literal["Field"]] = "Field"
+    field_metatype: typing.ClassVar[
+        typing.Literal["Field"]
+        | typing.Literal["PropertyField"]
+        | typing.Literal["MultiKeyField"]
+        | typing.Literal["ListField"]
+        | typing.Literal["EmbeddedField"]
+        | typing.Literal["RelationField"]
+    ]
 
 
 type MappedCypherTypes = (
@@ -121,16 +128,19 @@ class RelationToReifiedDefinition(RelationDefinition):
     metatype: typing.ClassVar[typing.Literal["RelationToReified"]] = "RelationToReified"
 
 
+type annotation_types = (
+    type["RootNode"]
+    | types.UnionType
+    | type["HeritableTrait"]
+    | type["NonHeritableTrait"]
+    | type["ReifiedRelation"]
+    | typing.TypeVar
+)
+
+
 @dataclasses.dataclass
 class RelationFieldDefinition(FieldDefinition):
-    field_annotation: (
-        type["RootNode"]
-        | types.UnionType
-        | type["HeritableTrait"]
-        | type["NonHeritableTrait"]
-        | type["ReifiedRelation"]
-        | typing.TypeVar
-    )
+    field_annotation: annotation_types
     reverse_name: str
 
     field_type_definitions: list[RelationDefinition] = dataclasses.field(

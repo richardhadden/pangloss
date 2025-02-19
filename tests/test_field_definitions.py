@@ -15,8 +15,13 @@ from pangloss_new.model_config.field_definitions import (
     RelationToTypeVarDefinition,
 )
 from pangloss_new.model_config.model_manager import ModelManager
+from pangloss_new.model_config.model_setup_functions.build_pg_annotations import (
+    build_pg_annotations,
+)
 from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
+    build_pg_bound_model_definition_for_instatiated_reified,
+    build_pg_model_definitions,
 )
 from pangloss_new.model_config.models_base import (
     EdgeModel,
@@ -644,7 +649,83 @@ def test_edge_model_field_definitions():
     assert multikeyfield_definition.multi_key_field_type is Thing
 
 
-"""
-TODO: 
-    - Use 'field_annotation' consistently (for actual annotation)
-"""
+def test_build_pg_bound_model_definition_for_instatiated_reified():
+    class Cat(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    class WithAntagonist[T, U](ReifiedRelation[T]):
+        antagonist: typing.Annotated[U, RelationConfig(reverse_name="is_antagonist_in")]
+
+    build_pg_annotations(WithAntagonist)
+    build_pg_model_definitions(WithAntagonist)
+
+    W = WithAntagonist[Cat, Dog]
+    build_pg_bound_model_definition_for_instatiated_reified(W)
+
+    target_defintion = W.__pg_bound_field_definitions__["target"]
+    assert isinstance(target_defintion, RelationFieldDefinition)
+    assert target_defintion.field_annotation is Cat
+    assert isinstance(
+        target_defintion.field_type_definitions[0], RelationToNodeDefinition
+    )
+    assert target_defintion.field_type_definitions[0].annotated_type is Cat
+
+    antagonist_definition = W.__pg_bound_field_definitions__["antagonist"]
+    assert isinstance(antagonist_definition, RelationFieldDefinition)
+    assert antagonist_definition.field_annotation is Dog
+    assert isinstance(
+        antagonist_definition.field_type_definitions[0], RelationToNodeDefinition
+    )
+    assert antagonist_definition.field_type_definitions[0].annotated_type is Dog
+
+
+def test_build_pg_bound_model_definition_for_instatiated_reified_with_nested_reified():
+    class Cat(BaseNode):
+        pass
+
+    class IntermediateA[T](ReifiedRelation[T]):
+        pass
+
+    class IntermediateB[T](ReifiedRelation[T]):
+        pass
+
+    build_pg_annotations(IntermediateA)
+    build_pg_annotations(IntermediateB)
+    build_pg_model_definitions(IntermediateA)
+    build_pg_model_definitions(IntermediateB)
+
+    IA = IntermediateA[IntermediateB[Cat]]
+    build_pg_bound_model_definition_for_instatiated_reified(IA)
+
+    IATargetDefinition = IA.__pg_bound_field_definitions__["target"]
+    assert IATargetDefinition
+    assert isinstance(IATargetDefinition, RelationFieldDefinition)
+
+    assert isinstance(
+        IATargetDefinition.field_type_definitions[0], RelationToReifiedDefinition
+    )
+
+    assert (
+        IATargetDefinition.field_type_definitions[0].annotated_type
+        is IntermediateB[Cat]
+    )
+    assert IATargetDefinition.field_type_definitions[0].origin_type is IntermediateB
+    assert (
+        IATargetDefinition.field_type_definitions[0].type_params_to_type_map["T"].type
+        is Cat
+    )
+
+    IBTargetDefinition = IATargetDefinition.field_type_definitions[
+        0
+    ].annotated_type.__pg_bound_field_definitions__["target"]
+
+    assert isinstance(IBTargetDefinition, RelationFieldDefinition)
+    assert IBTargetDefinition.field_annotation is Cat
+    assert isinstance(
+        IBTargetDefinition.field_type_definitions[0], RelationToNodeDefinition
+    )
+
+    assert IBTargetDefinition.field_type_definitions[0].annotated_type is Cat

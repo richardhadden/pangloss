@@ -22,4 +22,5 @@ dev-dependencies = [
     "ruff>=0.9.3",
     "mypy>=1.15.0",
     "pytest-cov>=6.0.0",
+    "pytest-sugar>=1.0.0",
 ]

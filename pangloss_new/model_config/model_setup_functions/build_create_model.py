@@ -3,6 +3,9 @@ import typing
 from pydantic import create_model
 
 from pangloss_new.model_config.field_definitions import RelationFieldDefinition
+from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+    build_pg_bound_model_definition_for_instatiated_reified,
+)
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
 )
@@ -18,14 +21,22 @@ from pangloss_new.model_config.models_base import (
 
 
 def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
-    print(f"==== building for {model.__name__}")
     # Build fields
+    if issubclass(model, ReifiedRelation):
+        build_pg_bound_model_definition_for_instatiated_reified(model)
+
+    field_definitions = (
+        model.__pg_bound_field_definitions__
+        if issubclass(model, ReifiedRelation)
+        else model.__pg_field_definitions__
+    )
+
     fields = {}
-    for field in model.__pg_field_definitions__.property_fields:
+    for field in field_definitions.property_fields:
         if field.field_metatype == "PropertyField":
             fields[field.field_name] = build_property_type_field(field, model)
 
-    for field in model.__pg_field_definitions__.relation_fields:
+    for field in field_definitions.relation_fields:
         if field.create_inline:
             pass
         else:
@@ -51,6 +62,39 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
         model.Create.__pg_base_class__ = model
 
 
+def build_relation_field(
+    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+):
+    concrete_model_types = []
+
+    # Build relations_to_nodes
+    related_node_base_type = []
+    for field_type_definition in field.relations_to_node:
+        related_node_base_type.extend(
+            get_concrete_model_types(
+                field_type_definition.annotated_type,
+                include_subclasses=True,
+            )
+        )
+    for base_type in related_node_base_type:
+        if field.create_inline:
+            # Add creation model instead
+            pass
+        else:
+            concrete_model_types.append(base_type.ReferenceSet)
+            if base_type.Meta.create_by_reference:
+                concrete_model_types.append(base_type.ReferenceCreate)
+
+    for field_type_definition in field.relations_to_reified:
+        build_create_model(field_type_definition.annotated_type)
+        concrete_model_types.append(field_type_definition.annotated_type.Create)
+
+    if field.validators:
+        return (typing.Annotated[list[typing.Union[*concrete_model_types]]], ...)
+    return (list[typing.Union[*concrete_model_types]], ...)
+
+
+"""
 def build_reified_create_model(model: type[ReifiedRelation]):
     fields = {}
     for field_name, field in model.model_fields.items():
@@ -85,39 +129,4 @@ def build_reified_create_model(model: type[ReifiedRelation]):
                 fields[field_name] = (list[typing.Union[*concrete_related_types]], ...)
         model.Create = create_model(
             f"{model}Create", __base__=ReifiedCreateBase, **fields
-        )
-
-
-def build_relation_field(
-    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-):
-    print(f"---building field {field.field_name}")
-    concrete_model_types = []  # TODO: remove!!!
-
-    # Build relations_to_nodes
-    related_node_base_type = []
-    for field_type_definition in field.relations_to_node:
-        related_node_base_type.extend(
-            get_concrete_model_types(
-                field_type_definition.annotated_type,
-                include_subclasses=True,
-            )
-        )
-    for base_type in related_node_base_type:
-        if field.create_inline:
-            # Add creation model instead
-            pass
-        else:
-            concrete_model_types.append(base_type.ReferenceSet)
-            if base_type.Meta.create_by_reference:
-                concrete_model_types.append(base_type.ReferenceCreate)
-
-    # Build relations_to_typevars
-
-    for field_type_definition in field.relations_to_reified:
-        build_reified_create_model(field_type_definition.annotated_type)
-        concrete_model_types.append(field_type_definition.annotated_type.Create)
-
-    if field.validators:
-        return (typing.Annotated[list[typing.Union[*concrete_model_types]]], ...)
-    return (list[typing.Union[*concrete_model_types]], ...)
+        )"""

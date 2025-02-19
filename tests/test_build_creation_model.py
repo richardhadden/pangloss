@@ -92,12 +92,13 @@ def test_create_model_with_reified_relations():
     class Person(BaseNode):
         age: Annotated[int, Gt(1)]
         owns_cat: Annotated[
-            Intermediate[Cat, Dog] | Intermediate[Identification[Cat], Dog],
+            Identification[Cat],
             RelationConfig(reverse_name="is_owned_by"),
         ]
 
     initialise_models()
 
-    print(Person.Create.model_fields["owns_cat"])
-
-    assert Person.Create.model_fields["owns_cat"].annotation == ""
+    assert (
+        Person.Create.model_fields["owns_cat"].annotation
+        == list[Identification[Cat].Create]
+    )

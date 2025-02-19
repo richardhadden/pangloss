@@ -200,6 +200,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+    __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
 
 class ReifiedRelation[T](ReifiedBase):
