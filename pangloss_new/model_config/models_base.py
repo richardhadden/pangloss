@@ -35,8 +35,23 @@ class EdgeModel(BaseModel):
         ModelManager.register_edge_model(cls)
 
 
+class _OwnsMethods:
+    """Adds methods to check whether a model has attribute
+    set on itself, not in inheritance chain, by inspecting cls.__dict__"""
+
+    @classmethod
+    def has_own(cls, key: str) -> bool:
+        if key in cls.__dict__:
+            return True
+        return False
+
+    @classmethod
+    def get_own(cls, key: str) -> typing.Any:
+        return cls.__dict__.get(key, None)
+
+
 class _BaseClassProxy:
-    __pg_base_class__: typing.ClassVar[type[RootNode]]
+    __pg_base_class__: typing.ClassVar[type[RootNode] | type[ReifiedRelation]]
 
     @property
     def __pg_field_definitions__(self):
@@ -61,7 +76,7 @@ class BaseMeta:
     """Alternative field to be displayed as label"""
 
 
-class RootNode:
+class RootNode(_OwnsMethods):
     """Base class for basic BaseModel"""
 
     type: str
@@ -72,7 +87,7 @@ class RootNode:
     EditHeadView: typing.ClassVar[type[EditHeadViewBase]]
     EditView: typing.ClassVar[type[EditViewBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]
-    ReferenceCreateBase: typing.ClassVar[type[ReferenceCreateBase]] | None = None
+    ReferenceCreate: typing.ClassVar[type[ReferenceCreateBase]] | None = None
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
     ReferenceSet: typing.ClassVar[type[ReferenceSetBase]]
     EmbeddedCreate: typing.ClassVar[type[EmbeddedCreateBase]]
@@ -113,7 +128,7 @@ class RootNode:
         return cls.Create(*args, **kwargs)
 
 
-class CreateBase(BaseModel):
+class CreateBase(BaseModel, _BaseClassProxy):
     # id: Can take an optional ID or URI
 
     id: ULID | AnyHttpUrl | None = None
@@ -174,10 +189,14 @@ class ReferenceSetBase(BaseModel, _BaseClassProxy):
     id: ULID | AnyHttpUrl
 
 
-class ReifiedBase(BaseModel):
+class ReifiedCreateBase(BaseModel, _BaseClassProxy):
+    pass
+
+
+class ReifiedBase(BaseModel, _OwnsMethods):
     model_config = {"arbitrary_types_allowed": True}
 
-    Create: typing.ClassVar[type[CreateBase]]
+    Create: typing.ClassVar[type[ReifiedCreateBase]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]

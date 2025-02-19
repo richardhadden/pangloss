@@ -13,8 +13,8 @@ from pangloss_new.model_config.field_definitions import (
     ModelFieldDefinitions,
     MultiKeyFieldDefinition,
     PropertyFieldDefinition,
-    RelationDefinition,
     RelationFieldDefinition,
+    RelationToNodeDefinition,
     RelationToReifiedDefinition,
     RelationToTypeVarDefinition,
     TypeParamsToTypeMap,
@@ -150,7 +150,7 @@ def resolve_forward_ref(cls: typing.Any):
 
 def build_relation_fields_definitions(
     field_name: str, annotation: typing.Any, model, primary_type
-) -> list[RelationDefinition]:
+) -> list[RelationToNodeDefinition]:
     """Possible primary_types:
 
     RootNode -> [RelationDefinition] TICK
@@ -194,7 +194,7 @@ def build_relation_fields_definitions(
 
     # Check whether the Annotated[Type, ...] is to a related model
     elif pg_is_subclass(primary_type, (RootNode, Trait)):
-        return [RelationDefinition(annotated_type=primary_type)]
+        return [RelationToNodeDefinition(annotated_type=primary_type)]
 
     else:
         return []
@@ -279,7 +279,6 @@ def build_field_definition(
 
         field_definition = RelationFieldDefinition(
             field_name=field_name,
-            field_metatype="RelationField",
             field_annotation=primary_type,
             field_type_definitions=relation_fields_definitions,
             **relation_config_dict,
@@ -335,7 +334,6 @@ def build_field_definition(
 
         field_definition = RelationFieldDefinition(
             field_name=field_name,
-            field_metatype="RelationField",
             field_annotation=typing.cast(type[RootNode], primary_type),
             field_type_definitions=relation_fields_definitions,
             **relation_config_dict,
@@ -379,7 +377,6 @@ def build_field_definition(
 
         field_definition = RelationFieldDefinition(
             field_name=field_name,
-            field_metatype="RelationField",
             field_annotation=typing.cast(type[RootNode], primary_type),
             field_type_definitions=relation_fields_definitions,
             **relation_config_dict,
@@ -460,7 +457,6 @@ def build_field_definition(
         return PropertyFieldDefinition(
             field_name=field_name,
             field_annotation=primary_type,
-            field_metatype="PropertyField",
             validators=validators,
         )
     if typing.get_origin(annotation) is list and is_annotated(
@@ -534,7 +530,6 @@ def build_field_definition(
     return PropertyFieldDefinition(
         field_name=field_name,
         field_annotation=annotation,
-        field_metatype="PropertyField",
     )
 
 

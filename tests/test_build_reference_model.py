@@ -4,7 +4,11 @@ from pydantic import AnyHttpUrl
 from ulid import ULID
 
 from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import ReferenceSetBase, ReferenceViewBase
+from pangloss_new.model_config.models_base import (
+    ReferenceCreateBase,
+    ReferenceSetBase,
+    ReferenceViewBase,
+)
 from pangloss_new.models import BaseMeta, BaseNode
 from pangloss_new.utils import gen_ulid, url
 
@@ -50,6 +54,7 @@ def test_reference_view_on_model():
     ModelManager.initialise_models()
 
     assert Entity.ReferenceView
+    assert Entity.ReferenceView.__name__ == "EntityReferenceView"
     assert issubclass(Entity.ReferenceView, ReferenceViewBase)
     assert Entity.ReferenceView.__pg_base_class__ is Entity
     assert Entity.ReferenceView.__pg_field_definitions__
@@ -68,6 +73,35 @@ def test_reference_view_on_model():
 
 
 def test_reference_view_on_model_with_label_field():
+    class Entity(BaseNode):
+        name: str
+
+        class Meta(BaseMeta):
+            label_field = "name"
+
+    ModelManager.initialise_models()
+
+    assert "name" in Entity.ReferenceView.model_fields
+    assert Entity.ReferenceView.model_fields["name"].annotation is str
+
+
+def test_reference_create_on_model():
+    class Entity(BaseNode):
+        name: str
+
+    class Person(Entity):
+        class Meta(BaseMeta):
+            create_by_reference = True
+
+    ModelManager.initialise_models()
+
+    assert not Entity.ReferenceCreate
+
+    assert Person.ReferenceCreate
+    assert issubclass(Person.ReferenceCreate, ReferenceCreateBase)
+
+
+def test_reference_create_on_model_with_label_field():
     class Entity(BaseNode):
         name: str
 

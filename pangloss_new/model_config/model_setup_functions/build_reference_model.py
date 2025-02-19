@@ -7,6 +7,7 @@ from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
 )
 from pangloss_new.model_config.models_base import (
+    ReferenceCreateBase,
     ReferenceSetBase,
     ReferenceViewBase,
     RootNode,
@@ -44,3 +45,26 @@ def build_reference_view(model: type["RootNode"]):
         **extra_fields,
     )
     model.ReferenceView.__pg_base_class__ = model
+
+
+def build_reference_create(model: type["RootNode"]):
+    if model.Meta.create_by_reference:
+        extra_fields = {}
+
+        if model.Meta.label_field:
+            extra_fields[model.Meta.label_field] = build_property_type_field(
+                typing.cast(
+                    PropertyFieldDefinition,
+                    model.__pg_field_definitions__[model.Meta.label_field],
+                ),
+                model,
+            )
+
+        model.ReferenceCreate = create_model(
+            f"{model.__name__}ReferenceCreate",
+            __base__=ReferenceCreateBase,
+            __module__=model.__module__,
+            type=(typing.Literal[model.__name__], model.__name__),
+            **extra_fields,
+        )
+        model.ReferenceCreate.__pg_base_class__ = model

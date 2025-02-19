@@ -62,6 +62,7 @@ class ModelManager:
             build_pg_model_definitions,
         )
         from pangloss_new.model_config.model_setup_functions.build_reference_model import (
+            build_reference_create,
             build_reference_set,
             build_reference_view,
         )
@@ -97,6 +98,7 @@ class ModelManager:
         for model_name, model in cls.base_models.items():
             build_reference_set(model)
             build_reference_view(model)
+            build_reference_create(model)
 
         for model_name, model in cls.base_models.items():
             build_create_model(model)

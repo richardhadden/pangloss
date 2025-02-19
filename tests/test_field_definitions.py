@@ -9,8 +9,8 @@ from pangloss_new.model_config.field_definitions import (
     ListFieldDefinition,
     MultiKeyFieldDefinition,
     PropertyFieldDefinition,
-    RelationDefinition,
     RelationFieldDefinition,
+    RelationToNodeDefinition,
     RelationToReifiedDefinition,
     RelationToTypeVarDefinition,
 )
@@ -128,7 +128,8 @@ def test_create_field_definition_with_basic_relation():
     assert isinstance(rel_to_basic_field_definition, RelationFieldDefinition)
     assert rel_to_basic_field_definition.field_annotation is Cat
     assert isinstance(
-        rel_to_basic_field_definition.field_type_definitions[0], RelationDefinition
+        rel_to_basic_field_definition.field_type_definitions[0],
+        RelationToNodeDefinition,
     )
     assert rel_to_basic_field_definition.field_type_definitions[0].annotated_type is Cat
     assert rel_to_basic_field_definition.reverse_name == "reverse_related"
@@ -349,7 +350,7 @@ def test_build_relation_field_to_reified_with_union_of_types():
 
     assert isinstance(
         rel_to_reified_union_field_definition.field_type_definitions[1],
-        RelationDefinition,
+        RelationToNodeDefinition,
     )
     assert (
         rel_to_reified_union_field_definition.field_type_definitions[1].annotated_type
@@ -530,7 +531,8 @@ def test_build_relation_to_trait_field_definition():
 
     assert relation_to_trait_field_definition.field_annotation is Purchaseable
     assert isinstance(
-        relation_to_trait_field_definition.field_type_definitions[0], RelationDefinition
+        relation_to_trait_field_definition.field_type_definitions[0],
+        RelationToNodeDefinition,
     )
     assert (
         relation_to_trait_field_definition.field_type_definitions[0].annotated_type
@@ -558,7 +560,9 @@ def test_build_relation_to_union_of_node_and_trait():
 
     assert isinstance(relation_to_union, RelationFieldDefinition)
     assert relation_to_union.field_annotation == Purchaseable | Cat
-    assert isinstance(relation_to_union.field_type_definitions[0], RelationDefinition)
+    assert isinstance(
+        relation_to_union.field_type_definitions[0], RelationToNodeDefinition
+    )
     assert relation_to_union.field_type_definitions[0].annotated_type is Purchaseable
     assert relation_to_union.field_type_definitions[1].annotated_type is Cat
 

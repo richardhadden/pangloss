@@ -20,6 +20,7 @@ if typing.TYPE_CHECKING:
 @dataclasses.dataclass
 class FieldDefinition:
     field_name: str
+    field_metatype: typing.ClassVar[typing.Literal["Field"]] = "Field"
 
 
 type MappedCypherTypes = (
@@ -40,7 +41,7 @@ class PropertyFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
-    field_metatype: typing.Literal["PropertyField"] = "PropertyField"
+    field_metatype: typing.ClassVar[typing.Literal["PropertyField"]] = "PropertyField"
 
 
 @dataclasses.dataclass
@@ -48,7 +49,7 @@ class MultiKeyFieldDefinition(FieldDefinition):
     field_annotation: type["MultiKeyField[MappedCypherTypes]"]
     multi_key_field_type: type["MultiKeyField"]
     multi_key_field_value_type: typing.Any
-    field_metatype: typing.Literal["MultiKeyField"] = "MultiKeyField"
+    field_metatype: typing.ClassVar[typing.Literal["MultiKeyField"]] = "MultiKeyField"
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
@@ -57,7 +58,7 @@ class MultiKeyFieldDefinition(FieldDefinition):
 @dataclasses.dataclass
 class ListFieldDefinition(FieldDefinition):
     field_annotation: type[MappedCypherTypes]
-    field_metatype: typing.Literal["ListField"] = "ListField"
+    field_metatype: typing.ClassVar[typing.Literal["ListField"]] = "ListField"
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
@@ -75,7 +76,7 @@ class EmbeddedFieldDefinition(FieldDefinition):
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
-    field_metatype: typing.Literal["EmbeddedField"] = "EmbeddedField"
+    field_metatype: typing.ClassVar[typing.Literal["EmbeddedField"]] = "EmbeddedField"
     field_concrete_types: typing.Iterable[type["RootNode"]] = dataclasses.field(
         default_factory=set
     )
@@ -87,13 +88,20 @@ class EmbeddedFieldDefinition(FieldDefinition):
 
 @dataclasses.dataclass
 class RelationDefinition:
+    metatype: typing.ClassVar[typing.Literal["Relation"]] = "Relation"
+
+
+@dataclasses.dataclass
+class RelationToNodeDefinition(RelationDefinition):
     annotated_type: type["RootNode"]
+    metatype: typing.ClassVar[typing.Literal["RelationToNode"]] = "RelationToNode"
 
 
 @dataclasses.dataclass
 class RelationToTypeVarDefinition(RelationDefinition):
     annotated_type: typing.TypeVar
     typevar_name: str
+    metatype: typing.ClassVar[typing.Literal["RelationToTypeVar"]] = "RelationToTypeVar"
 
 
 @dataclasses.dataclass
@@ -110,6 +118,7 @@ class RelationToReifiedDefinition(RelationDefinition):
         str,
         TypeParamsToTypeMap,
     ]
+    metatype: typing.ClassVar[typing.Literal["RelationToReified"]] = "RelationToReified"
 
 
 @dataclasses.dataclass
@@ -124,8 +133,8 @@ class RelationFieldDefinition(FieldDefinition):
     )
     reverse_name: str
 
-    field_type_definitions: list[RelationDefinition | RelationToReifiedDefinition] = (
-        dataclasses.field(default_factory=list)
+    field_type_definitions: list[RelationDefinition] = dataclasses.field(
+        default_factory=list
     )
 
     edge_model: typing.Optional[type["EdgeModel"]] = None
@@ -138,10 +147,34 @@ class RelationFieldDefinition(FieldDefinition):
         default_factory=list
     )
 
-    field_metatype: typing.Literal["RelationField"] = "RelationField"
+    field_metatype: typing.ClassVar[typing.Literal["RelationField"]] = "RelationField"
     relation_labels: set[str] = dataclasses.field(default_factory=set)
     reverse_relation_labels: set[str] = dataclasses.field(default_factory=set)
     default_type: typing.Optional[str] = None
+
+    @property
+    def relations_to_node(self) -> list[RelationToNodeDefinition]:
+        return [
+            relation
+            for relation in self.field_type_definitions
+            if isinstance(relation, RelationToNodeDefinition)
+        ]
+
+    @property
+    def relations_to_reified(self) -> list[RelationToReifiedDefinition]:
+        return [
+            relation
+            for relation in self.field_type_definitions
+            if isinstance(relation, RelationToReifiedDefinition)
+        ]
+
+    @property
+    def relations_to_typevar(self) -> list[RelationToTypeVarDefinition]:
+        return [
+            relation
+            for relation in self.field_type_definitions
+            if isinstance(relation, RelationToTypeVarDefinition)
+        ]
 
 
 @dataclasses.dataclass
