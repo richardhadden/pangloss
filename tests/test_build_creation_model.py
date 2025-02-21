@@ -1,10 +1,10 @@
-from typing import Annotated, Union, no_type_check
+from typing import Annotated, Union, get_args, get_origin, no_type_check
 
 from annotated_types import Gt
 
 from pangloss_new import initialise_models
 from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import BaseMeta, RelationConfig
+from pangloss_new.model_config.models_base import BaseMeta, EdgeModel, RelationConfig
 from pangloss_new.models import BaseNode, ReifiedRelation
 from pangloss_new.utils import gen_ulid
 
@@ -150,4 +150,49 @@ def test_create_model_with_double_reified_relations():
     assert (
         Identification[Cat].Create.model_fields["target"].annotation
         == list[Cat.ReferenceSet]
+    )
+
+
+def test_build_create_model_with_edge_model():
+    class Edge(EdgeModel):
+        value: int
+
+    class Edge2(EdgeModel):
+        value: int
+
+    class Intermediate[T](ReifiedRelation[T]):
+        target: Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Edge2)
+        ]
+
+    class Cat(BaseNode):
+        class Meta(BaseMeta):
+            create_by_reference = True
+
+    class Dog(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        owns_cat: Annotated[
+            Cat | Dog | Intermediate[Dog],
+            RelationConfig(reverse_name="is_owned_by", edge_model=Edge),
+        ]
+
+    initialise_models()
+
+    annotation = Person.Create.model_fields["owns_cat"].annotation
+
+    assert get_origin(annotation) is list
+    assert get_origin(get_args(annotation)[0]) is Union
+    inner_args = get_args(get_args(annotation)[0])
+
+    assert inner_args[0].__name__ == "CatReferenceSet__via__Edge"
+    assert inner_args[1].__name__ == "CatReferenceCreate__via__Edge"
+    assert inner_args[2].__name__ == "DogReferenceSet__via__Edge"
+    assert inner_args[3].__name__ == "Intermediate[Dog]Create__via__Edge"
+
+    assert get_origin(inner_args[3].model_fields["target"].annotation) is list
+    assert (
+        get_args(inner_args[3].model_fields["target"].annotation)[0].__name__
+        == "DogReferenceSet__via__Edge2"
     )

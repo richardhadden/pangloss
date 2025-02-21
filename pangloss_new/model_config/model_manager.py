@@ -89,6 +89,9 @@ class ModelManager:
         for model_name, model in cls.reified_relation_models.items():
             build_pg_model_definitions(model)
 
+        # for model_name, model in cls.reified_relation_models.items():
+        #    model._meta = ReifiedMeta(base_model=model)
+
         for model_name, model in cls.edge_models.items():
             build_pg_annotations(model)
 

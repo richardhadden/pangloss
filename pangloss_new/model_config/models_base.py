@@ -62,6 +62,8 @@ class _BaseClassProxy:
 class BaseMeta:
     """Base class for BaseNode Meta fields"""
 
+    base_model: type["RootNode"]
+
     abstract: bool = False
     """The model is an abstract model"""
     create: bool = True
@@ -81,9 +83,9 @@ class BaseMeta:
     label_field: str | None = None
     """Alternative field to be displayed as label"""
 
-
-class InstantiatedMeta(BaseMeta):
-    """Instantiated Meta class stored on _meta"""
+    @property
+    def fields(self):
+        return self.base_model.__pg_field_definitions__
 
 
 class RootNode(_OwnsMethods):
@@ -105,7 +107,7 @@ class RootNode(_OwnsMethods):
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
 
     Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
-    _meta: typing.ClassVar[type[BaseMeta]]
+    _meta: typing.ClassVar[BaseMeta]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -204,6 +206,15 @@ class ReifiedCreateBase(BaseModel, _BaseClassProxy):
     pass
 
 
+@dataclasses.dataclass
+class ReifiedMeta:
+    base_model: type["ReifiedBase"]
+
+    @property
+    def fields(self) -> ModelFieldDefinitions:
+        return self.base_model.__pg_get_fields__()
+
+
 class ReifiedBase(BaseModel, _OwnsMethods):
     model_config = {"arbitrary_types_allowed": True}
 
@@ -212,6 +223,37 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
     __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+
+    _meta: typing.ClassVar[ReifiedMeta]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        """Create a _meta object with pointer back to this class,
+        either the generic type or the bound type"""
+        cls._meta = ReifiedMeta(base_model=cls)
+
+    @classmethod
+    def __pg_get_fields__(cls) -> ModelFieldDefinitions:
+        """Internal getter for reified relation fields to present a consistent API
+        and avoid potentially accidentally omitting logic in other spots.
+
+        If it is a generic class, return __pg_field_definitions__;
+        if bound (i.e. has origin and args set in __pydantic_generic_metadata,
+        check whether the bound field definitions have been created and return, or just return"""
+        if (
+            cls.__pydantic_generic_metadata__["origin"]
+            and cls.__pydantic_generic_metadata__["args"]
+        ):
+            if not getattr(cls, "__pg_bound_field_definitions__", None):
+                from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+                    build_pg_bound_model_definition_for_instatiated_reified,
+                )
+
+                build_pg_bound_model_definition_for_instatiated_reified(
+                    typing.cast(type[ReifiedRelation], cls)
+                )
+            return cls.__pg_bound_field_definitions__
+        return cls.__pg_field_definitions__
 
 
 class ReifiedRelation[T](ReifiedBase):

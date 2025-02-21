@@ -6,6 +6,7 @@ from pangloss_new.model_config.models_base import BaseMeta, RootNode
 
 
 def initialise_model_meta_inheritance(model: type[RootNode]):
+    print(f"=== {model}")
     # Check cls.Meta is a subclass of BaseMeta
     if hasattr(model, "Meta") and not issubclass(model.Meta, BaseMeta):
         raise PanglossConfigError(
@@ -44,20 +45,24 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
     if "Meta" not in model.__dict__:
         meta_settings = {}
         for field_name in BaseMeta.__dataclass_fields__:
+            if field_name == "base_model":
+                continue
             meta_settings[field_name] = getattr(parent_meta, field_name)
         meta_settings["abstract"] = False
 
-        model.Meta = type("Meta", (BaseMeta,), meta_settings)
+        model._meta = model.Meta(base_model=model, **meta_settings)
 
     else:
         meta_settings = {}
         for field_name in BaseMeta.__dataclass_fields__:
+            if field_name == "base_model":
+                continue
             if field_name == "abstract":
                 continue
 
             if field_name in model.Meta.__dict__:
                 meta_settings[field_name] = model.Meta.__dict__[field_name]
-            else:
+            elif field_name in parent_meta.__dict__:
                 meta_settings[field_name] = parent_meta.__dict__[field_name]
         if (
             "abstract" in model.Meta.__dict__
@@ -65,7 +70,7 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
         ):
             meta_settings["abstract"] = True
 
-        model.Meta = type("Meta", (BaseMeta,), meta_settings)
+        model._meta = model.Meta(base_model=model, **meta_settings)
 
         if (
             model.Meta.label_field

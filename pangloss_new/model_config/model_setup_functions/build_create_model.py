@@ -1,11 +1,9 @@
 import typing
+from functools import cache
 
-from pydantic import create_model
+from pydantic import BaseModel, create_model
 
 from pangloss_new.model_config.field_definitions import RelationFieldDefinition
-from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
-    build_pg_bound_model_definition_for_instatiated_reified,
-)
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
 )
@@ -14,51 +12,60 @@ from pangloss_new.model_config.model_setup_functions.utils import (
 )
 from pangloss_new.model_config.models_base import (
     CreateBase,
+    EdgeModel,
     ReifiedCreateBase,
     ReifiedRelation,
     RootNode,
 )
 
 
-def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
-    # Build fields
-    if issubclass(model, ReifiedRelation):
-        build_pg_bound_model_definition_for_instatiated_reified(model)
+def build_reified_model_name(model: type[ReifiedRelation]) -> str:
+    origin_name = model.__pydantic_generic_metadata__["origin"].__name__
+    args_names = [arg.__name__ for arg in model.__pydantic_generic_metadata__["args"]]
+    return f"{origin_name}[{', '.join(args_names)}]"
 
-    field_definitions = (
-        model.__pg_bound_field_definitions__
-        if issubclass(model, ReifiedRelation)
-        else model.__pg_field_definitions__
-    )
+
+def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
+    if model.has_own("Create"):
+        return
 
     fields = {}
-    for field in field_definitions.property_fields:
+    for field in model._meta.fields.property_fields:
         if field.field_metatype == "PropertyField":
             fields[field.field_name] = build_property_type_field(field, model)
 
-    for field in field_definitions.relation_fields:
-        if field.create_inline:
-            pass
-        else:
-            fields[field.field_name] = build_relation_field(field, model)
+    for field in model._meta.fields.relation_fields:
+        fields[field.field_name] = build_relation_field(field, model)
 
     # Construct class
     if issubclass(model, ReifiedRelation):
-        if not model.has_own("Create"):
-            create_class = create_model(
-                f"{model.__name__}Create", __base__=ReifiedCreateBase, **fields
-            )
-
-            model.Create = create_class
-
-            model.Create.__pg_base_class__ = typing.cast(
-                type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
-            )
+        model.Create = create_model(
+            f"{build_reified_model_name(model)}Create",
+            __module__=model.__module__,
+            __base__=ReifiedCreateBase,
+            **fields,
+        )
+        model.Create.__pg_base_class__ = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
+        )
     else:
         model.Create = create_model(
-            f"{model.__name__}Create", __base__=CreateBase, **fields
+            f"{model.__name__}Create",
+            __module__=model.__module__,
+            __base__=CreateBase,
+            **fields,
         )
         model.Create.__pg_base_class__ = model
+
+
+@cache
+def add_edge_model(model: type[BaseModel], edge_model: EdgeModel) -> type[BaseModel]:
+    return create_model(
+        f"{model.__name__}__via__{edge_model.__name__}",
+        __base__=model,
+        __module__=model.__module__,
+        edge_properties=(edge_model, ...),
+    )
 
 
 def build_relation_field(
@@ -77,8 +84,8 @@ def build_relation_field(
         )
     for base_type in related_node_base_type:
         if field.create_inline:
-            # Add creation model instead
-            pass
+            build_create_model(base_type)
+            concrete_model_types.append(base_type.Create)
         else:
             concrete_model_types.append(base_type.ReferenceSet)
             if base_type.Meta.create_by_reference:
@@ -87,6 +94,11 @@ def build_relation_field(
     for field_type_definition in field.relations_to_reified:
         build_create_model(field_type_definition.annotated_type)
         concrete_model_types.append(field_type_definition.annotated_type.Create)
+
+    if field.edge_model:
+        concrete_model_types = [
+            add_edge_model(t, field.edge_model) for t in concrete_model_types
+        ]
 
     if field.validators:
         return (typing.Annotated[list[typing.Union[*concrete_model_types]]], ...)
