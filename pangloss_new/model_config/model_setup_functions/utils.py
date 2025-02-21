@@ -11,6 +11,7 @@ from pangloss_new.model_config.models_base import (
 from pangloss_new.models import BaseNode
 
 
+# TODO: This is not necessary at all as far as I can tell
 def generic_get_subclasses[T](cls: type[T] | None) -> set[type[T]] | set:
     if not cls:
         return set()

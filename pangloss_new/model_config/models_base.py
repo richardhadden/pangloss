@@ -63,17 +63,27 @@ class BaseMeta:
     """Base class for BaseNode Meta fields"""
 
     abstract: bool = False
+    """The model is an abstract model"""
     create: bool = True
+    """Model can be directly created"""
     edit: bool = True
+    """Model can be directly edited"""
     delete: bool = True
+    """Model can be directly deleted"""
     view: bool = True
+    """Model can be directly viewed"""
     search: bool = True
+    """Model can be directly searched"""
 
     create_by_reference: bool = False
     "Allow creation by reference by providing a URI/ULID and a label"
 
     label_field: str | None = None
     """Alternative field to be displayed as label"""
+
+
+class InstantiatedMeta(BaseMeta):
+    """Instantiated Meta class stored on _meta"""
 
 
 class RootNode(_OwnsMethods):
@@ -95,6 +105,7 @@ class RootNode(_OwnsMethods):
     EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
 
     Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
+    _meta: typing.ClassVar[type[BaseMeta]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]

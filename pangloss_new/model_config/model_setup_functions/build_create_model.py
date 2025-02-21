@@ -54,7 +54,6 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
             model.Create.__pg_base_class__ = typing.cast(
                 type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
             )
-
     else:
         model.Create = create_model(
             f"{model.__name__}Create", __base__=CreateBase, **fields
@@ -94,7 +93,7 @@ def build_relation_field(
     return (list[typing.Union[*concrete_model_types]], ...)
 
 
-"""
+""" TODO: Remove once clear it is unnecessary
 def build_reified_create_model(model: type[ReifiedRelation]):
     fields = {}
     for field_name, field in model.model_fields.items():
