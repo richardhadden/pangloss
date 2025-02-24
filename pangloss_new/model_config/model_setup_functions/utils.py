@@ -2,6 +2,7 @@ import inspect
 import types
 import typing
 
+from pangloss_new.model_config.field_definitions import RelationToNodeDefinition
 from pangloss_new.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
@@ -215,3 +216,17 @@ def get_concrete_model_types(
             )
 
     return typing.cast(set[type[BaseNode]], set(concrete_model_types))
+
+
+def get_base_models_for_relations_to_node(
+    relations_to_node: list[RelationToNodeDefinition],
+) -> list[type[RootNode]]:
+    related_node_base_type: list[type[RootNode]] = []
+    for field_type_definition in relations_to_node:
+        related_node_base_type.extend(
+            get_concrete_model_types(
+                field_type_definition.annotated_type,
+                include_subclasses=True,
+            )
+        )
+    return related_node_base_type

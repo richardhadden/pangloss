@@ -1,3 +1,4 @@
+import types
 import typing
 from functools import cache
 
@@ -5,10 +6,11 @@ from pydantic import BaseModel, create_model
 
 from pangloss_new.model_config.field_definitions import RelationFieldDefinition
 from pangloss_new.model_config.model_setup_functions.field_builders import (
+    build_list_property_type_field,
     build_property_type_field,
 )
 from pangloss_new.model_config.model_setup_functions.utils import (
-    get_concrete_model_types,
+    get_base_models_for_relations_to_node,
 )
 from pangloss_new.model_config.models_base import (
     CreateBase,
@@ -22,6 +24,8 @@ from pangloss_new.model_config.models_base import (
 
 
 def build_reified_model_name(model: type[ReifiedRelation]) -> str:
+    """Build a more elegant model name for reified models, omitting the module name
+    and other ugliness"""
     origin_name = typing.cast(
         type, model.__pydantic_generic_metadata__["origin"]
     ).__name__
@@ -29,17 +33,32 @@ def build_reified_model_name(model: type[ReifiedRelation]) -> str:
     return f"{origin_name}[{', '.join(args_names)}]"
 
 
-def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
-    if model.has_own("Create"):
-        return
-
+def build_field_type_definitions(
+    model: type[RootNode | ReifiedRelation],
+):
+    """For each type of possible field, build a dict of field name
+    and pydantic tuple-type definition"""
     fields = {}
     for field in model._meta.fields.property_fields:
         if field.field_metatype == "PropertyField":
             fields[field.field_name] = build_property_type_field(field, model)
+        elif field.field_metatype == "ListField":
+            fields[field.field_name] = build_list_property_type_field(field, model)
 
     for field in model._meta.fields.relation_fields:
         fields[field.field_name] = build_relation_field(field, model)
+    return fields
+
+
+def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
+    """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
+
+    # If model.Create already exists, return early
+    if model.has_own("Create"):
+        return
+
+    # Gather field definitions
+    fields = build_field_type_definitions(model)
 
     # Construct class
     if issubclass(model, ReifiedRelation):
@@ -85,38 +104,40 @@ def add_edge_model(
     return model_with_edge
 
 
-def build_relation_field(
-    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-):
-    concrete_model_types = []
+def get_models_for_relation_field(
+    field: RelationFieldDefinition,
+) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase]]:
+    """Creates a list of actual classes to be referenced by a relation"""
+    related_models = []
 
-    # Build relations_to_nodes
-    related_node_base_type: list[type[RootNode]] = []
-    for field_type_definition in field.relations_to_node:
-        related_node_base_type.extend(
-            get_concrete_model_types(
-                field_type_definition.annotated_type,
-                include_subclasses=True,
-            )
-        )
-    for base_type in related_node_base_type:
+    # Add relations_to_nodes to concrete_model_types
+    for base_type in get_base_models_for_relations_to_node(field.relations_to_node):
         if field.create_inline:
             build_create_model(base_type)
-            concrete_model_types.append(base_type.Create)
+            related_models.append(base_type.Create)
         else:
-            concrete_model_types.append(base_type.ReferenceSet)
+            related_models.append(base_type.ReferenceSet)
             if base_type.Meta.create_by_reference:
-                concrete_model_types.append(base_type.ReferenceCreate)
+                related_models.append(base_type.ReferenceCreate)
 
+    # Add relations_to_reified_to_concrete_model_Types
     for field_type_definition in field.relations_to_reified:
         build_create_model(field_type_definition.annotated_type)
-        concrete_model_types.append(field_type_definition.annotated_type.Create)
+        related_models.append(field_type_definition.annotated_type.Create)
+
+    return related_models
+
+
+def build_relation_field(
+    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+) -> (
+    tuple[typing.Annotated, types.EllipsisType] | tuple[type[list], types.EllipsisType]
+):
+    related_models = get_models_for_relation_field(field)
 
     if field.edge_model:
-        concrete_model_types = [
-            add_edge_model(t, field.edge_model) for t in concrete_model_types
-        ]
+        related_models = [add_edge_model(t, field.edge_model) for t in related_models]
 
     if field.validators:
-        return (typing.Annotated[list[typing.Union[*concrete_model_types]]], ...)
-    return (list[typing.Union[*concrete_model_types]], ...)
+        return (typing.Annotated[list[typing.Union[*related_models]]], ...)
+    return (list[typing.Union[*related_models]], ...)

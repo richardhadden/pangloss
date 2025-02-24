@@ -1,6 +1,8 @@
 from typing import Annotated, Union, get_args, get_origin, no_type_check
 
-from annotated_types import Gt
+import pydantic
+import pytest
+from annotated_types import Gt, MaxLen
 
 from pangloss_new import initialise_models
 from pangloss_new.model_config.model_manager import ModelManager
@@ -28,6 +30,57 @@ def test_build_creation_model_basic():
     assert john_smith.type == "Person"
     assert john_smith.label == "John Smith"
     assert john_smith.age == 2
+
+
+@no_type_check
+def test_build_creation_model_with_list_property():
+    class Person(BaseNode):
+        no_ann: list[str]
+        ann_inner: list[Annotated[str, MaxLen(4)]]
+        ann_both: Annotated[list[Annotated[str, MaxLen(4)]], MaxLen(1)]
+
+    ModelManager.initialise_models()
+
+    assert Person.Create
+    assert Person.Create.model_fields["no_ann"]
+    assert Person.Create.model_fields["no_ann"].annotation == list[str]
+
+    assert (
+        Person.Create.model_fields["ann_inner"].annotation
+        == list[Annotated[str, MaxLen(4)]]
+    )
+    assert (
+        Person.Create.model_fields["ann_both"].annotation
+        == list[Annotated[str, MaxLen(4)]]
+    )
+    assert Person.Create.model_fields["ann_both"].metadata == [MaxLen(1)]
+
+    # Now check it works
+    Person(label="A Person", no_ann=["one"], ann_inner=["two"], ann_both=["one"])
+
+    with pytest.raises(pydantic.ValidationError):
+        Person(
+            label="A Person",
+            no_ann=["one"],
+            ann_inner=["toolongstring"],
+            ann_both=["one"],
+        )
+
+    with pytest.raises(pydantic.ValidationError):
+        Person(
+            label="A Person",
+            no_ann=["one"],
+            ann_inner=["one"],
+            ann_both=["toolongstring"],
+        )
+
+    with pytest.raises(pydantic.ValidationError):
+        Person(
+            label="A Person",
+            no_ann=["one"],
+            ann_inner=["one"],
+            ann_both=["list", "is", "too", "long"],
+        )
 
 
 @no_type_check
