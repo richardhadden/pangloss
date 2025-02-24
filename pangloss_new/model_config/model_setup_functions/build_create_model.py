@@ -64,7 +64,10 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
 
 @cache
 def add_edge_model(
-    model: type[ReferenceSetBase] | type[ReifiedCreateBase] | type[ReferenceCreateBase],
+    model: type[ReferenceSetBase]
+    | type[ReifiedCreateBase]
+    | type[ReferenceCreateBase]
+    | type[CreateBase],
     edge_model: EdgeModel,
 ) -> type[BaseModel]:
     """Creates and returns a subclass of the model with the edge_model
@@ -88,7 +91,7 @@ def build_relation_field(
     concrete_model_types = []
 
     # Build relations_to_nodes
-    related_node_base_type = []
+    related_node_base_type: list[type[RootNode]] = []
     for field_type_definition in field.relations_to_node:
         related_node_base_type.extend(
             get_concrete_model_types(
@@ -117,41 +120,3 @@ def build_relation_field(
     if field.validators:
         return (typing.Annotated[list[typing.Union[*concrete_model_types]]], ...)
     return (list[typing.Union[*concrete_model_types]], ...)
-
-
-""" TODO: Remove once clear it is unnecessary
-def build_reified_create_model(model: type[ReifiedRelation]):
-    fields = {}
-    for field_name, field in model.model_fields.items():
-        field_def = model.__pg_field_definitions__[field_name]
-        assert field_def
-        if field_def.field_metatype == "PropertyField":
-            fields[field_name] = build_property_type_field(field_def, model)
-        elif field_def.field_metatype == "RelationField":
-            concrete_related_types = []
-            concrete_types = get_concrete_model_types(
-                field.annotation, include_subclasses=True
-            )
-            for concrete_type in concrete_types:
-                if issubclass(concrete_type, ReifiedRelation):
-                    if not concrete_type.has_own("Create"):
-                        build_reified_create_model(concrete_type)
-                    concrete_related_types.append(concrete_type.Create)
-                else:
-                    if concrete_type.Meta.create_by_reference:
-                        concrete_related_types.append(concrete_type.ReferenceCreate)
-                    concrete_related_types.append(concrete_type.ReferenceSet)
-
-            if field_def.validators:
-                fields[field_name] = (
-                    typing.Annotated[
-                        list[typing.Union[*concrete_related_types]],
-                        *field_def.validators,
-                    ],
-                    ...,
-                )
-            else:
-                fields[field_name] = (list[typing.Union[*concrete_related_types]], ...)
-        model.Create = create_model(
-            f"{model}Create", __base__=ReifiedCreateBase, **fields
-        )"""
