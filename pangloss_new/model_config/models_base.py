@@ -58,6 +58,38 @@ class _BaseClassProxy:
         return self.__pg_base_class__.__pg_field_definitions__
 
 
+RelationViaEdgeType = typing.TypeVar(
+    "RelationViaEdgeType", bound="type[ReferenceSetBase | ReifiedCreateBase]"
+)
+
+
+class RelationsViaEdge(typing.Generic[RelationViaEdgeType]):
+    _classes: dict[str, type[RelationViaEdgeType]]
+
+    def __init__(self):
+        self._classes = {}
+
+    def _add(self, edge_model_name: str, model: type[RelationViaEdgeType]):
+        self._classes[edge_model_name] = model
+
+    def __getattr__(self, name: str) -> type[RelationViaEdgeType] | None:
+        try:
+            return getattr(super(), name)
+        except AttributeError:
+            if name in self._classes:
+                return self._classes[name]
+            else:
+                raise AttributeError
+
+
+class _ViaEdge(typing.Generic[RelationViaEdgeType]):
+    via: typing.ClassVar[RelationsViaEdge[RelationViaEdgeType]]  # type: ignore
+
+    def __init_subclass__(cls) -> None:
+        cls.via = RelationsViaEdge[RelationViaEdgeType]()
+        return super().__init_subclass__()
+
+
 @dataclasses.dataclass
 class BaseMeta:
     """Base class for BaseNode Meta fields"""
@@ -141,14 +173,14 @@ class RootNode(_OwnsMethods):
         return cls.Create(*args, **kwargs)
 
 
-class CreateBase(BaseModel, _BaseClassProxy):
+class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge):
     # id: Can take an optional ID or URI
 
     id: ULID | AnyHttpUrl | None = None
     label: str
 
 
-class EditViewBase(BaseModel):
+class EditViewBase(BaseModel, _ViaEdge):
     """Base model returned by API for editing"""
 
     pass
@@ -160,11 +192,11 @@ class EditHeadViewBase(EditViewBase):
     pass
 
 
-class EditSetBase(BaseModel):
+class EditSetBase(BaseModel, _ViaEdge):
     """Base model for updates Post-ed to API"""
 
 
-class ViewBase(BaseModel):
+class ViewBase(BaseModel, _ViaEdge):
     """Base model returned by API for viewing; contains all fields"""
 
     type: str
@@ -179,7 +211,7 @@ class HeadViewBase(ViewBase):
     id: uuid.UUID
 
 
-class ReferenceViewBase(BaseModel, _BaseClassProxy):
+class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"]):
     """Base model for viewing a Reference to an entity"""
 
     type: str
@@ -187,7 +219,7 @@ class ReferenceViewBase(BaseModel, _BaseClassProxy):
     label: str
 
 
-class ReferenceCreateBase(BaseModel, _BaseClassProxy):
+class ReferenceCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceCreateBase"]):
     """Base model for setting a Reference to an entity"""
 
     type: str
@@ -195,14 +227,14 @@ class ReferenceCreateBase(BaseModel, _BaseClassProxy):
     label: str
 
 
-class ReferenceSetBase(BaseModel, _BaseClassProxy):
+class ReferenceSetBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceSetBase"]):
     """Base model for setting a Reference to an entity"""
 
     type: str
     id: ULID | AnyHttpUrl
 
 
-class ReifiedCreateBase(BaseModel, _BaseClassProxy):
+class ReifiedCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReifiedCreateBase"]):
     pass
 
 
@@ -272,7 +304,7 @@ class ReifiedRelation[T](ReifiedBase):
         ModelManager.register_reified_relation_model(cls)
 
 
-class ReifiedRelationViewBase(BaseModel):
+class ReifiedRelationViewBase(BaseModel, _ViaEdge["ReifiedRelationViewBase"]):
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 
     type: str
@@ -285,13 +317,13 @@ class Embedded[T]:
     embedded_type: T
 
 
-class EmbeddedCreateBase(BaseModel):
+class EmbeddedCreateBase(BaseModel, _ViaEdge["EmbeddedCreateBase"]):
     """Base model for creating an embedded node (same as RootNode without id)"""
 
     type: str
 
 
-class EmbeddedViewBase(BaseModel):
+class EmbeddedViewBase(BaseModel, _ViaEdge["EmbeddedViewBase"]):
     """Base model for viewing an embedded model"""
 
     type: str
@@ -300,7 +332,7 @@ class EmbeddedViewBase(BaseModel):
     head_type: typing.Optional[str] = None
 
 
-class EmbeddedSetBase(BaseModel):
+class EmbeddedSetBase(BaseModel, _ViaEdge["EmbeddedSetBase"]):
     type: str
     uuid: uuid.UUID
 

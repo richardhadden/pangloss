@@ -187,12 +187,26 @@ def test_build_create_model_with_edge_model():
     inner_args = get_args(get_args(annotation)[0])
 
     assert inner_args[0].__name__ == "CatReferenceSet__via__Edge"
+    assert inner_args[0] is Cat.ReferenceSet.via.Edge
+
     assert inner_args[1].__name__ == "CatReferenceCreate__via__Edge"
+
+    assert Cat.ReferenceCreate
+    assert inner_args[1] is Cat.ReferenceCreate.via.Edge
+
     assert inner_args[2].__name__ == "DogReferenceSet__via__Edge"
+    assert inner_args[2] is Dog.ReferenceSet.via.Edge
+
     assert inner_args[3].__name__ == "Intermediate[Dog]Create__via__Edge"
+    assert inner_args[3] is Intermediate[Dog].Create.via.Edge
 
     assert get_origin(inner_args[3].model_fields["target"].annotation) is list
     assert (
         get_args(inner_args[3].model_fields["target"].annotation)[0].__name__
         == "DogReferenceSet__via__Edge2"
+    )
+
+    assert (
+        get_args(inner_args[3].model_fields["target"].annotation)[0]
+        is Dog.ReferenceSet.via.Edge2
     )

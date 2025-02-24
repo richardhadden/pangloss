@@ -13,6 +13,8 @@ from pangloss_new.model_config.model_setup_functions.utils import (
 from pangloss_new.model_config.models_base import (
     CreateBase,
     EdgeModel,
+    ReferenceCreateBase,
+    ReferenceSetBase,
     ReifiedCreateBase,
     ReifiedRelation,
     RootNode,
@@ -20,7 +22,9 @@ from pangloss_new.model_config.models_base import (
 
 
 def build_reified_model_name(model: type[ReifiedRelation]) -> str:
-    origin_name = model.__pydantic_generic_metadata__["origin"].__name__
+    origin_name = typing.cast(
+        type, model.__pydantic_generic_metadata__["origin"]
+    ).__name__
     args_names = [arg.__name__ for arg in model.__pydantic_generic_metadata__["args"]]
     return f"{origin_name}[{', '.join(args_names)}]"
 
@@ -59,13 +63,23 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
 
 
 @cache
-def add_edge_model(model: type[BaseModel], edge_model: EdgeModel) -> type[BaseModel]:
-    return create_model(
+def add_edge_model(
+    model: type[ReferenceSetBase] | type[ReifiedCreateBase] | type[ReferenceCreateBase],
+    edge_model: EdgeModel,
+) -> type[BaseModel]:
+    """Creates and returns a subclass of the model with the edge_model
+    added as model.edge_properties field.
+
+    Also stores the newly created model under model.via.<edge_model name>"""
+    model_with_edge = create_model(
         f"{model.__name__}__via__{edge_model.__name__}",
         __base__=model,
         __module__=model.__module__,
         edge_properties=(edge_model, ...),
     )
+
+    model.via._add(edge_model_name=edge_model.__name__, model=model_with_edge)  # type: ignore
+    return model_with_edge
 
 
 def build_relation_field(

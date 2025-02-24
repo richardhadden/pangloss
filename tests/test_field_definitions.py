@@ -215,6 +215,7 @@ def test_relation_via_intermediate_builds_field_definition():
     assert V is Cat
 
 
+@typing.no_type_check
 def test_create_relation_field_with_relation_to_union():
     class Intermediate[T](ReifiedRelation[T]):
         pass
@@ -262,6 +263,7 @@ def test_create_relation_field_with_relation_to_union():
     )
 
 
+@typing.no_type_check
 def test_create_relation_field_with_relation_to_union_defined_with_typing_union():
     class Intermediate[T](ReifiedRelation[T]):
         pass
@@ -545,6 +547,7 @@ def test_build_relation_to_trait_field_definition():
     )
 
 
+@typing.no_type_check
 def test_build_relation_to_union_of_node_and_trait():
     class Purchaseable(HeritableTrait):
         pass
