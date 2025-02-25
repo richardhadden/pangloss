@@ -357,7 +357,17 @@ class MultiKeyField[T](BaseModel):
 
     value: T
 
+    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+
+    def __init_subclass__(cls) -> None:
+        from pangloss_new.model_config.model_manager import ModelManager
+
+        # Dubious hack to update the parameters used by typing module to allow
+        # inheriting class to include additional type parameters
+        cls.__parameters__ = cls.__type_params__
+
+        ModelManager.register_multikeyfield_model(cls)
 
 
 @dataclasses.dataclass

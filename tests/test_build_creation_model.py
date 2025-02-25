@@ -6,7 +6,12 @@ from annotated_types import Gt, MaxLen
 
 from pangloss_new import initialise_models
 from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import BaseMeta, EdgeModel, RelationConfig
+from pangloss_new.model_config.models_base import (
+    BaseMeta,
+    EdgeModel,
+    MultiKeyField,
+    RelationConfig,
+)
 from pangloss_new.models import BaseNode, ReifiedRelation
 from pangloss_new.utils import gen_ulid
 
@@ -81,6 +86,12 @@ def test_build_creation_model_with_list_property():
             ann_inner=["one"],
             ann_both=["list", "is", "too", "long"],
         )
+
+
+@no_type_check
+def test_build_creation_model_with_multikey_field_property():
+    # TODO: write this test
+    pass
 
 
 @no_type_check
@@ -263,3 +274,25 @@ def test_build_create_model_with_edge_model():
         get_args(inner_args[3].model_fields["target"].annotation)[0]
         is Dog.ReferenceSet.via.Edge2
     )
+
+
+@no_type_check
+def test_build_create_model_with_multikeyfield():
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Person(BaseNode):
+        age: WithCertainty[Annotated[int, Gt(18)]]
+
+    initialise_models()
+
+    assert Person.Create.model_fields["age"]
+    assert (
+        Person.Create.model_fields["age"].annotation
+        == WithCertainty[Annotated[int, Gt(18)]]
+    )
+
+    with pytest.raises(pydantic.ValidationError):
+        Person(label="John Smith", age={"value": 1, "certainty": 10})
+
+    Person(label="John Smith", age={"value": 19, "certainty": 10})

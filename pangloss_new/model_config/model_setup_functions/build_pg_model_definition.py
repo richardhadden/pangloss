@@ -221,7 +221,7 @@ def is_union(ann: typing.Any) -> bool:
 def build_field_definition(
     field_name: str,
     annotation: typing.Any,
-    model: type[RootNode] | type[ReifiedBase] | type[EdgeModel],
+    model: type[RootNode] | type[ReifiedBase] | type[EdgeModel] | type[MultiKeyField],
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
@@ -516,12 +516,24 @@ def build_field_definition(
             type[MultiKeyField], annotation.__pydantic_generic_metadata__["origin"]
         )
         multi_key_field_value_type = annotation.__pydantic_generic_metadata__["args"][0]
+        multi_key_field_value_validators = []
+
+        # If the inner type is Annotated, get the primary type and search
+        # for potential validators among the annotations
+        if typing.get_origin(multi_key_field_value_type) is typing.Annotated:
+            multi_key_field_value_validators = [
+                item
+                for item in typing.get_args(multi_key_field_value_type)
+                if isinstance(item, annotated_types.BaseMetadata)
+            ]
+            multi_key_field_value_type = typing.get_args(multi_key_field_value_type)[0]
 
         return MultiKeyFieldDefinition(
             field_name=field_name,
             field_annotation=annotation,
             multi_key_field_type=multi_key_field_type,
             multi_key_field_value_type=multi_key_field_value_type,
+            multi_key_field_value_validators=multi_key_field_value_validators,
         )
 
     # Finally, any base annotation value
@@ -533,7 +545,10 @@ def build_field_definition(
 
 
 def build_pg_model_definitions(
-    model: type["RootNode"] | type["ReifiedBase"] | type["EdgeModel"],
+    model: type["RootNode"]
+    | type["ReifiedBase"]
+    | type["EdgeModel"]
+    | type["MultiKeyField"],
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():

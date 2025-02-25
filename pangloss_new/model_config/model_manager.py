@@ -5,6 +5,7 @@ from pangloss_new.exceptions import PanglossInitialisationError
 if typing.TYPE_CHECKING:
     from pangloss_new.model_config.models_base import (
         EdgeModel,
+        MultiKeyField,
         ReifiedRelation,
         RootNode,
     )
@@ -14,6 +15,7 @@ class ModelManager:
     base_models: dict[str, type["RootNode"]] = {}
     reified_relation_models: dict[str, type["ReifiedRelation"]] = {}
     edge_models: dict[str, type["EdgeModel"]] = {}
+    multikeyfields_models: dict[str, type["MultiKeyField"]] = {}
 
     def __init__(self):
         raise PanglossInitialisationError("ModelManager class cannot be initialised")
@@ -44,6 +46,13 @@ class ModelManager:
             )
 
     @classmethod
+    def register_multikeyfield_model(cls, multikeyfield_model: type["MultiKeyField"]):
+        if multikeyfield_model.__pydantic_generic_metadata__["origin"]:
+            cls.multikeyfields_models[multikeyfield_model.__name__] = (
+                multikeyfield_model
+            )
+
+    @classmethod
     def register_edge_model(cls, edge_model: type["EdgeModel"]):
         cls.edge_models[edge_model.__name__] = edge_model
 
@@ -70,6 +79,10 @@ class ModelManager:
             set_type_to_literal_on_base_model,
         )
 
+        for model_name, model in cls.multikeyfields_models.items():
+            build_pg_annotations(model)
+            build_pg_model_definitions(model)
+
         for model_name, model in cls.base_models.items():
             set_type_to_literal_on_base_model(model)
             build_pg_annotations(model)
@@ -88,9 +101,6 @@ class ModelManager:
 
         for model_name, model in cls.reified_relation_models.items():
             build_pg_model_definitions(model)
-
-        # for model_name, model in cls.reified_relation_models.items():
-        #    model._meta = ReifiedMeta(base_model=model)
 
         for model_name, model in cls.edge_models.items():
             build_pg_annotations(model)

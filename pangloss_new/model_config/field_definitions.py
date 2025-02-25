@@ -56,10 +56,13 @@ class MultiKeyFieldDefinition(FieldDefinition):
     field_annotation: type["MultiKeyField[MappedCypherTypes]"]
     multi_key_field_type: type["MultiKeyField"]
     multi_key_field_value_type: typing.Any
+    multi_key_field_value_validators: list[annotated_types.BaseMetadata] = (
+        dataclasses.field(default_factory=list)
+    )
     field_metatype: typing.ClassVar[typing.Literal["MultiKeyField"]] = "MultiKeyField"
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
-    )
+    )  # TODO: validators in this case should really refer to the value_type
 
 
 @dataclasses.dataclass

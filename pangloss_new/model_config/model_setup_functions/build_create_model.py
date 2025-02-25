@@ -6,8 +6,7 @@ from pydantic import BaseModel, create_model
 
 from pangloss_new.model_config.field_definitions import RelationFieldDefinition
 from pangloss_new.model_config.model_setup_functions.field_builders import (
-    build_list_property_type_field,
-    build_property_type_field,
+    build_property_fields,
 )
 from pangloss_new.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
@@ -38,12 +37,9 @@ def build_field_type_definitions(
 ):
     """For each type of possible field, build a dict of field name
     and pydantic tuple-type definition"""
+
     fields = {}
-    for field in model._meta.fields.property_fields:
-        if field.field_metatype == "PropertyField":
-            fields[field.field_name] = build_property_type_field(field, model)
-        elif field.field_metatype == "ListField":
-            fields[field.field_name] = build_list_property_type_field(field, model)
+    fields.update(build_property_fields(model))
 
     for field in model._meta.fields.relation_fields:
         fields[field.field_name] = build_relation_field(field, model)

@@ -732,3 +732,26 @@ def test_build_pg_bound_model_definition_for_instatiated_reified_with_nested_rei
     )
 
     assert IBTargetDefinition.field_type_definitions[0].annotated_type is Cat
+
+
+def test_build_pg_annotation_for_multikeyfield():
+    class WithCertainty[T](MultiKeyField[T]):
+        certainty: int
+
+    class Person(BaseNode):
+        age: WithCertainty[typing.Annotated[int, annotated_types.Gt(18)]]
+
+    ModelManager.initialise_models()
+
+    certainty_field = WithCertainty.__pg_field_definitions__["certainty"]
+    assert isinstance(certainty_field, PropertyFieldDefinition)
+    assert certainty_field.field_annotation is int
+
+    age_field_definition = Person._meta.fields["age"]
+
+    assert isinstance(age_field_definition, MultiKeyFieldDefinition)
+    assert age_field_definition.multi_key_field_type is WithCertainty
+    assert age_field_definition.multi_key_field_value_type is int
+    assert age_field_definition.multi_key_field_value_validators == [
+        annotated_types.Gt(18)
+    ]
