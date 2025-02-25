@@ -2,18 +2,23 @@ import types
 import typing
 from functools import cache
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
 
-from pangloss_new.model_config.field_definitions import RelationFieldDefinition
+from pangloss_new.model_config.field_definitions import (
+    EmbeddedFieldDefinition,
+    RelationFieldDefinition,
+)
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_fields,
 )
 from pangloss_new.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
+    get_concrete_model_types,
 )
 from pangloss_new.model_config.models_base import (
     CreateBase,
     EdgeModel,
+    EmbeddedCreateBase,
     ReferenceCreateBase,
     ReferenceSetBase,
     ReifiedCreateBase,
@@ -43,6 +48,10 @@ def build_field_type_definitions(
 
     for field in model._meta.fields.relation_fields:
         fields[field.field_name] = build_relation_field(field, model)
+
+    for field in model._meta.fields.embedded_fields:
+        fields[field.field_name] = build_embedded_field(field, model)
+
     return fields
 
 
@@ -137,3 +146,61 @@ def build_relation_field(
     if field.validators:
         return (typing.Annotated[list[typing.Union[*related_models]]], ...)
     return (list[typing.Union[*related_models]], ...)
+
+
+def build_embedded_create_model(model: type[RootNode]):
+    """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
+
+    # If model.Create already exists, return early
+    if model.has_own("EmbeddedCreate"):
+        return
+
+    # Gather field definitions
+    fields = build_field_type_definitions(model)
+
+    # Construct class
+    if issubclass(model, ReifiedRelation):
+        model.EmbeddedCreate = create_model(
+            f"{build_reified_model_name(model)}Create",
+            __module__=model.__module__,
+            __base__=EmbeddedCreateBase,
+            **fields,
+        )
+        model.EmbeddedCreate.__pg_base_class__ = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
+        )
+    else:
+        model.EmbeddedCreate = create_model(
+            f"{model.__name__}Create",
+            __module__=model.__module__,
+            __base__=EmbeddedCreateBase,
+            **fields,
+        )
+        model.EmbeddedCreate.__pg_base_class__ = model
+
+
+def get_models_for_embedded_field(
+    field: EmbeddedFieldDefinition,
+) -> list[type[EmbeddedCreateBase]]:
+    """Creates a list of actual classes to be embedded by a relation"""
+    embedded_types = []
+
+    for base_type in get_concrete_model_types(
+        field.field_annotation, include_subclasses=True
+    ):
+        print(base_type)
+        build_embedded_create_model(base_type)
+        embedded_types.append(base_type.EmbeddedCreate)
+
+    return embedded_types
+
+
+def build_embedded_field(
+    field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+):
+    embedded_types = get_models_for_embedded_field(field)
+
+    return (
+        typing.Annotated[list[typing.Union[*embedded_types]], *field.validators],
+        Field(default_factory=list),
+    )

@@ -1,5 +1,6 @@
 import types
 import typing
+from functools import cache
 
 import pydantic.fields
 
@@ -51,6 +52,7 @@ def build_multikey_property_type_field(
     return (field.field_annotation, ...)
 
 
+@cache
 def build_property_fields(model):
     fields = {}
     for field in model._meta.fields.property_fields:

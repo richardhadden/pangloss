@@ -118,7 +118,6 @@ def get_subclasses_of_reified_relations(cls: type[ReifiedRelation]):
 
     # If it is a generic type...
     if origin_type := cls.__pydantic_generic_metadata__.get("origin", False):
-        print("is generic type")
         subclasses = set()
         # ... get all the subclasses of the generic type...
         for subclass in generic_get_subclasses(origin_type):
@@ -205,7 +204,7 @@ def get_concrete_model_types(
                 concrete_model_types.append(instantiated_trait)
     elif inspect.isclass(classes) and issubclass(classes, ReifiedRelation):
         concrete_model_types.append(classes)
-        print(concrete_model_types)
+
     elif inspect.isclass(classes) and issubclass(classes, BaseNode):
         if not classes.Meta.abstract or include_abstract:
             concrete_model_types.append(classes)

@@ -317,7 +317,7 @@ class Embedded[T]:
     embedded_type: T
 
 
-class EmbeddedCreateBase(BaseModel, _ViaEdge["EmbeddedCreateBase"]):
+class EmbeddedCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedCreateBase"]):
     """Base model for creating an embedded node (same as RootNode without id)"""
 
     type: str
@@ -349,6 +349,15 @@ class NonHeritableTrait(Trait):
     pass
 
 
+@dataclasses.dataclass
+class MultiKeyFieldMeta:
+    base_model: type["MultiKeyField"]
+
+    @property
+    def fields(self) -> ModelFieldDefinitions:
+        return self.base_model.__pg_field_definitions__
+
+
 class MultiKeyField[T](BaseModel):
     """Define a field with multiple additional fields.
 
@@ -359,6 +368,7 @@ class MultiKeyField[T](BaseModel):
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+    _meta: typing.ClassVar[MultiKeyFieldMeta]
 
     def __init_subclass__(cls) -> None:
         from pangloss_new.model_config.model_manager import ModelManager
@@ -366,6 +376,7 @@ class MultiKeyField[T](BaseModel):
         # Dubious hack to update the parameters used by typing module to allow
         # inheriting class to include additional type parameters
         cls.__parameters__ = cls.__type_params__
+        cls._meta = MultiKeyFieldMeta(base_model=cls)
 
         ModelManager.register_multikeyfield_model(cls)
 

@@ -6,7 +6,6 @@ from pangloss_new.model_config.models_base import BaseMeta, RootNode
 
 
 def initialise_model_meta_inheritance(model: type[RootNode]):
-    print(f"=== {model}")
     # Check cls.Meta is a subclass of BaseMeta
     if hasattr(model, "Meta") and not issubclass(model.Meta, BaseMeta):
         raise PanglossConfigError(

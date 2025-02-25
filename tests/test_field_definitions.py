@@ -755,3 +755,5 @@ def test_build_pg_annotation_for_multikeyfield():
     assert age_field_definition.multi_key_field_value_validators == [
         annotated_types.Gt(18)
     ]
+
+    assert WithCertainty._meta.fields is WithCertainty.__pg_field_definitions__

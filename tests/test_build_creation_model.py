@@ -9,6 +9,7 @@ from pangloss_new.model_config.model_manager import ModelManager
 from pangloss_new.model_config.models_base import (
     BaseMeta,
     EdgeModel,
+    Embedded,
     MultiKeyField,
     RelationConfig,
 )
@@ -296,3 +297,44 @@ def test_build_create_model_with_multikeyfield():
         Person(label="John Smith", age={"value": 1, "certainty": 10})
 
     Person(label="John Smith", age={"value": 19, "certainty": 10})
+
+
+@no_type_check
+def test_build_create_model_with_embedded():
+    class Reference(BaseNode):
+        pass
+
+    class Source(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        reference: Annotated[Reference, RelationConfig(reverse_name="is_cited_by")]
+        page_number: int
+
+    class Event(BaseNode):
+        citation: Embedded[Citation | Source]
+
+    initialise_models()
+
+    assert Event.Create.model_fields["citation"]
+
+    assert (
+        Event.Create.model_fields["citation"].annotation
+        == list[Citation.EmbeddedCreate | Source.EmbeddedCreate]
+    )
+
+    event = Event(
+        label="An event",
+        citation=[
+            {
+                "type": "Citation",
+                "page_number": 1,
+                "reference": [{"type": "Reference", "id": gen_ulid()}],
+            }
+        ],
+    )
+
+    assert event
+    assert event.citation[0].type == "Citation"
+    assert event.citation[0].reference[0].type == "Reference"
+    assert isinstance(event.citation[0], Citation.EmbeddedCreate)
