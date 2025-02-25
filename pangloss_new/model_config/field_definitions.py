@@ -163,7 +163,7 @@ class RelationFieldDefinition(FieldDefinition):
     field_metatype: typing.ClassVar[typing.Literal["RelationField"]] = "RelationField"
     relation_labels: set[str] = dataclasses.field(default_factory=set)
     reverse_relation_labels: set[str] = dataclasses.field(default_factory=set)
-    default_type: typing.Optional[str] = None
+    default_reified_type: typing.Optional[str] = None
 
     @property
     def relations_to_node(self) -> list[RelationToNodeDefinition]:

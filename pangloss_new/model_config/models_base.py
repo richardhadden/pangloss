@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import typing
 import uuid
 from collections import ChainMap
 
 import annotated_types
 import humps
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from pydantic_extra_types.ulid import ULID
 
 if typing.TYPE_CHECKING:
@@ -129,7 +130,6 @@ class RootNode(_OwnsMethods):
     HeadView: typing.ClassVar[type[HeadViewBase]]
     View: typing.ClassVar[type[ViewBase]]
     EditHeadView: typing.ClassVar[type[EditHeadViewBase]]
-    EditView: typing.ClassVar[type[EditViewBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]
     ReferenceCreate: typing.ClassVar[type[ReferenceCreateBase]] | None = None
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
@@ -180,35 +180,49 @@ class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge):
     label: str
 
 
-class EditViewBase(BaseModel, _ViaEdge):
-    """Base model returned by API for editing"""
+class ViewBase(BaseModel, _ViaEdge):
+    """Base model returned by API for viewing/editing when not Head.
 
-    pass
+    Contains all fields, no metadata or reverse relations"""
+
+    type: str
+    id: ULID
+    label: str
+    head_node: ULID
 
 
-class EditHeadViewBase(EditViewBase):
-    """Head Base model returned by API for editing (contains additional metadata)"""
+class HeadViewBase(ViewBase):
+    """Base model returned by API for viewing when Head.
+
+    Includes reverse relations and additional metadata"""
+
+    type: str
+    id: ULID
+    urls: list[AnyHttpUrl] = Field(default_factory=list)
+    label: str
+
+    created_by: str
+    created_when: datetime.datetime
+    modified_by: str | None = None
+    modified_when: datetime.datetime | None = None
+
+
+class EditHeadViewBase(ViewBase):
+    """Head Base model returned by API for editing.
+
+    Includes additional metadata but not reverse relations"""
 
     pass
 
 
 class EditSetBase(BaseModel, _ViaEdge):
-    """Base model for updates Post-ed to API"""
+    """Base model for updates Post-ed to API, returning a modified EditHeadViewBase
 
+    Nested items can be other EditSet or Create models"""
 
-class ViewBase(BaseModel, _ViaEdge):
-    """Base model returned by API for viewing; contains all fields"""
-
+    id: ULID
     type: str
-    id: uuid.UUID
     label: str
-
-
-class HeadViewBase(ViewBase):
-    """Base model returned by API for viewing; includes reverse relatinos and additional metadata"""
-
-    type: str
-    id: uuid.UUID
 
 
 class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"]):
@@ -393,7 +407,7 @@ class RelationConfig:
     create_inline: bool = False
     edit_inline: bool = False
     delete_related_on_detach: bool = False
-    default_type: typing.Optional[str] = None
+    default_reified_type: typing.Optional[str] = None
 
     def __hash__(self):
         if self.subclasses_relation:
