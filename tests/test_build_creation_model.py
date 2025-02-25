@@ -10,6 +10,7 @@ from pangloss_new.model_config.models_base import (
     BaseMeta,
     EdgeModel,
     Embedded,
+    HeritableTrait,
     MultiKeyField,
     RelationConfig,
 )
@@ -338,3 +339,20 @@ def test_build_create_model_with_embedded():
     assert event.citation[0].type == "Citation"
     assert event.citation[0].reference[0].type == "Reference"
     assert isinstance(event.citation[0], Citation.EmbeddedCreate)
+
+
+@no_type_check
+def test_build_create_model_with_relation_to_trait():
+    class Purchaseable(HeritableTrait):
+        pass
+
+    class Cat(BaseNode, Purchaseable):
+        pass
+
+    class Dog(BaseNode, Purchaseable):
+        pass
+
+    class Person(BaseNode):
+        owns_animal: Annotated[Purchaseable, RelationConfig(reverse_name="is_owned_by")]
+
+    ModelManager.initialise_models()

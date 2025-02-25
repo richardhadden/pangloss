@@ -162,7 +162,7 @@ class RootNode(_OwnsMethods):
         @classmethod
         def get(cls, id: uuid.UUID | AnyHttpUrl):
             # TODO: Sketching API so far
-            return cls.__pg_base_class__.HeadView()
+            return cls.__pg_base_class__.HeadView
 
     def __init_subclass__(cls):
         from pangloss_new.model_config.model_manager import ModelManager
@@ -180,7 +180,7 @@ class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge):
     label: str
 
 
-class ViewBase(BaseModel, _ViaEdge):
+class ViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
     """Base model returned by API for viewing/editing when not Head.
 
     Contains all fields, no metadata or reverse relations"""
@@ -191,15 +191,15 @@ class ViewBase(BaseModel, _ViaEdge):
     head_node: ULID
 
 
-class HeadViewBase(ViewBase):
+class HeadViewBase(BaseModel, _BaseClassProxy):
     """Base model returned by API for viewing when Head.
 
     Includes reverse relations and additional metadata"""
 
     type: str
     id: ULID
-    urls: list[AnyHttpUrl] = Field(default_factory=list)
     label: str
+    urls: list[AnyHttpUrl] = Field(default_factory=list)
 
     created_by: str
     created_when: datetime.datetime
@@ -207,15 +207,23 @@ class HeadViewBase(ViewBase):
     modified_when: datetime.datetime | None = None
 
 
-class EditHeadViewBase(ViewBase):
+class EditHeadViewBase(BaseModel, _BaseClassProxy):
     """Head Base model returned by API for editing.
 
     Includes additional metadata but not reverse relations"""
 
-    pass
+    type: str
+    id: ULID
+    label: str
+    urls: list[AnyHttpUrl] = Field(default_factory=list)
+
+    created_by: str
+    created_when: datetime.datetime
+    modified_by: str | None = None
+    modified_when: datetime.datetime | None = None
 
 
-class EditSetBase(BaseModel, _ViaEdge):
+class EditSetBase(BaseModel, _BaseClassProxy, _ViaEdge["EditSetBase"]):
     """Base model for updates Post-ed to API, returning a modified EditHeadViewBase
 
     Nested items can be other EditSet or Create models"""
@@ -231,13 +239,15 @@ class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"
     type: str
     id: ULID
     label: str
+    head_node: ULID | None = None
+    urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
 class ReferenceCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceCreateBase"]):
     """Base model for setting a Reference to an entity"""
 
     type: str
-    id: ULID | AnyHttpUrl
+    id: ULID | AnyHttpUrl | list[AnyHttpUrl]
     label: str
 
 
