@@ -130,4 +130,4 @@ class ModelManager:
             build_create_model(model)
 
         for model_name, model in cls.base_models.items():
-            build_edit_head_view_model(model)
+            build_edit_head_view_model  #

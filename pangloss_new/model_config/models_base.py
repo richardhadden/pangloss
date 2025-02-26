@@ -42,8 +42,6 @@ class _OwnsMethods:
 
     @classmethod
     def has_own(cls, key: str) -> bool:
-        print("checking has own", key)
-        print(getattr(cls, key, None))
         if key in cls.__dict__:
             return True
         if item := getattr(cls, key, None):

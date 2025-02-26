@@ -6,6 +6,9 @@ from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
 )
+from pangloss_new.model_config.model_setup_functions.utils import (
+    unpack_fields_onto_model,
+)
 from pangloss_new.model_config.models_base import (
     ReferenceCreateBase,
     ReferenceSetBase,
@@ -42,9 +45,10 @@ def build_reference_view(model: type["RootNode"]):
         __base__=ReferenceViewBase,
         __module__=model.__module__,
         type=(typing.Literal[model.__name__], model.__name__),
-        **extra_fields,
     )
+    unpack_fields_onto_model(model.ReferenceView, extra_fields)
     model.ReferenceView.__pg_base_class__ = model
+    model.ReferenceView.model_rebuild(force=True)
 
 
 def build_reference_create(model: type["RootNode"]):
@@ -65,6 +69,7 @@ def build_reference_create(model: type["RootNode"]):
             __base__=ReferenceCreateBase,
             __module__=model.__module__,
             type=(typing.Literal[model.__name__], model.__name__),
-            **extra_fields,
         )
+        unpack_fields_onto_model(model.ReferenceCreate, extra_fields)
         model.ReferenceCreate.__pg_base_class__ = model
+        model.ReferenceCreate.model_rebuild(force=True)

@@ -2,6 +2,9 @@ import inspect
 import types
 import typing
 
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
+
 from pangloss_new.model_config.field_definitions import RelationToNodeDefinition
 from pangloss_new.model_config.models_base import (
     HeritableTrait,
@@ -229,3 +232,10 @@ def get_base_models_for_relations_to_node(
             )
         )
     return related_node_base_type
+
+
+def unpack_fields_onto_model(
+    model: type[BaseModel], field_definitions: dict[str, FieldInfo]
+):
+    for field_name, field_info in field_definitions.items():
+        model.model_fields[field_name] = field_info

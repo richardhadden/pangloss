@@ -1,8 +1,7 @@
-import types
 import typing
 from functools import cache
 
-import pydantic.fields
+from pydantic.fields import FieldInfo
 
 from pangloss_new.model_config.models_base import ReifiedRelation, RootNode
 
@@ -16,46 +15,44 @@ if typing.TYPE_CHECKING:
 
 def build_property_type_field(
     field: "PropertyFieldDefinition", model: type[RootNode] | type[ReifiedRelation]
-) -> tuple[typing.Any, pydantic.fields.FieldInfo | types.EllipsisType | str]:
+) -> FieldInfo:
+    field_info = FieldInfo(annotation=field.field_annotation)
+
     if field.field_name == "type":
-        return (
-            typing.Annotated[
-                field.field_annotation, pydantic.Field(default=model.__name__)
-            ],
-            ...,
-        )
+        field_info.default = model.__name__
 
     if field.validators:
-        return (
-            typing.Annotated[field.field_annotation, *field.validators],
-            ...,
-        )
-    return (field.field_annotation, ...)
+        field_info.metadata = field.validators
+
+    field_info.rebuild_annotation()
+    return field_info
 
 
 def build_list_property_type_field(
     field: "ListFieldDefinition", model: type[RootNode] | type[ReifiedRelation]
-):
+) -> FieldInfo:
     inner_type = field.field_annotation
     if field.internal_type_validators:
         inner_type = typing.Annotated[
             field.field_annotation, *field.internal_type_validators
         ]
 
-    if field.validators:
-        return (typing.Annotated[list[inner_type], *field.validators], ...)
+    field_info = FieldInfo.from_annotation(list[inner_type])
 
-    return (list[inner_type], ...)
+    if field.validators:
+        field_info.metadata = field.validators
+
+    return field_info
 
 
 def build_multikey_property_type_field(
     field: "MultiKeyFieldDefinition", model: type[RootNode] | type[ReifiedRelation]
-):
-    return (field.field_annotation, ...)
+) -> FieldInfo:
+    return FieldInfo.from_annotation(field.field_annotation)
 
 
 @cache
-def build_property_fields(model):
+def build_property_fields(model) -> dict[str, FieldInfo]:
     fields = {}
     for field in model._meta.fields.property_fields:
         if field.field_metatype == "PropertyField":

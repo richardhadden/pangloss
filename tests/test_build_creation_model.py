@@ -29,7 +29,7 @@ def test_build_creation_model_basic():
     assert Person.Create.__pg_base_class__ is Person
     assert Person.Create.model_fields["age"].metadata == [Gt(1)]
 
-    john_smith = Person(
+    john_smith = Person.Create(
         label="John Smith",
         age="2",
     )
@@ -356,3 +356,43 @@ def test_build_create_model_with_relation_to_trait():
         owns_animal: Annotated[Purchaseable, RelationConfig(reverse_name="is_owned_by")]
 
     ModelManager.initialise_models()
+
+
+@no_type_check
+def test_build_create_model_with_inline_self_reference():
+    class Statement(BaseNode):
+        has_substatement: Annotated[
+            "Statement",
+            RelationConfig(
+                reverse_name="is_substatement_of", create_inline=True, edit_inline=True
+            ),
+        ]
+
+    class Factoid(BaseNode):
+        has_statements: Annotated[
+            Statement,
+            RelationConfig(
+                reverse_name="is_statement_in", create_inline=True, edit_inline=True
+            ),
+        ]
+
+    initialise_models()
+
+    Factoid(
+        label="A Factoid",
+        has_statements=[
+            {
+                "type": "Statement",
+                "label": "A statement",
+                "id": gen_ulid(),
+                "has_substatement": [
+                    {
+                        "type": "Statement",
+                        "label": "A statement",
+                        "id": gen_ulid(),
+                        "has_substatement": [],
+                    }
+                ],
+            }
+        ],
+    )
