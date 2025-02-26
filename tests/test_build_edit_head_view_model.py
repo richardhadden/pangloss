@@ -9,7 +9,14 @@ from pangloss_new.utils import gen_ulid
 
 @no_type_check
 def test_build_edit_head_view_model():
+    class Person(BaseNode):
+        pass
+
     class Statement(BaseNode):
+        involves_person: Annotated[
+            Person,
+            RelationConfig(reverse_name="is_involved_in"),
+        ]
         has_substatements: Annotated[
             "Statement",
             RelationConfig(
@@ -66,6 +73,13 @@ def test_build_edit_head_view_model():
                 "id": gen_ulid(),
                 "head_node": gen_ulid(),
                 "label": "A statement",
+                "involves_person": [
+                    {
+                        "type": "Person",
+                        "id": gen_ulid(),
+                        "label": "A Person",
+                    }
+                ],
                 "has_substatements": [],
             }
         ],
