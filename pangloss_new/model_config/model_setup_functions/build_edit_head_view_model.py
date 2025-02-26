@@ -1,30 +1,45 @@
-import types
 import typing
 from functools import cache
 
 from pydantic import BaseModel, create_model
+from pydantic.fields import FieldInfo
 
-from pangloss_new.model_config.field_definitions import RelationFieldDefinition
-from pangloss_new.model_config.model_setup_functions.build_create_model import (
-    build_create_model,
+from pangloss_new.model_config.field_definitions import (
+    EmbeddedFieldDefinition,
+    RelationFieldDefinition,
 )
 from pangloss_new.model_config.model_setup_functions.field_builders import (
     build_property_fields,
 )
 from pangloss_new.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
+    get_concrete_model_types,
+    unpack_fields_onto_model,
 )
 from pangloss_new.model_config.models_base import (
     CreateBase,
     EdgeModel,
     EditHeadViewBase,
+    EmbeddedCreateBase,
+    EmbeddedViewBase,
     ReferenceCreateBase,
     ReferenceSetBase,
     ReifiedCreateBase,
     ReifiedRelation,
+    ReifiedRelationViewBase,
     RootNode,
     ViewBase,
 )
+
+
+def build_reified_model_name(model: type[ReifiedRelation]) -> str:
+    """Build a more elegant model name for reified models, omitting the module name
+    and other ugliness"""
+    origin_name = typing.cast(
+        type, model.__pydantic_generic_metadata__["origin"]
+    ).__name__
+    args_names = [arg.__name__ for arg in model.__pydantic_generic_metadata__["args"]]
+    return f"{origin_name}[{', '.join(args_names)}]"
 
 
 def build_field_type_definitions(
@@ -38,10 +53,10 @@ def build_field_type_definitions(
 
     for field in model._meta.fields.relation_fields:
         fields[field.field_name] = build_relation_field(field, model)
-    """
+
     for field in model._meta.fields.embedded_fields:
         fields[field.field_name] = build_embedded_field(field, model)
-    """
+
     return fields
 
 
@@ -52,35 +67,51 @@ def build_edit_head_view_model(model: type[RootNode]):
     if model.has_own("EditHeadView"):
         return
 
-    # Gather field definitions
-    fields = build_field_type_definitions(model)
+    # Construct class
 
+    # To avoid recursion of self-referencing models, the create model
+    # needs to be built and *then* have its fields generated and added!
     model.EditHeadView = create_model(
         f"{model.__name__}EditHeadView",
         __module__=model.__module__,
         __base__=EditHeadViewBase,
-        **fields,
     )
+
+    unpack_fields_onto_model(model.EditHeadView, build_field_type_definitions(model))
     model.EditHeadView.__pg_base_class__ = model
+    model.EditHeadView.model_rebuild(force=True)
 
 
-def build_view_model(model: type[RootNode]):
-    """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
-
+def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
     # If model.Create already exists, return early
     if model.has_own("View"):
         return
 
-    # Gather field definitions
-    fields = build_field_type_definitions(model)
+    # Construct class
+    if issubclass(model, ReifiedRelation):
+        model.View = create_model(
+            f"{build_reified_model_name(model)}View",
+            __module__=model.__module__,
+            __base__=ReifiedRelationViewBase,
+        )
 
-    model.View = create_model(
-        f"{model.__name__}View",
-        __module__=model.__module__,
-        __base__=ViewBase,
-        **fields,
-    )
-    model.View.__pg_base_class__ = model
+        unpack_fields_onto_model(model.View, build_field_type_definitions(model))
+        model.View.__pg_base_class__ = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
+        )
+        model.View.model_rebuild(force=True)
+    else:
+        # To avoid recursion of self-referencing models, the create model
+        # needs to be built and *then* have its fields generated and added!
+        model.View = create_model(
+            f"{model.__name__}View",
+            __module__=model.__module__,
+            __base__=ViewBase,
+        )
+
+        unpack_fields_onto_model(model.View, build_field_type_definitions(model))
+        model.View.__pg_base_class__ = model
+        model.View.model_rebuild(force=True)
 
 
 @cache
@@ -95,6 +126,7 @@ def add_edge_model(
     added as model.edge_properties field.
 
     Also stores the newly created model under model.via.<edge_model name>"""
+
     model_with_edge = create_model(
         f"{model.__name__}__via__{edge_model.__name__}",
         __base__=model,
@@ -102,13 +134,17 @@ def add_edge_model(
         edge_properties=(edge_model, ...),
     )
 
+    # As fields are deferred being added, just inheriting from the model class does not work
+    # and we need to manually add the fields and rebuild the model_with_edge
+    model_with_edge.model_fields.update(model.model_fields)
     model.via._add(edge_model_name=edge_model.__name__, model=model_with_edge)  # type: ignore
+
     return model_with_edge
 
 
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
-) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase | ViewBase]]:
+) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase]]:
     """Creates a list of actual classes to be referenced by a relation"""
     related_models = []
 
@@ -122,7 +158,7 @@ def get_models_for_relation_field(
 
     # Add relations_to_reified_to_concrete_model_Types
     for field_type_definition in field.relations_to_reified:
-        build_create_model(field_type_definition.annotated_type)
+        build_view_model(field_type_definition.annotated_type)
         related_models.append(field_type_definition.annotated_type.Create)
 
     return related_models
@@ -130,14 +166,63 @@ def get_models_for_relation_field(
 
 def build_relation_field(
     field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-) -> (
-    tuple[typing.Annotated, types.EllipsisType] | tuple[type[list], types.EllipsisType]
-):
+) -> FieldInfo:
     related_models = get_models_for_relation_field(field)
 
     if field.edge_model:
         related_models = [add_edge_model(t, field.edge_model) for t in related_models]
 
+    # For unknown reasons, need to force rebuild models here
+    for m in related_models:
+        m.model_rebuild(force=True)
+
+    field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
+
     if field.validators:
-        return (typing.Annotated[list[typing.Union[*related_models]]], ...)
-    return (list[typing.Union[*related_models]], ...)
+        field_info.metadata = field.validators
+    return field_info
+
+
+def build_embedded_create_model(model: type[RootNode]):
+    """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
+
+    # If model.Create already exists, return early
+    if model.has_own("EmbeddedView"):
+        return
+
+    model.EmbeddedView = create_model(
+        f"{model.__name__}EmbeddedView",
+        __module__=model.__module__,
+        __base__=EmbeddedViewBase,
+    )
+    fields = build_field_type_definitions(model)
+    for field_name, field_info in fields.items():
+        model.EmbeddedView.model_fields[field_name] = field_info
+    model.EmbeddedView.__pg_base_class__ = model
+    model.EmbeddedView.model_rebuild(force=True)
+
+
+def get_models_for_embedded_field(
+    field: EmbeddedFieldDefinition,
+) -> list[type[EmbeddedCreateBase]]:
+    """Creates a list of actual classes to be embedded by a relation"""
+    embedded_types = []
+
+    for base_type in get_concrete_model_types(
+        field.field_annotation, include_subclasses=True
+    ):
+        build_embedded_create_model(base_type)
+        embedded_types.append(base_type.EmbeddedCreate)
+
+    return embedded_types
+
+
+def build_embedded_field(
+    field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+) -> FieldInfo:
+    embedded_types = get_models_for_embedded_field(field)
+
+    field_info = FieldInfo.from_annotation(list[typing.Union[*embedded_types]])
+    if field.validators:
+        field_info.metadata = field.validators
+    return field_info

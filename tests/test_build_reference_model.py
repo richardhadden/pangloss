@@ -63,7 +63,7 @@ def test_reference_view_on_model():
     )
     assert Entity.ReferenceView.model_fields["type"].default == "Entity"
     assert set(Entity.ReferenceView.model_fields.keys()) == set(
-        ["id", "type", "label", "head_node", "urls"]
+        ["id", "type", "label", "head_node", "head_type", "urls"]
     )
 
     e = Entity.ReferenceView(id=gen_ulid(), type="Entity", label="An Entity")

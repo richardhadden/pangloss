@@ -109,12 +109,12 @@ def add_edge_model(
         __module__=model.__module__,
         edge_properties=(edge_model, ...),
     )
+
     # As fields are deferred being added, just inheriting from the model class does not work
     # and we need to manually add the fields and rebuild the model_with_edge
     model_with_edge.model_fields.update(model.model_fields)
-    model.model_rebuild(force=True)
-
     model.via._add(edge_model_name=edge_model.__name__, model=model_with_edge)  # type: ignore
+
     return model_with_edge
 
 
@@ -149,6 +149,10 @@ def build_relation_field(
 
     if field.edge_model:
         related_models = [add_edge_model(t, field.edge_model) for t in related_models]
+
+    # For unknown reasons, need to force rebuild models here
+    for m in related_models:
+        m.model_rebuild(force=True)
 
     field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
 

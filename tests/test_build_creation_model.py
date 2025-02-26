@@ -219,6 +219,7 @@ def test_create_model_with_double_reified_relations():
     )
 
 
+@no_type_check
 def test_build_create_model_with_edge_model():
     class Edge(EdgeModel):
         value: int
@@ -276,6 +277,23 @@ def test_build_create_model_with_edge_model():
         get_args(inner_args[3].model_fields["target"].annotation)[0]
         is Dog.ReferenceSet.via.Edge2
     )
+
+    p = Person(
+        label="John Smith",
+        owns_cat=[
+            {"type": "Cat", "id": gen_ulid(), "edge_properties": {"value": 1}},
+            {"type": "Dog", "id": gen_ulid(), "edge_properties": {"value": 2}},
+            {
+                "type": "Intermediate",
+                "id": gen_ulid(),
+                "target": [
+                    {"type": "Dog", "id": gen_ulid(), "edge_properties": {"value": 10}}
+                ],
+                "edge_properties": {"value": 3},
+            },
+        ],
+    )
+    assert p.owns_cat[2].target[0].edge_properties.value == 10
 
 
 @no_type_check

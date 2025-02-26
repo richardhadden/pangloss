@@ -195,7 +195,8 @@ class ViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
     type: str
     id: ULID
     label: str
-    head_node: ULID
+    head_node: ULID | None = None
+    head_type: str | None = None
 
 
 class HeadViewBase(BaseModel, _BaseClassProxy):
@@ -247,6 +248,7 @@ class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"
     id: ULID
     label: str
     head_node: ULID | None = None
+    head_type: str | None = None
     urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
@@ -282,6 +284,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     model_config = {"arbitrary_types_allowed": True}
 
     Create: typing.ClassVar[type[ReifiedCreateBase]]
+    View: typing.ClassVar[type[ReifiedRelationViewBase]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -335,12 +338,14 @@ class ReifiedRelation[T](ReifiedBase):
         ModelManager.register_reified_relation_model(cls)
 
 
-class ReifiedRelationViewBase(BaseModel, _ViaEdge["ReifiedRelationViewBase"]):
+class ReifiedRelationViewBase(
+    BaseModel, _BaseClassProxy, _ViaEdge["ReifiedRelationViewBase"]
+):
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 
     type: str
     uuid: uuid.UUID
-    head_uuid: typing.Optional[uuid.UUID] = None
+    head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
 
 
@@ -354,12 +359,12 @@ class EmbeddedCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedCreateBas
     type: str
 
 
-class EmbeddedViewBase(BaseModel, _ViaEdge["EmbeddedViewBase"]):
+class EmbeddedViewBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedViewBase"]):
     """Base model for viewing an embedded model"""
 
     type: str
     uuid: uuid.UUID
-    head_uuid: typing.Optional[uuid.UUID] = None
+    head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
 
 
