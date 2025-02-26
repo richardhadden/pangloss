@@ -33,6 +33,7 @@ from pangloss_new.model_config.models_base import (
     RootNode,
     Trait,
     ViewBase,
+    _BaseClassProxy,
 )
 from pangloss_new.models import Embedded
 
@@ -221,7 +222,11 @@ def is_union(ann: typing.Any) -> bool:
 def build_field_definition(
     field_name: str,
     annotation: typing.Any,
-    model: type[RootNode] | type[ReifiedBase] | type[EdgeModel] | type[MultiKeyField],
+    model: type[RootNode]
+    | type[ReifiedBase]
+    | type[EdgeModel]
+    | type[MultiKeyField]
+    | type[_BaseClassProxy],
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
@@ -557,6 +562,18 @@ def build_pg_model_definitions(
         )
 
     model.__pg_field_definitions__ = ModelFieldDefinitions(field_definitions)
+
+
+def build_abstract_specialist_type_model_definitions(model: type[_BaseClassProxy]):
+    field_definitions = {}
+    for field_name, annotation in model.__pg_annotations__.items():
+        field_definitions[field_name] = build_field_definition(
+            field_name, annotation, model=model
+        )
+
+    model.__pg_specialist_type_fields_definitions__ = ModelFieldDefinitions(
+        field_definitions
+    )
 
 
 def create_relation_with_bound_type(

@@ -61,6 +61,9 @@ class ModelManager:
         from pangloss_new.model_config.model_setup_functions.build_create_model import (
             build_create_model,
         )
+        from pangloss_new.model_config.model_setup_functions.build_edit_head_view_model import (
+            build_edit_head_view_model,
+        )
         from pangloss_new.model_config.model_setup_functions.build_model_meta import (
             initialise_model_meta_inheritance,
         )
@@ -68,6 +71,7 @@ class ModelManager:
             build_pg_annotations,
         )
         from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+            build_abstract_specialist_type_model_definitions,
             build_pg_model_definitions,
         )
         from pangloss_new.model_config.model_setup_functions.build_reference_model import (
@@ -78,6 +82,15 @@ class ModelManager:
         from pangloss_new.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
         )
+        from pangloss_new.model_config.models_base import _BaseClassProxy
+
+        for specialising_abstract_class in _BaseClassProxy.__subclasses__():
+            specialising_abstract_class.__pg_annotations__ = (
+                specialising_abstract_class.__annotations__
+            )
+            build_abstract_specialist_type_model_definitions(
+                specialising_abstract_class
+            )
 
         for model_name, model in cls.multikeyfields_models.items():
             build_pg_annotations(model)
@@ -115,3 +128,6 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             build_create_model(model)
+
+        for model_name, model in cls.base_models.items():
+            build_edit_head_view_model(model)

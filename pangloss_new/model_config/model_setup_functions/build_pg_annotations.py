@@ -34,7 +34,8 @@ def build_pg_annotations(
     annotation_dicts = []
     for parent in cls.mro():
         if (
-            parent is BaseNode
+            parent is object
+            or parent is BaseNode
             or parent is ReifiedBase
             or parent is EdgeModel
             or parent is MultiKeyField

@@ -19,8 +19,10 @@ def build_property_type_field(
 ) -> tuple[typing.Any, pydantic.fields.FieldInfo | types.EllipsisType | str]:
     if field.field_name == "type":
         return (
-            field.field_annotation,
-            pydantic.Field(default=model.__name__),
+            typing.Annotated[
+                field.field_annotation, pydantic.Field(default=model.__name__)
+            ],
+            ...,
         )
 
     if field.validators:

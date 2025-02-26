@@ -3,6 +3,7 @@ import typing
 from functools import cache
 
 from pydantic import BaseModel, Field, create_model
+from pydantic.fields import FieldInfo
 
 from pangloss_new.model_config.field_definitions import (
     EmbeddedFieldDefinition,
@@ -57,16 +58,16 @@ def build_field_type_definitions(
 
 def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
     """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
-
+    print("building create model for ", model, model.has_own("Create"))
     # If model.Create already exists, return early
     if model.has_own("Create"):
         return
 
     # Gather field definitions
-    fields = build_field_type_definitions(model)
 
     # Construct class
     if issubclass(model, ReifiedRelation):
+        fields = build_field_type_definitions(model)
         model.Create = create_model(
             f"{build_reified_model_name(model)}Create",
             __module__=model.__module__,
@@ -81,8 +82,13 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
             f"{model.__name__}Create",
             __module__=model.__module__,
             __base__=CreateBase,
-            **fields,
         )
+        fields = build_field_type_definitions(model)
+        for field_name, annotation in fields.items():
+            model.Create.model_fields[field_name] = FieldInfo.from_annotation(
+                annotation[0]
+            )
+        model.Create.model_rebuild()
         model.Create.__pg_base_class__ = model
 
 
@@ -144,7 +150,10 @@ def build_relation_field(
         related_models = [add_edge_model(t, field.edge_model) for t in related_models]
 
     if field.validators:
-        return (typing.Annotated[list[typing.Union[*related_models]]], ...)
+        return (
+            typing.Annotated[list[typing.Union[*related_models]], *field.validators],
+            ...,
+        )
     return (list[typing.Union[*related_models]], ...)
 
 

@@ -42,8 +42,13 @@ class _OwnsMethods:
 
     @classmethod
     def has_own(cls, key: str) -> bool:
+        print("checking has own", key)
+        print(getattr(cls, key, None))
         if key in cls.__dict__:
             return True
+        if item := getattr(cls, key, None):
+            if item.__pg_base_class__ is cls:
+                return True
         return False
 
     @classmethod
@@ -51,12 +56,14 @@ class _OwnsMethods:
         return cls.__dict__.get(key, None)
 
 
-class _BaseClassProxy:
+class _BaseClassProxy(_OwnsMethods):
+    __pg_annotations__: typing.ClassVar[dict[str, typing.Any]]
     __pg_base_class__: typing.ClassVar[type[RootNode] | type[ReifiedRelation]]
+    __pg_specialist_type_fields_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @property
     def __pg_field_definitions__(self):
-        return self.__pg_base_class__.__pg_field_definitions__
+        return (self.__pg_base_class__.__pg_field_definitions__,)
 
 
 RelationViaEdgeType = typing.TypeVar(
@@ -71,7 +78,8 @@ class RelationsViaEdge(typing.Generic[RelationViaEdgeType]):
         self._classes = {}
 
     def _add(self, edge_model_name: str, model: type[RelationViaEdgeType]):
-        self._classes[edge_model_name] = model
+        if edge_model_name not in self._classes:
+            self._classes[edge_model_name] = model
 
     def __getattr__(self, name: str) -> type[RelationViaEdgeType] | None:
         try:
@@ -173,9 +181,10 @@ class RootNode(_OwnsMethods):
         return cls.Create(*args, **kwargs)
 
 
-class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge):
+class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge["CreateBase"]):
     # id: Can take an optional ID or URI
 
+    type: str
     id: ULID | AnyHttpUrl | None = None
     label: str
 

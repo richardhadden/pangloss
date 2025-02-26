@@ -24,7 +24,9 @@ from pangloss_new.model_config.model_setup_functions.build_pg_model_definition i
     build_pg_model_definitions,
 )
 from pangloss_new.model_config.models_base import (
+    CreateBase,
     EdgeModel,
+    HeadViewBase,
     HeritableTrait,
     MultiKeyField,
 )
@@ -757,3 +759,24 @@ def test_build_pg_annotation_for_multikeyfield():
     ]
 
     assert WithCertainty._meta.fields is WithCertainty.__pg_field_definitions__
+
+
+def test_build_pg_annotations_for_specialising_abstract_classes():
+    assert list(CreateBase.__pg_specialist_type_fields_definitions__.fields.keys()) == [
+        "type",
+        "id",
+        "label",
+    ]
+
+    assert list(
+        HeadViewBase.__pg_specialist_type_fields_definitions__.fields.keys()
+    ) == [
+        "type",
+        "id",
+        "label",
+        "urls",
+        "created_by",
+        "created_when",
+        "modified_by",
+        "modified_when",
+    ]

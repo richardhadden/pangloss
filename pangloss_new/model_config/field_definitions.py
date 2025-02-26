@@ -3,6 +3,7 @@ import datetime
 import enum
 import types
 import typing
+from collections import ChainMap
 
 import annotated_types
 
@@ -207,7 +208,9 @@ class FieldSubset[T]:
 
 @dataclasses.dataclass
 class ModelFieldDefinitions:
-    fields: dict[str, FieldDefinition] = dataclasses.field(default_factory=dict)
+    fields: dict[str, FieldDefinition] | typing.ChainMap[str, FieldDefinition] = (
+        dataclasses.field(default_factory=dict)
+    )
 
     def __getitem__(self, key) -> FieldDefinition | None:
         return self.fields[key]
@@ -262,3 +265,14 @@ class ModelFieldDefinitions:
         return FieldSubset[
             PropertyFieldDefinition | ListFieldDefinition | MultiKeyFieldDefinition
         ](items)
+
+
+class CombinedModelFieldDefinitions(ModelFieldDefinitions):
+    def __init__(
+        self,
+        main_model_definitions: ModelFieldDefinitions,
+        specialised_model_definitions: ModelFieldDefinitions,
+    ):
+        self.fields = ChainMap(
+            main_model_definitions.fields, specialised_model_definitions.fields
+        )
