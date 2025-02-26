@@ -390,7 +390,21 @@ def test_build_create_model_with_inline_self_reference():
                         "type": "Statement",
                         "label": "A statement",
                         "id": gen_ulid(),
-                        "has_substatement": [],
+                        "has_substatement": [
+                            {
+                                "type": "Statement",
+                                "label": "A statement",
+                                "id": gen_ulid(),
+                                "has_substatement": [
+                                    {
+                                        "type": "Statement",
+                                        "label": "A statement",
+                                        "id": gen_ulid(),
+                                        "has_substatement": [],
+                                    }
+                                ],
+                            }
+                        ],
                     }
                 ],
             }
