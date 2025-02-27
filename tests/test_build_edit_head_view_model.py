@@ -29,6 +29,9 @@ def test_build_edit_head_view_model():
             ),
         ]
 
+    class Declaration(Statement):
+        pass
+
     class Factoid(BaseNode):
         has_statements: Annotated[
             Statement,
@@ -60,7 +63,7 @@ def test_build_edit_head_view_model():
 
     assert (
         Factoid.EditHeadView.model_fields["has_statements"].annotation
-        == list[Statement.View]
+        == list[Statement.View | Declaration.View]
     )
 
     f = Factoid.EditHeadView(

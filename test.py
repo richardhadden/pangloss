@@ -1,27 +1,18 @@
-from pydantic import BaseModel, RootModel, create_model
-from pydantic.fields import FieldInfo
+from typing import TypedDict
+
+from pydantic import BaseModel
 
 
-class Thing(BaseModel):
-    name: str | None = None
+class kwargs(TypedDict):
+    name: str
 
 
 class Thong(BaseModel):
     age: int
+    name: str
+
+    def __init__(self, age: list, **data):
+        super().__init__(age=1, **data)
 
 
-class Edge(BaseModel):
-    value: int
-
-
-Root = RootModel[Thing | Thong]
-
-A = create_model("asdf", __base__=Root)
-A.model_fields["edge"] = FieldInfo(annotation=Edge)
-A.model_rebuild()
-
-print(A.model_fields)
-
-
-a = A(name="john", edge={"value": 1})
-a.edge
+t = Thong(age=[], name="john")

@@ -40,6 +40,16 @@ def test_build_creation_model_basic():
 
 
 @no_type_check
+def test_can_initilise_with_camel_case():
+    class Person(BaseNode):
+        some_snake_case: str
+
+    initialise_models()
+
+    Person.Create(label="A Person", someSnakeCase="str")
+
+
+@no_type_check
 def test_build_creation_model_with_list_property():
     class Person(BaseNode):
         no_ann: list[str]

@@ -32,7 +32,7 @@ def get_all_subclasses(cls, include_abstract: bool = False) -> set[type["BaseNod
 
     subclasses = []
     for subclass in cls.__subclasses__():
-        if not subclass.Meta.abstract or include_abstract:
+        if not subclass._meta.abstract or include_abstract:
             subclasses += [subclass, *get_all_subclasses(subclass)]
         else:
             subclasses += get_all_subclasses(subclass)
@@ -209,7 +209,7 @@ def get_concrete_model_types(
         concrete_model_types.append(classes)
 
     elif inspect.isclass(classes) and issubclass(classes, BaseNode):
-        if not classes.Meta.abstract or include_abstract:
+        if not classes._meta.abstract or include_abstract:
             concrete_model_types.append(classes)
 
         if include_subclasses:

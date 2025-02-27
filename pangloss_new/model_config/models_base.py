@@ -13,6 +13,17 @@ from pydantic_extra_types.ulid import ULID
 if typing.TYPE_CHECKING:
     from pangloss_new.model_config.field_definitions import ModelFieldDefinitions
 
+
+"""API OPERATIONS
+
+- Create
+- GetExistingToEdit
+- PostEdit
+- View
+
+"""
+
+
 STANDARD_MODEL_CONFIG: ConfigDict = {
     "alias_generator": humps.camelize,
     "populate_by_name": True,
@@ -21,9 +32,12 @@ STANDARD_MODEL_CONFIG: ConfigDict = {
 }
 
 
-class EdgeModel(BaseModel):
-    show_in_reverse_relation: typing.ClassVar[bool] = False
+class _StandardModel:
     model_config = STANDARD_MODEL_CONFIG
+
+
+class EdgeModel(BaseModel, _StandardModel):
+    show_in_reverse_relation: typing.ClassVar[bool] = False
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -41,11 +55,12 @@ class _OwnsMethods:
 
     @classmethod
     def has_own(cls, key: str) -> bool:
+        print(cls.__name__)
         if key in cls.__dict__:
             return True
-        if item := getattr(cls, key, None):
-            if item.__pg_base_class__ is cls:
-                return True
+        # if item := getattr(cls, key, None) and hasattr(cls, "__pg_base_class__"):
+        #    if item.__pg_base_class__ is cls:
+        #        return True
         return False
 
     @classmethod
@@ -135,6 +150,7 @@ class RootNode(_OwnsMethods):
     HeadView: typing.ClassVar[type[HeadViewBase]]
     View: typing.ClassVar[type[ViewBase]]
     EditHeadView: typing.ClassVar[type[EditHeadViewBase]]
+    EditHeadSet: typing.ClassVar[type[EditHeadSetBase]]
     EditSet: typing.ClassVar[type[EditSetBase]]
     ReferenceCreate: typing.ClassVar[type[ReferenceCreateBase]] | None = None
     ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
@@ -178,7 +194,7 @@ class RootNode(_OwnsMethods):
         return cls.Create(*args, **kwargs)
 
 
-class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge["CreateBase"]):
+class CreateBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["CreateBase"]):
     # id: Can take an optional ID or URI
 
     type: str
@@ -186,7 +202,7 @@ class CreateBase(BaseModel, _BaseClassProxy, _ViaEdge["CreateBase"]):
     label: str
 
 
-class ViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
+class ViewBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
     """Base model returned by API for viewing/editing when not Head.
 
     Contains all fields, no metadata or reverse relations"""
@@ -198,7 +214,7 @@ class ViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
     head_type: str | None = None
 
 
-class HeadViewBase(BaseModel, _BaseClassProxy):
+class HeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     """Base model returned by API for viewing when Head.
 
     Includes reverse relations and additional metadata"""
@@ -214,7 +230,7 @@ class HeadViewBase(BaseModel, _BaseClassProxy):
     modified_when: datetime.datetime | None = None
 
 
-class EditHeadViewBase(BaseModel, _BaseClassProxy):
+class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     """Head Base model returned by API for editing.
 
     Includes additional metadata but not reverse relations"""
@@ -230,17 +246,30 @@ class EditHeadViewBase(BaseModel, _BaseClassProxy):
     modified_when: datetime.datetime | None = None
 
 
-class EditSetBase(BaseModel, _BaseClassProxy, _ViaEdge["EditSetBase"]):
-    """Base model for updates Post-ed to API, returning a modified EditHeadViewBase
+class EditHeadSetBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EditHeadSetBase"]
+):
+    """Base model for updates Post-ed to API
 
-    Nested items can be other EditSet or Create models"""
+    Nested items can be other ReferenceSetBase, EditSetBase or CreateBase models"""
+
+    id: ULID
+    type: str
+    label: str
+    urls: list[AnyHttpUrl] = Field(default_factory=list)
+
+
+class EditSetBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EditSetBase"]):
+    """Base model for updates Post-ed to API"""
 
     id: ULID
     type: str
     label: str
 
 
-class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"]):
+class ReferenceViewBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"]
+):
     """Base model for viewing a Reference to an entity"""
 
     type: str
@@ -251,7 +280,9 @@ class ReferenceViewBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceViewBase"
     urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
-class ReferenceCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceCreateBase"]):
+class ReferenceCreateBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReferenceCreateBase"]
+):
     """Base model for setting a Reference to an entity"""
 
     type: str
@@ -259,14 +290,18 @@ class ReferenceCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceCreateB
     label: str
 
 
-class ReferenceSetBase(BaseModel, _BaseClassProxy, _ViaEdge["ReferenceSetBase"]):
+class ReferenceSetBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReferenceSetBase"]
+):
     """Base model for setting a Reference to an entity"""
 
     type: str
     id: ULID | AnyHttpUrl
 
 
-class ReifiedCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["ReifiedCreateBase"]):
+class ReifiedCreateBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReifiedCreateBase"]
+):
     pass
 
 
@@ -284,6 +319,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
 
     Create: typing.ClassVar[type[ReifiedCreateBase]]
     View: typing.ClassVar[type[ReifiedRelationViewBase]]
+    EditSet: typing.ClassVar[type[ReifiedRelationEditSetBase]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -321,7 +357,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
         return cls.__pg_field_definitions__
 
 
-class ReifiedRelation[T](ReifiedBase):
+class ReifiedRelation[T](ReifiedBase, _StandardModel):
     """Base model for creating a reified relation"""
 
     type: str
@@ -338,7 +374,7 @@ class ReifiedRelation[T](ReifiedBase):
 
 
 class ReifiedRelationViewBase(
-    BaseModel, _BaseClassProxy, _ViaEdge["ReifiedRelationViewBase"]
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReifiedRelationViewBase"]
 ):
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 
@@ -348,17 +384,28 @@ class ReifiedRelationViewBase(
     head_type: typing.Optional[str] = None
 
 
+class ReifiedRelationEditSetBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReifiedRelationEditSetBase"]
+):
+    type: str
+    id: ULID
+
+
 class Embedded[T]:
     embedded_type: T
 
 
-class EmbeddedCreateBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedCreateBase"]):
+class EmbeddedCreateBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EmbeddedCreateBase"]
+):
     """Base model for creating an embedded node (same as RootNode without id)"""
 
     type: str
 
 
-class EmbeddedViewBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedViewBase"]):
+class EmbeddedViewBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EmbeddedViewBase"]
+):
     """Base model for viewing an embedded model"""
 
     type: str
@@ -367,7 +414,9 @@ class EmbeddedViewBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedViewBase"])
     head_type: typing.Optional[str] = None
 
 
-class EmbeddedSetBase(BaseModel, _ViaEdge["EmbeddedSetBase"]):
+class EmbeddedSetBase(
+    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EmbeddedSetBase"]
+):
     type: str
     id: ULID
 
@@ -393,7 +442,7 @@ class MultiKeyFieldMeta:
         return self.base_model.__pg_field_definitions__
 
 
-class MultiKeyField[T](BaseModel):
+class MultiKeyField[T](BaseModel, _StandardModel):
     """Define a field with multiple additional fields.
 
     The main field type is supplied by the type param T and is assigned to the `value` field.
@@ -419,6 +468,7 @@ class MultiKeyField[T](BaseModel):
 @dataclasses.dataclass
 class RelationConfig:
     reverse_name: str
+
     subclasses_relation: typing.Optional[list[str] | frozenset[str]] = None
     edge_model: typing.Optional[type["EdgeModel"]] = None
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
