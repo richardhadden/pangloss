@@ -3,7 +3,6 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import typing
-import uuid
 from collections import ChainMap
 
 import annotated_types
@@ -154,7 +153,7 @@ class RootNode(_OwnsMethods):
         __pg_base_class__: typing.ClassVar[type[RootNode]]
 
         @classmethod
-        def get(cls, uuid: uuid.UUID | AnyHttpUrl) -> EditHeadViewBase:
+        def get(cls, id: ULID | AnyHttpUrl) -> EditHeadViewBase:
             # TODO: Sketching API so far
             return cls.__pg_base_class__.EditHeadView()
 
@@ -166,7 +165,7 @@ class RootNode(_OwnsMethods):
         __pg_base_class__: typing.ClassVar[type[RootNode]]
 
         @classmethod
-        def get(cls, id: uuid.UUID | AnyHttpUrl):
+        def get(cls, id: ULID | AnyHttpUrl):
             # TODO: Sketching API so far
             return cls.__pg_base_class__.HeadView
 
@@ -344,7 +343,7 @@ class ReifiedRelationViewBase(
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 
     type: str
-    uuid: uuid.UUID
+    id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
 
@@ -363,14 +362,14 @@ class EmbeddedViewBase(BaseModel, _BaseClassProxy, _ViaEdge["EmbeddedViewBase"])
     """Base model for viewing an embedded model"""
 
     type: str
-    uuid: uuid.UUID
+    id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
 
 
 class EmbeddedSetBase(BaseModel, _ViaEdge["EmbeddedSetBase"]):
     type: str
-    uuid: uuid.UUID
+    id: ULID
 
 
 class Trait:

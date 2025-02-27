@@ -1,7 +1,7 @@
 import typing
 from functools import cache
 
-from pydantic import BaseModel, create_model
+from pydantic import create_model
 from pydantic.fields import FieldInfo
 
 from pangloss_new.model_config.field_definitions import (
@@ -17,14 +17,10 @@ from pangloss_new.model_config.model_setup_functions.utils import (
     unpack_fields_onto_model,
 )
 from pangloss_new.model_config.models_base import (
-    CreateBase,
     EdgeModel,
     EditHeadViewBase,
-    EmbeddedCreateBase,
     EmbeddedViewBase,
-    ReferenceCreateBase,
-    ReferenceSetBase,
-    ReifiedCreateBase,
+    ReferenceViewBase,
     ReifiedRelation,
     ReifiedRelationViewBase,
     RootNode,
@@ -32,7 +28,7 @@ from pangloss_new.model_config.models_base import (
 )
 
 
-def build_reified_model_name(model: type[ReifiedRelation]) -> str:
+def get_reified_model_name(model: type[ReifiedRelation]) -> str:
     """Build a more elegant model name for reified models, omitting the module name
     and other ugliness"""
     origin_name = typing.cast(
@@ -42,7 +38,7 @@ def build_reified_model_name(model: type[ReifiedRelation]) -> str:
     return f"{origin_name}[{', '.join(args_names)}]"
 
 
-def build_field_type_definitions(
+def get_field_type_definitions(
     model: type[RootNode | ReifiedRelation],
 ):
     """For each type of possible field, build a dict of field name
@@ -52,10 +48,10 @@ def build_field_type_definitions(
     fields.update(build_property_fields(model))
 
     for field in model._meta.fields.relation_fields:
-        fields[field.field_name] = build_relation_field(field, model)
+        fields[field.field_name] = get_relation_field(field)
 
     for field in model._meta.fields.embedded_fields:
-        fields[field.field_name] = build_embedded_field(field, model)
+        fields[field.field_name] = get_embedded_field(field, model)
 
     return fields
 
@@ -77,7 +73,7 @@ def build_edit_head_view_model(model: type[RootNode]):
         __base__=EditHeadViewBase,
     )
 
-    unpack_fields_onto_model(model.EditHeadView, build_field_type_definitions(model))
+    unpack_fields_onto_model(model.EditHeadView, get_field_type_definitions(model))
     model.EditHeadView.__pg_base_class__ = model
     model.EditHeadView.model_rebuild(force=True)
 
@@ -90,12 +86,12 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
     # Construct class
     if issubclass(model, ReifiedRelation):
         model.View = create_model(
-            f"{build_reified_model_name(model)}View",
+            f"{get_reified_model_name(model)}View",
             __module__=model.__module__,
             __base__=ReifiedRelationViewBase,
         )
 
-        unpack_fields_onto_model(model.View, build_field_type_definitions(model))
+        unpack_fields_onto_model(model.View, get_field_type_definitions(model))
         model.View.__pg_base_class__ = typing.cast(
             type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
         )
@@ -109,19 +105,16 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
             __base__=ViewBase,
         )
 
-        unpack_fields_onto_model(model.View, build_field_type_definitions(model))
+        unpack_fields_onto_model(model.View, get_field_type_definitions(model))
         model.View.__pg_base_class__ = model
         model.View.model_rebuild(force=True)
 
 
 @cache
-def add_edge_model(
-    model: type[ReferenceSetBase]
-    | type[ReifiedCreateBase]
-    | type[ReferenceCreateBase]
-    | type[CreateBase],
+def add_edge_model[T: type[ReferenceViewBase] | type[ReifiedRelationViewBase]](
+    model: T,
     edge_model: EdgeModel,
-) -> type[BaseModel]:
+) -> T:
     """Creates and returns a subclass of the model with the edge_model
     added as model.edge_properties field.
 
@@ -144,7 +137,7 @@ def add_edge_model(
 
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
-) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase]]:
+) -> list[type[ReferenceViewBase | ReifiedRelationViewBase]]:
     """Creates a list of actual classes to be referenced by a relation"""
     related_models = []
 
@@ -159,14 +152,12 @@ def get_models_for_relation_field(
     # Add relations_to_reified_to_concrete_model_Types
     for field_type_definition in field.relations_to_reified:
         build_view_model(field_type_definition.annotated_type)
-        related_models.append(field_type_definition.annotated_type.Create)
+        related_models.append(field_type_definition.annotated_type.View)
 
     return related_models
 
 
-def build_relation_field(
-    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-) -> FieldInfo:
+def get_relation_field(field: RelationFieldDefinition) -> FieldInfo:
     related_models = get_models_for_relation_field(field)
 
     if field.edge_model:
@@ -183,7 +174,7 @@ def build_relation_field(
     return field_info
 
 
-def build_embedded_create_model(model: type[RootNode]):
+def build_embedded_view_model(model: type[RootNode]) -> None:
     """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
 
     # If model.Create already exists, return early
@@ -195,7 +186,7 @@ def build_embedded_create_model(model: type[RootNode]):
         __module__=model.__module__,
         __base__=EmbeddedViewBase,
     )
-    fields = build_field_type_definitions(model)
+    fields = get_field_type_definitions(model)
     for field_name, field_info in fields.items():
         model.EmbeddedView.model_fields[field_name] = field_info
     model.EmbeddedView.__pg_base_class__ = model
@@ -204,20 +195,21 @@ def build_embedded_create_model(model: type[RootNode]):
 
 def get_models_for_embedded_field(
     field: EmbeddedFieldDefinition,
-) -> list[type[EmbeddedCreateBase]]:
+) -> list[type[EmbeddedViewBase]]:
     """Creates a list of actual classes to be embedded by a relation"""
+
     embedded_types = []
 
     for base_type in get_concrete_model_types(
         field.field_annotation, include_subclasses=True
     ):
-        build_embedded_create_model(base_type)
-        embedded_types.append(base_type.EmbeddedCreate)
+        build_embedded_view_model(base_type)
+        embedded_types.append(base_type.EmbeddedView)
 
     return embedded_types
 
 
-def build_embedded_field(
+def get_embedded_field(
     field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
 ) -> FieldInfo:
     embedded_types = get_models_for_embedded_field(field)
