@@ -5,6 +5,7 @@ from pangloss_new import initialise_models
 from pangloss_new.model_config.models_base import (
     EdgeModel,
     EditHeadViewBase,
+    Embedded,
     ReifiedRelation,
 )
 from pangloss_new.models import BaseNode, RelationConfig
@@ -172,3 +173,167 @@ def test_edit_head_view_with_relation_to_reified():
     assert e.involves_person[1].target[0].edge_properties.certainty == 1
     assert isinstance(e.involves_person[0], Person.ReferenceView)
     assert isinstance(e.involves_person[1], Identification[Person].View)
+    assert isinstance(
+        e.involves_person[1].target[0], Person.ReferenceView.via.Certainty
+    )
+
+
+@no_type_check
+def test_edit_head_view_model_with_embedded_node():
+    class Reference(BaseNode):
+        pass
+
+    class Source(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        reference: Annotated[Reference, RelationConfig(reverse_name="is_cited_by")]
+        page_number: int
+
+    class Event(BaseNode):
+        citation: Embedded[Citation | Source]
+
+    initialise_models()
+
+    e = Event.EditHeadView(
+        type="Event",
+        id=gen_ulid(),
+        label="An Event",
+        urls=[],
+        created_by="Smith",
+        created_when=datetime.datetime.now(),
+        modified_by="Smith",
+        modified_when=datetime.datetime.now(),
+        citation=[
+            {
+                "type": "Citation",
+                "id": gen_ulid(),
+                "reference": [
+                    {
+                        "label": "A Book",
+                        "type": "Reference",
+                        "id": gen_ulid(),
+                    }
+                ],
+                "page_number": 1,
+            }
+        ],
+    )
+
+    assert e.type == "Event"
+    assert e.id is not None
+    assert e.label == "An Event"
+    assert e.urls == []
+    assert e.created_by == "Smith"
+    assert e.modified_by == "Smith"
+    assert e.citation[0].type == "Citation"
+    assert e.citation[0].id is not None
+    assert e.citation[0].reference[0].type == "Reference"
+    assert e.citation[0].reference[0].id is not None
+    assert e.citation[0].reference[0].label == "A Book"
+    assert e.citation[0].page_number == 1
+    assert isinstance(e.citation[0], Citation.EmbeddedView)
+    assert isinstance(e.citation[0].reference[0], Reference.ReferenceView)
+
+
+@no_type_check
+def test_edit_head_view_model_with_double_reified():
+    class Certainty(EdgeModel):
+        certainty: int
+
+    class Intermediate[T, U](ReifiedRelation[T]):
+        other: Annotated[U, RelationConfig(reverse_name="is_other_in")]
+
+    class Identification[T](ReifiedRelation[T]):
+        target: Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+        ]
+
+    class Cat(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        owns_cat: Annotated[
+            Intermediate[Identification[Cat], Identification[Dog]],
+            RelationConfig(reverse_name="is_owned_by"),
+        ]
+
+    initialise_models()
+
+    p = Person.EditHeadView(
+        type="Person",
+        id=gen_ulid(),
+        label="A Person",
+        urls=[],
+        created_by="Smith",
+        created_when=datetime.datetime.now(),
+        modified_by="Smith",
+        modified_when=datetime.datetime.now(),
+        owns_cat=[
+            {
+                "type": "Intermediate",
+                "id": gen_ulid(),
+                "target": [
+                    {
+                        "type": "Identification",
+                        "id": gen_ulid(),
+                        "target": [
+                            {
+                                "type": "Cat",
+                                "id": gen_ulid(),
+                                "label": "A Cat",
+                                "edge_properties": {"certainty": 1},
+                            }
+                        ],
+                    }
+                ],
+                "other": [
+                    {
+                        "type": "Identification",
+                        "id": gen_ulid(),
+                        "target": [
+                            {
+                                "type": "Dog",
+                                "id": gen_ulid(),
+                                "label": "A Dog",
+                                "edge_properties": {"certainty": 1},
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert p.type == "Person"
+    assert p.id is not None
+    assert p.label == "A Person"
+    assert p.urls == []
+    assert p.created_by == "Smith"
+    assert p.modified_by == "Smith"
+    assert p.owns_cat[0].type == "Intermediate"
+    assert p.owns_cat[0].id is not None
+    assert p.owns_cat[0].target[0].type == "Identification"
+    assert p.owns_cat[0].target[0].id is not None
+    assert p.owns_cat[0].target[0].target[0].type == "Cat"
+    assert p.owns_cat[0].target[0].target[0].id is not None
+    assert p.owns_cat[0].target[0].target[0].label == "A Cat"
+    assert p.owns_cat[0].other[0].type == "Identification"
+    assert p.owns_cat[0].other[0].id is not None
+    assert p.owns_cat[0].other[0].target[0].type == "Dog"
+    assert p.owns_cat[0].other[0].target[0].id is not None
+    assert p.owns_cat[0].other[0].target[0].label == "A Dog"
+    assert p.owns_cat[0].target[0].target[0].edge_properties.certainty == 1
+    assert p.owns_cat[0].other[0].target[0].edge_properties.certainty == 1
+    assert isinstance(
+        p.owns_cat[0], Intermediate[Identification[Cat], Identification[Dog]].View
+    )
+    assert isinstance(p.owns_cat[0].target[0], Identification[Cat].View)
+    assert isinstance(
+        p.owns_cat[0].target[0].target[0], Cat.ReferenceView.via.Certainty
+    )
+    assert isinstance(p.owns_cat[0].other[0], Identification[Dog].View)
+    assert isinstance(p.owns_cat[0].other[0].target[0], Dog.ReferenceView.via.Certainty)
