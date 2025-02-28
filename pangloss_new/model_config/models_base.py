@@ -58,7 +58,7 @@ class _OwnsMethods:
         if key in cls.__dict__:
             return True
         if item := getattr(cls, key, None) and hasattr(cls, "__pg_base_class__"):
-            if item.__pg_base_class__ is cls:
+            if getattr(item, "__pg_base_class__", None) is cls:
                 return True
         return False
 
