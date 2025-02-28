@@ -55,12 +55,11 @@ class _OwnsMethods:
 
     @classmethod
     def has_own(cls, key: str) -> bool:
-        print(cls.__name__)
         if key in cls.__dict__:
             return True
-        # if item := getattr(cls, key, None) and hasattr(cls, "__pg_base_class__"):
-        #    if item.__pg_base_class__ is cls:
-        #        return True
+        if item := getattr(cls, key, None) and hasattr(cls, "__pg_base_class__"):
+            if item.__pg_base_class__ is cls:
+                return True
         return False
 
     @classmethod

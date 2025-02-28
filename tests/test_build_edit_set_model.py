@@ -6,10 +6,13 @@ EditSet model should
 
 from typing import Annotated, Union, get_args, get_origin, no_type_check
 
+from annotated_types import MaxLen, MinLen
+
 from pangloss_new import initialise_models
 from pangloss_new.model_config.models_base import (
     BaseMeta,
     EdgeModel,
+    Embedded,
     ReifiedRelation,
     RelationConfig,
 )
@@ -284,3 +287,62 @@ def test_build_edit_set_model_with_reified_relations():
 
     assert isinstance(e.involves_person[2], Intermediate[Person].Create)
     assert isinstance(e.involves_person[2], Intermediate[Person].Create.via.Certainty)
+
+
+@no_type_check
+def test_build_edit_set_head_with_embedded_node():
+    class Reference(BaseNode):
+        pass
+
+    class Source(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        reference: Annotated[Reference, RelationConfig(reverse_name="is_cited_by")]
+        page_number: int
+
+    class Event(BaseNode):
+        citation: Annotated[Embedded[Citation | Source], MinLen(1), MaxLen(2)]
+
+    initialise_models()
+
+    annotation = Event.EditHeadSet.model_fields["citation"].annotation
+    assert get_origin(annotation) is list
+    union = get_args(annotation)[0]
+    assert get_origin(union) is Union
+    args = get_args(union)
+    assert len(args) == 4
+    for t in [
+        Citation.EmbeddedSet,
+        Citation.EmbeddedCreate,
+        Source.EmbeddedSet,
+        Source.EmbeddedCreate,
+    ]:
+        assert t in args
+
+    e = Event.EditHeadSet(
+        id=gen_ulid(),
+        label="An Event",
+        citation=[
+            {
+                "type": "Citation",
+                "page_number": 1,
+                "reference": [
+                    {"type": "Reference", "id": gen_ulid()},
+                ],
+            },
+            {"type": "Source", "id": gen_ulid()},
+        ],
+    )
+
+    assert isinstance(e.citation[0], Citation.EmbeddedCreate)
+    assert isinstance(e.citation[1], Source.EmbeddedSet)
+
+    assert e.id is not None
+    assert e.label == "An Event"
+    assert e.type == "Event"
+    assert e.citation[0].type == "Citation"
+    assert e.citation[0].page_number == 1
+
+    assert isinstance(e.citation[0].reference[0], Reference.ReferenceSet)
+    assert e.citation[0].reference[0].type == "Reference"

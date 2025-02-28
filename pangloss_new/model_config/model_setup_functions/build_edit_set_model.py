@@ -212,6 +212,7 @@ def build_embedded_set_model(model: type[RootNode]) -> None:
 
     # If model.Create already exists, return early
     if model.has_own("EmbeddedSet"):
+        print(model.__name__, "EmbeddedSet exists")
         return
 
     model.EmbeddedSet = create_model(

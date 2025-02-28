@@ -6,7 +6,7 @@ from ulid import ULID
 
 
 def gen_ulid() -> pydantic_extra_types.ulid.ULID:
-    """Generic a ULID
+    """Generate a ULID
 
     Uses some type coercion to persuade typecheckers that it works
     with Pydantic models"""
