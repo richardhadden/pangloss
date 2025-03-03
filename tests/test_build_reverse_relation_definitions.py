@@ -1,6 +1,10 @@
 from typing import Annotated, no_type_check
 
 from pangloss_new import initialise_models
+from pangloss_new.model_config.field_definitions import (
+    ContextIncomingRelationDefinition,
+    DirectIncomingRelationDefinition,
+)
 from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
     PathSegment,
     get_reverse_relation_paths,
@@ -15,6 +19,11 @@ from pangloss_new.models import BaseNode
 
 @no_type_check
 def test_build_reverse_relation_paths():
+    class Factoid(BaseNode):
+        has_statements: Annotated[
+            "Event", RelationConfig(reverse_name="is_statement_in")
+        ]
+
     class Person(BaseNode):
         pass
 
@@ -54,6 +63,19 @@ def test_build_reverse_relation_paths():
 
     initialise_models()
 
+    factoid_paths = get_reverse_relation_paths(Factoid)
+    assert len(factoid_paths) == 1
+
+    assert factoid_paths[0] == [
+        PathSegment(
+            metatype="StartNode",
+            type=Factoid,
+            relation_definition=Factoid._meta.fields["has_statements"],
+        ),
+        PathSegment(metatype="EndNode", type=Event),
+    ]
+
+    #######
     # Sanity check: reverse_relations fields initialising correctly
     assert isinstance(Event._meta.fields.reverse_relations, dict)
 
@@ -70,6 +92,17 @@ def test_build_reverse_relation_paths():
         PathSegment(metatype="EndNode", type=Person),
     ]
 
+    assert paths[0].reverse_key == "is_involved_in_event"
+    assert isinstance(
+        paths[0].reverse_relation_definition, DirectIncomingRelationDefinition
+    )
+    assert paths[0].reverse_relation_definition.reverse_name == "is_involved_in_event"
+    assert paths[0].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[0].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_entity"]
+    )
+
     assert paths[1] == [
         PathSegment(
             metatype="StartNode",
@@ -78,6 +111,17 @@ def test_build_reverse_relation_paths():
         ),
         PathSegment(metatype="EndNode", type=Dog),
     ]
+    assert paths[0].reverse_key == "is_involved_in_event"
+    assert paths[0].reverse_key == "is_involved_in_event"
+    assert isinstance(
+        paths[0].reverse_relation_definition, DirectIncomingRelationDefinition
+    )
+    assert paths[0].reverse_relation_definition.reverse_name == "is_involved_in_event"
+    assert paths[0].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[0].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_entity"]
+    )
 
     assert paths[2] == [
         PathSegment(
@@ -95,6 +139,17 @@ def test_build_reverse_relation_paths():
             type=Cat,
         ),
     ]
+    assert paths[2].reverse_key == "is_involved_in_event"
+
+    assert isinstance(
+        paths[2].reverse_relation_definition, ContextIncomingRelationDefinition
+    )
+    assert paths[2].reverse_relation_definition.reverse_name == "is_involved_in_event"
+    assert paths[2].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[2].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_entity"]
+    )
 
     assert paths[3] == [
         PathSegment(
@@ -120,6 +175,18 @@ def test_build_reverse_relation_paths():
         ),
     ]
 
+    assert paths[3].reverse_key == "is_involved_in_event"
+
+    assert isinstance(
+        paths[3].reverse_relation_definition, ContextIncomingRelationDefinition
+    )
+    assert paths[3].reverse_relation_definition.reverse_name == "is_involved_in_event"
+    assert paths[3].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[3].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_entity"]
+    )
+
     assert paths[4] == [
         PathSegment(
             metatype="StartNode",
@@ -140,6 +207,16 @@ def test_build_reverse_relation_paths():
         ),
         PathSegment(metatype="EndNode", type=Dog),
     ]
+    assert paths[4].reverse_key == "acts_as_proxy_in"
+    assert isinstance(
+        paths[4].reverse_relation_definition, ContextIncomingRelationDefinition
+    )
+    assert paths[4].reverse_relation_definition.reverse_name == "acts_as_proxy_in"
+    assert paths[4].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[4].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_entity"]
+    )
 
     assert paths[5] == [
         PathSegment(
@@ -149,6 +226,17 @@ def test_build_reverse_relation_paths():
         ),
         PathSegment(metatype="EndNode", type=Dog),
     ]
+
+    assert paths[5].reverse_key == "is_involved_in_event"
+    assert isinstance(
+        paths[5].reverse_relation_definition, DirectIncomingRelationDefinition
+    )
+    assert paths[5].reverse_relation_definition.reverse_name == "is_involved_in_event"
+    assert paths[5].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[5].reverse_relation_definition.relation_definition
+        is Event._meta.fields["involves_dog"]
+    )
 
     assert paths[6] == [
         PathSegment(
@@ -163,6 +251,17 @@ def test_build_reverse_relation_paths():
         ),
         PathSegment(metatype="EndNode", type=Reference),
     ]
+
+    assert paths[6].reverse_key == "is_cited_in"
+    assert isinstance(
+        paths[6].reverse_relation_definition, ContextIncomingRelationDefinition
+    )
+    assert paths[6].reverse_relation_definition.reverse_name == "is_cited_in"
+    assert paths[6].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[6].reverse_relation_definition.relation_definition
+        is Event._meta.fields["source"]
+    )
 
     assert paths[7] == [
         PathSegment(
@@ -182,3 +281,14 @@ def test_build_reverse_relation_paths():
         ),
         PathSegment(metatype="EndNode", type=Reference),
     ]
+
+    assert paths[7].reverse_key == "is_cited_in"
+    assert isinstance(
+        paths[7].reverse_relation_definition, ContextIncomingRelationDefinition
+    )
+    assert paths[7].reverse_relation_definition.reverse_name == "is_cited_in"
+    assert paths[7].reverse_relation_definition.reverse_target is Event
+    assert (
+        paths[7].reverse_relation_definition.relation_definition
+        is Event._meta.fields["source"]
+    )

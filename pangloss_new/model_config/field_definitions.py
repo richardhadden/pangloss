@@ -283,4 +283,15 @@ class CombinedModelFieldDefinitions(ModelFieldDefinitions):
 
 @dataclasses.dataclass
 class IncomingRelationDefinition:
-    pass
+    reverse_name: str
+    reverse_target: type["RootNode"]
+
+
+@dataclasses.dataclass
+class DirectIncomingRelationDefinition(IncomingRelationDefinition):
+    relation_definition: RelationFieldDefinition
+
+
+@dataclasses.dataclass
+class ContextIncomingRelationDefinition(IncomingRelationDefinition):
+    relation_definition: RelationFieldDefinition

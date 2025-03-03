@@ -324,6 +324,10 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
     __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
+    collapse_if: typing.ClassVar[
+        typing.Optional[typing.Callable[[typing.Self], bool]]
+    ] = None
+
     _meta: typing.ClassVar[ReifiedMeta]
 
     @classmethod
