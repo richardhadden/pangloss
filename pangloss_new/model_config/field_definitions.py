@@ -3,7 +3,7 @@ import datetime
 import enum
 import types
 import typing
-from collections import ChainMap
+from collections import ChainMap, defaultdict
 
 import annotated_types
 
@@ -211,6 +211,9 @@ class ModelFieldDefinitions:
     fields: dict[str, FieldDefinition] | typing.ChainMap[str, FieldDefinition] = (
         dataclasses.field(default_factory=dict)
     )
+    reverse_relations: dict[str, set["IncomingRelationDefinition"]] = dataclasses.field(
+        default_factory=lambda: defaultdict(set)
+    )
 
     def __getitem__(self, key) -> FieldDefinition | None:
         return self.fields[key]
@@ -276,3 +279,8 @@ class CombinedModelFieldDefinitions(ModelFieldDefinitions):
         self.fields = ChainMap(
             main_model_definitions.fields, specialised_model_definitions.fields
         )
+
+
+@dataclasses.dataclass
+class IncomingRelationDefinition:
+    pass

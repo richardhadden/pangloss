@@ -82,6 +82,9 @@ class ModelManager:
             build_reference_set,
             build_reference_view,
         )
+        from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
+            build_reverse_relations_definitions_to,
+        )
         from pangloss_new.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
         )
@@ -137,3 +140,6 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             build_edit_head_set_model(model)
+
+        for model_name, model in cls.base_models.items():
+            build_reverse_relations_definitions_to(model)
