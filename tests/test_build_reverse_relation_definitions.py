@@ -94,12 +94,15 @@ def test_build_reverse_relation_paths():
 
     assert paths[0].reverse_key == "is_involved_in_event"
     assert isinstance(
-        paths[0].reverse_relation_definition, DirectIncomingRelationDefinition
+        paths[0].build_reverse_relation_definition(), DirectIncomingRelationDefinition
     )
-    assert paths[0].reverse_relation_definition.reverse_name == "is_involved_in_event"
-    assert paths[0].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[0].reverse_relation_definition.relation_definition
+        paths[0].build_reverse_relation_definition().reverse_name
+        == "is_involved_in_event"
+    )
+    assert paths[0].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[0].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_entity"]
     )
 
@@ -114,12 +117,15 @@ def test_build_reverse_relation_paths():
     assert paths[0].reverse_key == "is_involved_in_event"
     assert paths[0].reverse_key == "is_involved_in_event"
     assert isinstance(
-        paths[0].reverse_relation_definition, DirectIncomingRelationDefinition
+        paths[0].build_reverse_relation_definition(), DirectIncomingRelationDefinition
     )
-    assert paths[0].reverse_relation_definition.reverse_name == "is_involved_in_event"
-    assert paths[0].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[0].reverse_relation_definition.relation_definition
+        paths[0].build_reverse_relation_definition().reverse_name
+        == "is_involved_in_event"
+    )
+    assert paths[0].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[0].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_entity"]
     )
 
@@ -142,12 +148,15 @@ def test_build_reverse_relation_paths():
     assert paths[2].reverse_key == "is_involved_in_event"
 
     assert isinstance(
-        paths[2].reverse_relation_definition, ContextIncomingRelationDefinition
+        paths[2].build_reverse_relation_definition(), ContextIncomingRelationDefinition
     )
-    assert paths[2].reverse_relation_definition.reverse_name == "is_involved_in_event"
-    assert paths[2].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[2].reverse_relation_definition.relation_definition
+        paths[2].build_reverse_relation_definition().reverse_name
+        == "is_involved_in_event"
+    )
+    assert paths[2].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[2].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_entity"]
     )
 
@@ -178,12 +187,15 @@ def test_build_reverse_relation_paths():
     assert paths[3].reverse_key == "is_involved_in_event"
 
     assert isinstance(
-        paths[3].reverse_relation_definition, ContextIncomingRelationDefinition
+        paths[3].build_reverse_relation_definition(), ContextIncomingRelationDefinition
     )
-    assert paths[3].reverse_relation_definition.reverse_name == "is_involved_in_event"
-    assert paths[3].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[3].reverse_relation_definition.relation_definition
+        paths[3].build_reverse_relation_definition().reverse_name
+        == "is_involved_in_event"
+    )
+    assert paths[3].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[3].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_entity"]
     )
 
@@ -209,12 +221,14 @@ def test_build_reverse_relation_paths():
     ]
     assert paths[4].reverse_key == "acts_as_proxy_in"
     assert isinstance(
-        paths[4].reverse_relation_definition, ContextIncomingRelationDefinition
+        paths[4].build_reverse_relation_definition(), ContextIncomingRelationDefinition
     )
-    assert paths[4].reverse_relation_definition.reverse_name == "acts_as_proxy_in"
-    assert paths[4].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[4].reverse_relation_definition.relation_definition
+        paths[4].build_reverse_relation_definition().reverse_name == "acts_as_proxy_in"
+    )
+    assert paths[4].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[4].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_entity"]
     )
 
@@ -229,12 +243,15 @@ def test_build_reverse_relation_paths():
 
     assert paths[5].reverse_key == "is_involved_in_event"
     assert isinstance(
-        paths[5].reverse_relation_definition, DirectIncomingRelationDefinition
+        paths[5].build_reverse_relation_definition(), DirectIncomingRelationDefinition
     )
-    assert paths[5].reverse_relation_definition.reverse_name == "is_involved_in_event"
-    assert paths[5].reverse_relation_definition.reverse_target is Event
     assert (
-        paths[5].reverse_relation_definition.relation_definition
+        paths[5].build_reverse_relation_definition().reverse_name
+        == "is_involved_in_event"
+    )
+    assert paths[5].build_reverse_relation_definition().reverse_target is Event
+    assert (
+        paths[5].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["involves_dog"]
     )
 
@@ -254,13 +271,13 @@ def test_build_reverse_relation_paths():
 
     assert paths[6].reverse_key == "is_cited_in"
     assert isinstance(
-        paths[6].reverse_relation_definition, ContextIncomingRelationDefinition
+        paths[6].build_reverse_relation_definition(), DirectIncomingRelationDefinition
     )
-    assert paths[6].reverse_relation_definition.reverse_name == "is_cited_in"
-    assert paths[6].reverse_relation_definition.reverse_target is Event
+    assert paths[6].build_reverse_relation_definition().reverse_name == "is_cited_in"
+    assert paths[6].build_reverse_relation_definition().reverse_target is Event
     assert (
-        paths[6].reverse_relation_definition.relation_definition
-        is Event._meta.fields["source"]
+        paths[6].build_reverse_relation_definition().relation_definition
+        is Citation._meta.fields["cites"]
     )
 
     assert paths[7] == [
@@ -284,11 +301,68 @@ def test_build_reverse_relation_paths():
 
     assert paths[7].reverse_key == "is_cited_in"
     assert isinstance(
-        paths[7].reverse_relation_definition, ContextIncomingRelationDefinition
+        paths[7].build_reverse_relation_definition(), ContextIncomingRelationDefinition
     )
-    assert paths[7].reverse_relation_definition.reverse_name == "is_cited_in"
-    assert paths[7].reverse_relation_definition.reverse_target is Event
+    assert paths[7].build_reverse_relation_definition().reverse_name == "is_cited_in"
+    assert paths[7].build_reverse_relation_definition().reverse_target is Event
     assert (
-        paths[7].reverse_relation_definition.relation_definition
+        paths[7].build_reverse_relation_definition().relation_definition
         is Event._meta.fields["source"]
     )
+
+
+def test_object_fields_contains_incoming_relations():
+    class Factoid(BaseNode):
+        has_statements: Annotated[
+            "Event", RelationConfig(reverse_name="is_statement_in")
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Dog(BaseNode):
+        pass
+
+    class Cat(BaseNode):
+        pass
+
+    class Intermediate[T](ReifiedRelation[T]):
+        pass
+
+    class WithProxy[T, U](ReifiedRelation[T]):
+        proxy: Annotated[U, RelationConfig(reverse_name="acts_as_proxy_in")]
+
+    class Reference(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        cites: Annotated[Reference, RelationConfig(reverse_name="is_cited_in")]
+        cites_via_intermediate: Annotated[
+            Intermediate[Reference], RelationConfig(reverse_name="is_cited_in")
+        ]
+
+    class Event(BaseNode):
+        involves_entity: Annotated[
+            Person
+            | Dog
+            | Intermediate[Cat]
+            | WithProxy[Intermediate[Cat], Intermediate[Dog]],
+            RelationConfig(reverse_name="is_involved_in_event"),
+        ]
+        involves_dog: Annotated[
+            Dog, RelationConfig(reverse_name="is_involved_in_event")
+        ]
+        source: Embedded[Citation]
+
+    initialise_models()
+
+    assert (
+        Event._meta.reverse_relations["is_statement_in"].pop().reverse_target is Factoid
+    )
+
+    assert Cat._meta.reverse_relations["is_involved_in_event"]
+    print(Dog._meta.reverse_relations.keys())
+    assert "is_involved_in_event" in Dog._meta.reverse_relations
+    assert "acts_as_proxy_in" in Dog._meta.reverse_relations
+
+    assert "is_cited_in" in Reference._meta.reverse_relations

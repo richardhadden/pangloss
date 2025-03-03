@@ -7,7 +7,12 @@ from collections import ChainMap, defaultdict
 
 import annotated_types
 
+from pangloss_new.model_config.models_base import ReifiedRelationNode
+
 if typing.TYPE_CHECKING:
+    from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
+        Path,
+    )
     from pangloss_new.model_config.models_base import (
         EdgeModel,
         HeritableTrait,
@@ -284,14 +289,21 @@ class CombinedModelFieldDefinitions(ModelFieldDefinitions):
 @dataclasses.dataclass
 class IncomingRelationDefinition:
     reverse_name: str
-    reverse_target: type["RootNode"]
+    reverse_target: type["RootNode"] | type["ReifiedRelationNode"]
+    forward_path_object: "Path"
+    relation_definition: RelationFieldDefinition
+
+    def __hash__(self):
+        return hash(self.forward_path_object)
 
 
 @dataclasses.dataclass
 class DirectIncomingRelationDefinition(IncomingRelationDefinition):
-    relation_definition: RelationFieldDefinition
+    def __hash__(self):
+        return hash(self.forward_path_object)
 
 
 @dataclasses.dataclass
 class ContextIncomingRelationDefinition(IncomingRelationDefinition):
-    relation_definition: RelationFieldDefinition
+    def __hash__(self):
+        return hash(self.forward_path_object)

@@ -139,6 +139,10 @@ class BaseMeta:
     def fields(self):
         return self.base_model.__pg_field_definitions__
 
+    @property
+    def reverse_relations(self):
+        return self.base_model.__pg_field_definitions__.reverse_relations
+
 
 class RootNode(_OwnsMethods):
     """Base class for basic BaseModel"""
@@ -374,6 +378,10 @@ class ReifiedRelation[T](ReifiedBase, _StandardModel):
         cls.__parameters__ = cls.__type_params__
 
         ModelManager.register_reified_relation_model(cls)
+
+
+class ReifiedRelationNode[T](ReifiedRelation[T]):
+    label: str
 
 
 class ReifiedRelationViewBase(
