@@ -67,6 +67,9 @@ class ModelManager:
         from pangloss_new.model_config.model_setup_functions.build_edit_set_model import (
             build_edit_head_set_model,
         )
+        from pangloss_new.model_config.model_setup_functions.build_head_view_model import (
+            build_head_view_model,
+        )
         from pangloss_new.model_config.model_setup_functions.build_model_meta import (
             initialise_model_meta_inheritance,
         )
@@ -143,3 +146,6 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             build_reverse_relations_definitions_to(model)
+
+        for model_name, model in cls.base_models.items():
+            build_head_view_model(model)

@@ -1,18 +1,28 @@
-from typing import TypedDict
+from typing import Any, Literal, Union
 
-from pydantic import BaseModel
-
-
-class kwargs(TypedDict):
-    name: str
+from pydantic import BaseModel, Field, RootModel
 
 
-class Thong(BaseModel):
-    age: int
-    name: str
-
-    def __init__(self, age: list, **data):
-        super().__init__(age=1, **data)
+class MessageModelV1(BaseModel):
+    version: Literal[1]
+    bar: str
 
 
-t = Thong(age=[], name="john")
+class MessageModelV2(BaseModel):
+    version: Literal[2]
+    foo: str
+
+
+MessageType = Union[MessageModelV1, MessageModelV2]
+
+
+class OuterMessageModel(RootModel):
+    root: MessageType = Field(discriminator="version")
+
+
+def MessageModel(**kwargs: Any) -> MessageType:
+    return OuterMessageModel.model_validate(kwargs).root
+
+
+obj1 = MessageModel(version=1, bar="a")
+obj2 = MessageModel(version=2, foo="b")

@@ -7,12 +7,21 @@ from collections import ChainMap
 
 import annotated_types
 import humps
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
-from pydantic_extra_types.ulid import ULID
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    computed_field,
+)
+from pydantic_extra_types.ulid import ULID as ExtraTypeULID
 
 if typing.TYPE_CHECKING:
     from pangloss_new.model_config.field_definitions import ModelFieldDefinitions
 
+
+type ULID = typing.Annotated[ExtraTypeULID, PlainSerializer(lambda ulid: str(ulid))]
 
 """API OPERATIONS
 
@@ -75,6 +84,11 @@ class _BaseClassProxy(_OwnsMethods):
     @property
     def __pg_field_definitions__(self):
         return (self.__pg_base_class__.__pg_field_definitions__,)
+
+    @property
+    def collapse_when(self):
+        print(self.__pg_base_class__)
+        return getattr(self.__pg_base_class__, "collapse_when", None)
 
 
 RelationViaEdgeType = typing.TypeVar(
@@ -328,7 +342,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
     __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
-    collapse_if: typing.ClassVar[
+    collapse_when: typing.ClassVar[
         typing.Optional[typing.Callable[[typing.Self], bool]]
     ] = None
 
@@ -393,6 +407,11 @@ class ReifiedRelationViewBase(
     id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
+
+    @computed_field
+    @property
+    def collapsed(self) -> bool:
+        return self.__pg_base_class__.collapse_when(self)  # type: ignore
 
 
 class ReifiedRelationEditSetBase(
