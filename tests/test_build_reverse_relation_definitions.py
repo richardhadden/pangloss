@@ -63,97 +63,122 @@ def test_build_reverse_relation_paths():
 
     assert paths[0] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["involves_entity"],
         ),
-        PathSegment(type=Person),
+        PathSegment(metatype="EndNode", type=Person),
     ]
 
     assert paths[1] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["involves_entity"],
         ),
-        PathSegment(type=Dog),
+        PathSegment(metatype="EndNode", type=Dog),
     ]
 
     assert paths[2] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["involves_entity"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=Intermediate[Cat],
             relation_definition=Intermediate[Cat]._meta.fields["target"],
         ),
-        PathSegment(type=Cat),
+        PathSegment(
+            metatype="EndNode",
+            type=Cat,
+        ),
     ]
 
     assert paths[3] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["involves_entity"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=WithProxy[Intermediate[Cat], Intermediate[Dog]],
             relation_definition=WithProxy[
                 Intermediate[Cat], Intermediate[Dog]
             ]._meta.fields["target"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=Intermediate[Cat],
             relation_definition=Intermediate[Cat]._meta.fields["target"],
         ),
-        PathSegment(type=Cat),
+        PathSegment(
+            metatype="EndNode",
+            type=Cat,
+        ),
     ]
 
     assert paths[4] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["involves_entity"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=WithProxy[Intermediate[Cat], Intermediate[Dog]],
             relation_definition=WithProxy[
                 Intermediate[Cat], Intermediate[Dog]
             ]._meta.fields["proxy"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=Intermediate[Dog],
             relation_definition=Intermediate[Dog]._meta.fields["target"],
         ),
-        PathSegment(type=Dog),
+        PathSegment(metatype="EndNode", type=Dog),
     ]
 
     assert paths[5] == [
-        PathSegment(type=Event, relation_definition=Event._meta.fields["involves_dog"]),
-        PathSegment(type=Dog),
+        PathSegment(
+            metatype="StartNode",
+            type=Event,
+            relation_definition=Event._meta.fields["involves_dog"],
+        ),
+        PathSegment(metatype="EndNode", type=Dog),
     ]
 
     assert paths[6] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["source"],
         ),
         PathSegment(
+            metatype="EmbeddedNode",
             type=Citation,
             relation_definition=Citation._meta.fields["cites"],
         ),
-        PathSegment(type=Reference),
+        PathSegment(metatype="EndNode", type=Reference),
     ]
 
     assert paths[7] == [
         PathSegment(
+            metatype="StartNode",
             type=Event,
             relation_definition=Event._meta.fields["source"],
         ),
         PathSegment(
+            metatype="EmbeddedNode",
             type=Citation,
             relation_definition=Citation._meta.fields["cites_via_intermediate"],
         ),
         PathSegment(
+            metatype="ReifiedRelation",
             type=Intermediate[Reference],
             relation_definition=Intermediate[Reference]._meta.fields["target"],
         ),
-        PathSegment(type=Reference),
+        PathSegment(metatype="EndNode", type=Reference),
     ]
