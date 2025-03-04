@@ -87,7 +87,6 @@ class _BaseClassProxy(_OwnsMethods):
 
     @property
     def collapse_when(self):
-        print(self.__pg_base_class__)
         return getattr(self.__pg_base_class__, "collapse_when", None)
 
 

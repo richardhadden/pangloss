@@ -51,7 +51,7 @@ def get_field_type_definitions(
         fields[field.field_name] = get_relation_field(field)
 
     for field in model._meta.fields.embedded_fields:
-        fields[field.field_name] = get_embedded_field(field, model)
+        fields[field.field_name] = get_embedded_field(field)
 
     return fields
 
@@ -209,9 +209,7 @@ def get_models_for_embedded_field(
     return embedded_types
 
 
-def get_embedded_field(
-    field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-) -> FieldInfo:
+def get_embedded_field(field: EmbeddedFieldDefinition) -> FieldInfo:
     embedded_types = get_models_for_embedded_field(field)
 
     field_info = FieldInfo.from_annotation(list[typing.Union[*embedded_types]])
