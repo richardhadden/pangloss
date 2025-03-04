@@ -5,6 +5,8 @@ from pydantic import create_model
 from pydantic.fields import FieldInfo
 
 from pangloss_new.model_config.field_definitions import (
+    ContextIncomingRelationDefinition,
+    DirectIncomingRelationDefinition,
     EmbeddedFieldDefinition,
     RelationFieldDefinition,
 )
@@ -75,6 +77,7 @@ def build_head_view_model(model: type[RootNode]):
 
     unpack_fields_onto_model(model.HeadView, get_field_type_definitions(model))
     model.HeadView.__pg_base_class__ = model
+    build_reverse_relations_for_model(model.HeadView)
     model.HeadView.model_rebuild(force=True)
 
 
@@ -106,6 +109,7 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
         )
 
         unpack_fields_onto_model(model.View, get_field_type_definitions(model))
+
         model.View.__pg_base_class__ = model
         model.View.model_rebuild(force=True)
 
@@ -216,3 +220,90 @@ def get_embedded_field(field: EmbeddedFieldDefinition) -> FieldInfo:
     if field.validators:
         field_info.metadata = field.validators
     return field_info
+
+
+def build_reverse_relations_for_model(model_head_view: type[HeadViewBase]) -> None:
+    assert issubclass(model_head_view.__pg_base_class__, RootNode)
+    for (
+        reverse_relation_field_name,
+        reverse_relation_definition_set,
+    ) in model_head_view.__pg_base_class__._meta.reverse_relations.items():
+        concrete_classes_for_field = []
+        for reverse_relation_definition in reverse_relation_definition_set:
+            if isinstance(
+                reverse_relation_definition, DirectIncomingRelationDefinition
+            ):
+                concrete_classes_for_field.append(
+                    build_direct_reverse_relation(reverse_relation_definition)
+                )
+            elif isinstance(
+                reverse_relation_definition, ContextIncomingRelationDefinition
+            ):
+                concrete_classes_for_field.append(
+                    build_context_reverse_relation(
+                        target_model=model_head_view.__pg_base_class__,
+                        reverse_relation_definition=reverse_relation_definition,
+                    )
+                )
+
+        model_head_view.model_fields[reverse_relation_field_name] = (
+            FieldInfo.from_annotation(list[typing.Union[*concrete_classes_for_field]])
+        )
+        model_head_view.model_fields[reverse_relation_field_name].default_factory = list
+    model_head_view.model_rebuild(force=True)
+
+
+# Event.View.in_context_of.Cat.is_involved_in = ContextViewModel
+#           ^target
+
+
+def build_context_reverse_relation(
+    target_model: type[RootNode],
+    reverse_relation_definition: ContextIncomingRelationDefinition,
+):
+    build_view_model(reverse_relation_definition.reverse_target)
+
+    context_reverse_relation_model_name = (
+        f"{reverse_relation_definition.reverse_target.__name__}View"
+        f"__in_context_of__{target_model.__name__}"
+        f"__{reverse_relation_definition.reverse_name}"
+    )
+
+    context_type = reverse_relation_definition.forward_path_object[1].type.View
+    if reverse_relation_definition.relation_definition.edge_model:
+        context_type = add_edge_model(
+            context_type, reverse_relation_definition.relation_definition.edge_model
+        )
+
+    context_field_def = {
+        reverse_relation_definition.relation_definition.field_name: (
+            list[context_type],
+            ...,
+        )
+    }
+
+    context_reverse_relation_model = create_model(  # type: ignore
+        context_reverse_relation_model_name,
+        __base__=ViewBase,
+        **context_field_def,  # type: ignore
+    )
+
+    reverse_relation_definition.reverse_target.View.in_context_of._add(
+        relation_target_model=target_model,
+        view_in_context_model=context_reverse_relation_model,
+        reverse_field_name=reverse_relation_definition.reverse_name,
+    )
+
+    return context_reverse_relation_model
+
+
+def build_direct_reverse_relation(
+    reverse_relation_definition: DirectIncomingRelationDefinition,
+):
+    if reverse_relation_definition.relation_definition.edge_model:
+        return add_edge_model(
+            reverse_relation_definition.reverse_target.ReferenceView,
+            reverse_relation_definition.relation_definition.edge_model,
+        )
+
+    return reverse_relation_definition.reverse_target.ReferenceView

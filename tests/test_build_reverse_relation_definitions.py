@@ -311,6 +311,7 @@ def test_build_reverse_relation_paths():
     )
 
 
+@no_type_check
 def test_object_fields_contains_incoming_relations():
     class Factoid(BaseNode):
         has_statements: Annotated[

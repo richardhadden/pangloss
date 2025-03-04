@@ -289,7 +289,7 @@ class CombinedModelFieldDefinitions(ModelFieldDefinitions):
 @dataclasses.dataclass
 class IncomingRelationDefinition:
     reverse_name: str
-    reverse_target: type["RootNode"] | type["ReifiedRelationNode"]
+
     forward_path_object: "Path"
     relation_definition: RelationFieldDefinition
 
@@ -299,11 +299,15 @@ class IncomingRelationDefinition:
 
 @dataclasses.dataclass
 class DirectIncomingRelationDefinition(IncomingRelationDefinition):
+    reverse_target: type["RootNode"]
+
     def __hash__(self):
         return hash(self.forward_path_object)
 
 
 @dataclasses.dataclass
 class ContextIncomingRelationDefinition(IncomingRelationDefinition):
+    reverse_target: type["RootNode"] | type["ReifiedRelationNode"]
+
     def __hash__(self):
         return hash(self.forward_path_object)

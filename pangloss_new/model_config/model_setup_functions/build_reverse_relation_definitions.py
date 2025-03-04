@@ -139,7 +139,7 @@ class Path(list[PathSegment]):
             return DirectIncomingRelationDefinition(
                 reverse_name=self.reverse_key,
                 reverse_target=cast(
-                    type[RootNode | ReifiedRelationNode],
+                    type[RootNode],
                     self.get_non_embedded_prior_to_embedded(
                         self.get_last_embedded_index()
                     ).type,
@@ -173,9 +173,9 @@ def get_reverse_relation_paths(
         | Literal["ReifiedRelation"]
     ) = "StartNode",
 ) -> list[Path]:
-    if not path_components:
+    if path_components is None:
         path_components = []
-    if not paths:
+    if paths is None:
         paths = []
 
     for relation_defintion in model._meta.fields.relation_fields:
@@ -195,9 +195,10 @@ def get_reverse_relation_paths(
                         ),
                     )
                 )
-            if isinstance(field_type_definition, RelationToReifiedDefinition):
+
+            elif isinstance(field_type_definition, RelationToReifiedDefinition):
                 get_reverse_relation_paths(
-                    field_type_definition.annotated_type,
+                    model=field_type_definition.annotated_type,
                     path_components=[
                         *path_components,
                         PathSegment(
@@ -232,6 +233,7 @@ def get_reverse_relation_paths(
 
 def build_reverse_relations_definitions_to(model: type[RootNode]):
     paths = get_reverse_relation_paths(model)
+
     for path in paths:
         for concrete_model_type in get_concrete_model_types(
             cast(type[RootNode], path[-1].type)

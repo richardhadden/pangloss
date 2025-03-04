@@ -123,6 +123,83 @@ class _ViaEdge(typing.Generic[RelationViaEdgeType]):
         return super().__init_subclass__()
 
 
+ViewInContextType = typing.TypeVar(
+    "ViewInContextType", bound="type[ViewBase | ReifiedRelationViewBase]"
+)
+
+
+class ContextFieldName[V]:
+    _context_field_names: dict[str, V]
+
+    def __init__(self):
+        self._context_field_names = {}
+
+    def _add(
+        self,
+        reverse_field_name: str,
+        view_in_context_model: V,
+    ):
+        self._context_field_names[reverse_field_name] = view_in_context_model
+
+    def __getattr__(self, name: str) -> V | None:
+        try:
+            return getattr(super(), name)
+        except AttributeError:
+            if name in self._context_field_names:
+                return self._context_field_names[name]
+            else:
+                raise AttributeError
+
+
+# Event.View.in_context_of.Cat.is_involved_in = ContextViewModel
+#           ^target
+
+
+class ViewInContext(typing.Generic[ViewInContextType]):
+    _classes: dict[str, ContextFieldName[type[ViewInContextType]]]
+    _cls: type[ViewInContextType]
+
+    def __init__(self, cls):
+        self._cls = cls
+        self._classes = dict()
+
+    def _add(
+        self,
+        relation_target_model: type[RootNode],
+        view_in_context_model: type[ViewInContextType],
+        reverse_field_name: str,
+    ):
+        if relation_target_model.__name__ not in self._classes:
+            self._classes[relation_target_model.__name__] = ContextFieldName()
+        self._classes[relation_target_model.__name__]._add(
+            reverse_field_name=reverse_field_name,
+            view_in_context_model=view_in_context_model,
+        )
+
+    def __getattr__(
+        self, name: str
+    ) -> ContextFieldName[type[ViewInContextType]] | None:
+        try:
+            return getattr(super(), name)
+        except AttributeError:
+            if name in self._classes:
+                return self._classes[name]
+            else:
+                raise AttributeError(
+                    f"{self._cls.__pg_base_class__.__name__}"
+                    f".{self._cls.__name__.replace(self._cls.__pg_base_class__.__name__, '')} "
+                    f"has no reverse context model for {name}"
+                )
+
+
+class _ReverseRelationInContextOf(typing.Generic[ViewInContextType]):
+    in_context_of: typing.ClassVar[ViewInContext[ViewInContextType]]  # type: ignore
+
+    def __init_subclass__(cls) -> None:
+        cls.in_context_of = ViewInContext[ViewInContextType](cls)
+        return super().__init_subclass__()
+
+
 @dataclasses.dataclass
 class BaseMeta:
     """Base class for BaseNode Meta fields"""
@@ -218,7 +295,13 @@ class CreateBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["CreateBas
     label: str
 
 
-class ViewBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ViewBase"]):
+class ViewBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["ViewBase"],
+    _ReverseRelationInContextOf["ViewBase"],
+):
     """Base model returned by API for viewing/editing when not Head.
 
     Contains all fields, no metadata or reverse relations"""
@@ -398,7 +481,11 @@ class ReifiedRelationNode[T](ReifiedRelation[T]):
 
 
 class ReifiedRelationViewBase(
-    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReifiedRelationViewBase"]
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["ReifiedRelationViewBase"],
+    _ReverseRelationInContextOf["ReifiedRelationViewBase"],
 ):
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 
@@ -411,6 +498,25 @@ class ReifiedRelationViewBase(
     @property
     def collapsed(self) -> bool:
         return self.__pg_base_class__.collapse_when(self)  # type: ignore
+
+
+class ReifiedRelationNodeHeadViewBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["ReifiedRelationNodeHeadViewBase"],
+):
+    """Base model for viewing a reified relation (contains uuid and additional metadata)"""
+
+    type: str
+    id: ULID
+    head_node: typing.Optional[ULID] = None
+    head_type: typing.Optional[str] = None
+
+    created_by: str
+    created_when: datetime.datetime
+    modified_by: str | None = None
+    modified_when: datetime.datetime | None = None
 
 
 class ReifiedRelationEditSetBase(
