@@ -42,4 +42,5 @@ def build_pg_annotations(
         ):
             break
         annotation_dicts.append(parent.__annotations__)
+
     cls.__pg_annotations__ = ChainMap(*annotation_dicts)

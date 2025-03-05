@@ -88,6 +88,9 @@ class ModelManager:
         from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
             build_reverse_relations_definitions_to,
         )
+        from pangloss_new.model_config.model_setup_functions.initialise_subclassed_relations import (
+            initialise_subclassed_relations,
+        )
         from pangloss_new.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
         )
@@ -117,6 +120,9 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             initialise_model_meta_inheritance(model)
+
+        for model_name, model in cls.base_models.items():
+            initialise_subclassed_relations(model)
 
         for model_name, model in cls.reified_relation_models.items():
             build_pg_annotations(model)

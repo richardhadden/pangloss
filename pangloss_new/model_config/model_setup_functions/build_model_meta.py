@@ -2,7 +2,18 @@ import inspect
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
-from pangloss_new.model_config.models_base import BaseMeta, RootNode
+from pangloss_new.model_config.model_setup_functions.utils import (
+    get_direct_instantiations_of_trait,
+    model_is_trait,
+)
+from pangloss_new.model_config.models_base import (
+    BaseMeta,
+    HeritableTrait,
+    NonHeritableTrait,
+    RootNode,
+    Trait,
+)
+from pangloss_new.models import BaseNode
 
 
 def initialise_model_meta_inheritance(model: type[RootNode]):
@@ -44,7 +55,7 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
     if "Meta" not in model.__dict__:
         meta_settings = {}
         for field_name in BaseMeta.__dataclass_fields__:
-            if field_name == "base_model":
+            if field_name in ["base_model", "supertypes", "traits"]:
                 continue
             meta_settings[field_name] = getattr(parent_meta, field_name)
         meta_settings["abstract"] = False
@@ -69,7 +80,34 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
         ):
             meta_settings["abstract"] = True
 
-        model._meta = model.Meta(base_model=model, **meta_settings)
+        traits: list[type[Trait]] = [
+            c
+            for c in model.mro()
+            if (
+                model_is_trait(c)
+                and not issubclass(c, NonHeritableTrait)
+                and c is not HeritableTrait
+            )
+            or (
+                model_is_trait(c)
+                and c is not HeritableTrait
+                and model
+                in get_direct_instantiations_of_trait(c, follow_trait_subclasses=True)
+            )
+            and c is not HeritableTrait
+            and c is not NonHeritableTrait
+        ]
+
+        model._meta = model.Meta(
+            base_model=model,
+            supertypes=[
+                c
+                for c in model.mro()
+                if issubclass(c, BaseNode) and c not in [BaseNode, model]
+            ],
+            traits=traits,
+            **meta_settings,
+        )
 
         if (
             model.Meta.label_field

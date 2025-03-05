@@ -362,7 +362,7 @@ def test_object_fields_contains_incoming_relations():
     )
 
     assert Cat._meta.reverse_relations["is_involved_in_event"]
-    print(Dog._meta.reverse_relations.keys())
+
     assert "is_involved_in_event" in Dog._meta.reverse_relations
     assert "acts_as_proxy_in" in Dog._meta.reverse_relations
 

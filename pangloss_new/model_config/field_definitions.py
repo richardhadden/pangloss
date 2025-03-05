@@ -233,6 +233,10 @@ class ModelFieldDefinitions:
         for field in self.fields.values():
             yield field
 
+    def __delitem__(self, key):
+        if key in self.fields:
+            del self.fields[key]
+
     @property
     def relation_fields(
         self,

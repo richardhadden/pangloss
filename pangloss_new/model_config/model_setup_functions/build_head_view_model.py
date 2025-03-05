@@ -322,8 +322,6 @@ def build_context_reverse_relation(
 def build_direct_reverse_relation(
     reverse_relation_definition: DirectIncomingRelationDefinition,
 ):
-    print(reverse_relation_definition.forward_path_object)
-    # print("building direct rel")
     if reverse_relation_definition.relation_definition.edge_model:
         return add_edge_model(
             reverse_relation_definition.reverse_target.ReferenceView,

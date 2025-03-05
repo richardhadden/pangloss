@@ -1,7 +1,8 @@
 import typing
 from functools import cache
 
-from pydantic import BaseModel, create_model
+import humps
+from pydantic import AliasChoices, BaseModel, create_model
 from pydantic.fields import FieldInfo
 
 from pangloss_new.model_config.field_definitions import (
@@ -155,6 +156,11 @@ def build_relation_field(
         m.model_rebuild(force=True)
 
     field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
+    if len(field.relation_labels) > 1:
+        field_info.validation_alias = AliasChoices(
+            *field.relation_labels, *(humps.camelize(l) for l in field.relation_labels)
+        )
+        field_info.alias_priority = 2
 
     if field.validators:
         field_info.metadata = field.validators

@@ -18,7 +18,10 @@ from pydantic import (
 from pydantic_extra_types.ulid import ULID as ExtraTypeULID
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.field_definitions import ModelFieldDefinitions
+    from pangloss_new.model_config.field_definitions import (
+        IncomingRelationDefinition,
+        ModelFieldDefinitions,
+    )
 
 
 type ULID = typing.Annotated[ExtraTypeULID, PlainSerializer(lambda ulid: str(ulid))]
@@ -206,6 +209,9 @@ class BaseMeta:
 
     base_model: type["RootNode"]
 
+    supertypes: list[type["RootNode"]] = dataclasses.field(default_factory=list)
+    traits: list[type["Trait"]] = dataclasses.field(default_factory=list)
+
     abstract: bool = False
     """The model is an abstract model"""
     create: bool = True
@@ -226,12 +232,19 @@ class BaseMeta:
     """Alternative field to be displayed as label"""
 
     @property
-    def fields(self):
+    def fields(self) -> ModelFieldDefinitions:
         return self.base_model.__pg_field_definitions__
 
     @property
-    def reverse_relations(self):
+    def reverse_relations(self) -> dict[str, set["IncomingRelationDefinition"]]:
         return self.base_model.__pg_field_definitions__.reverse_relations
+
+    @property
+    def type_labels(self) -> list[str]:
+        return [
+            "BaseNode",
+            *[m.__name__ for m in [self.base_model, *self.supertypes, *self.traits]],
+        ]
 
 
 class RootNode(_OwnsMethods):

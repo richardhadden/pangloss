@@ -4,7 +4,11 @@ import pytest
 
 from pangloss_new.exceptions import PanglossConfigError
 from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import ReifiedRelation
+from pangloss_new.model_config.models_base import (
+    HeritableTrait,
+    NonHeritableTrait,
+    ReifiedRelation,
+)
 from pangloss_new.models import BaseMeta, BaseNode, RelationConfig
 
 
@@ -108,3 +112,44 @@ def test_can_get_reified_fields_through_meta():
         Intermediate[Cat]._meta.fields
         is Intermediate[Cat].__pg_bound_field_definitions__
     )
+
+
+def test_supertypes():
+    class HeritableA(HeritableTrait):
+        pass
+
+    class HeritableB(HeritableTrait):
+        pass
+
+    class NonHeritableA(NonHeritableTrait):
+        pass
+
+    class NonHeritableB(NonHeritableTrait):
+        pass
+
+    class Thing(BaseNode, HeritableA):
+        class Meta(BaseMeta):
+            abstract = True
+            create = False
+
+    class SubThing(Thing, NonHeritableA):
+        pass
+
+    class SubSubThing(SubThing, HeritableB, NonHeritableB):
+        class Meta(BaseMeta):
+            abstract = True
+            delete = False
+
+    ModelManager.initialise_models()
+
+    assert SubSubThing._meta.supertypes == [SubThing, Thing]
+    assert set(SubSubThing._meta.traits) == set([HeritableA, HeritableB, NonHeritableB])
+    assert SubSubThing._meta.type_labels == [
+        "BaseNode",
+        "SubSubThing",
+        "SubThing",
+        "Thing",
+        "HeritableA",
+        "HeritableB",
+        "NonHeritableB",
+    ]
