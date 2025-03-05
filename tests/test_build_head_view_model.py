@@ -332,4 +332,133 @@ def test_reverse_relation_on_direct_to_embedded():
 
     initialise_models()
 
-    assert Reference._meta.reverse_relations["is_cited_in"].pop() == ""
+    assert (
+        Reference.HeadView.model_fields["is_cited_in"].annotation
+        == list[Citation.ReferenceView | Factoid.ReferenceView]
+    )
+
+    ref = Reference.HeadView(
+        type="Reference",
+        id=gen_ulid(),
+        label="A Reference",
+        created_by="Smith",
+        created_when=datetime.datetime.now(),
+        modified_by="Smith",
+        modified_when=datetime.datetime.now(),
+        is_cited_in=[{"type": "Factoid", "label": "A Factoid", "id": gen_ulid()}],
+    )
+
+    assert isinstance(ref.is_cited_in[0], Factoid.ReferenceView)
+    assert ref.is_cited_in[0].type == "Factoid"
+    assert ref.is_cited_in[0].label == "A Factoid"
+    assert ref.is_cited_in[0].id is not None
+
+
+@no_type_check
+def test_reverse_relation_on_direct_to_double_embedded():
+    class Reference(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        cites: Annotated[Reference, RelationConfig(reverse_name="is_cited_in")]
+
+    class CitationContainer(BaseNode):
+        contains_citation: Embedded[Citation]
+
+    class Factoid(BaseNode):
+        source: Embedded[CitationContainer]
+
+    initialise_models()
+
+    assert (
+        Reference.HeadView.model_fields["is_cited_in"].annotation
+        == list[
+            Citation.ReferenceView
+            | Factoid.ReferenceView
+            | CitationContainer.ReferenceView
+        ]
+    )
+
+    ref = Reference.HeadView(
+        type="Reference",
+        id=gen_ulid(),
+        label="A Reference",
+        created_by="Smith",
+        created_when=datetime.datetime.now(),
+        modified_by="Smith",
+        modified_when=datetime.datetime.now(),
+        is_cited_in=[{"type": "Factoid", "label": "A Factoid", "id": gen_ulid()}],
+    )
+
+    assert isinstance(ref.is_cited_in[0], Factoid.ReferenceView)
+    assert ref.is_cited_in[0].type == "Factoid"
+    assert ref.is_cited_in[0].label == "A Factoid"
+    assert ref.is_cited_in[0].id is not None
+
+
+@no_type_check
+def test_reverse_relation_through_multiple_embedded_and_reified():
+    class Intermediate[T](ReifiedRelation[T]):
+        pass
+
+    class Reference(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        cites: Annotated[
+            Intermediate[Reference], RelationConfig(reverse_name="is_cited_in")
+        ]
+
+    class CitationContainer(BaseNode):
+        contains_citation: Embedded[Citation]
+
+    class Factoid(BaseNode):
+        source: Embedded[CitationContainer]
+
+    initialise_models()
+
+    assert (
+        Reference.HeadView.model_fields["is_cited_in"].annotation
+        == list[
+            CitationContainer.View.in_context_of.Reference.is_cited_in
+            | Factoid.View.in_context_of.Reference.is_cited_in
+            | Citation.View.in_context_of.Reference.is_cited_in
+        ]
+    )
+
+    assert (
+        Factoid.View.in_context_of.Reference.is_cited_in.model_fields[
+            "source"
+        ].annotation
+        == list[Intermediate[Reference].View]
+    )
+
+    Reference.HeadView(
+        type="Reference",
+        id=gen_ulid(),
+        label="A Reference",
+        created_by="Smith",
+        created_when=datetime.datetime.now(),
+        modified_by="Smith",
+        modified_when=datetime.datetime.now(),
+        is_cited_in=[
+            {
+                "type": "Factoid",
+                "id": gen_ulid(),
+                "label": "A Factoid",
+                "source": [
+                    {
+                        "type": "Intermediate",
+                        "id": gen_ulid(),
+                        "target": [
+                            {
+                                "type": "Reference",
+                                "label": "A Reference",
+                                "id": gen_ulid(),
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    )

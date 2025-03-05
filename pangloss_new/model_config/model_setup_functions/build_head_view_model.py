@@ -224,6 +224,8 @@ def get_embedded_field(field: EmbeddedFieldDefinition) -> FieldInfo:
 
 def build_reverse_relations_for_model(model_head_view: type[HeadViewBase]) -> None:
     assert issubclass(model_head_view.__pg_base_class__, RootNode)
+    if not model_head_view.__pg_base_class__._meta.reverse_relations:
+        return
     for (
         reverse_relation_field_name,
         reverse_relation_definition_set,
@@ -268,9 +270,29 @@ def build_context_reverse_relation(
         f"__in_context_of__{target_model.__name__}"
         f"__{reverse_relation_definition.reverse_name}"
     )
+    # THIS HERE should not be [1] but the next that is not an Embedded...
+    next_not_embedded_index = 1
+    for i, segment in enumerate(
+        reverse_relation_definition.forward_path_object[1:-1], start=1
+    ):
+        if (
+            segment.metatype == "EmbeddedNode"
+            and reverse_relation_definition.forward_path_object[i + 1].metatype
+            != "EmbeddedNode"
+        ):
+            next_not_embedded_index = i + 1
 
-    context_type = reverse_relation_definition.forward_path_object[1].type.View
-    if reverse_relation_definition.relation_definition.edge_model:
+    context_type_base = reverse_relation_definition.forward_path_object[
+        next_not_embedded_index
+    ].type
+
+    build_view_model(context_type_base)
+    context_type = context_type_base.View
+
+    if (
+        hasattr(reverse_relation_definition.relation_definition, "edge_model")
+        and reverse_relation_definition.relation_definition.edge_model
+    ):
         context_type = add_edge_model(
             context_type, reverse_relation_definition.relation_definition.edge_model
         )
@@ -300,6 +322,8 @@ def build_context_reverse_relation(
 def build_direct_reverse_relation(
     reverse_relation_definition: DirectIncomingRelationDefinition,
 ):
+    print(reverse_relation_definition.forward_path_object)
+    # print("building direct rel")
     if reverse_relation_definition.relation_definition.edge_model:
         return add_edge_model(
             reverse_relation_definition.reverse_target.ReferenceView,

@@ -71,8 +71,19 @@ class Path(list[PathSegment]):
 
         return Path(*self[starting_index:]).reverse_key
 
-    def select_key_from_reified_non_target(self) -> str:
-        for segment in self[1:-1]:
+    def select_key_from_path(self) -> str:
+        for i, segment in enumerate(self[1:-1], start=1):
+            if (
+                segment.metatype == "EmbeddedNode"
+                and self[i + 1].metatype == "EmbeddedNode"
+            ):
+                continue
+
+            if segment.metatype == "EmbeddedNode":
+                return cast(
+                    RelationFieldDefinition, segment.relation_definition
+                ).reverse_name
+
             if (
                 cast(RelationFieldDefinition, segment.relation_definition).field_name
                 != "target"
@@ -93,7 +104,10 @@ class Path(list[PathSegment]):
 
     def get_non_embedded_prior_to_embedded(self, index: int) -> PathSegment:
         for segment in reversed(self[0:index]):
-            if issubclass(segment.type, (RootNode, ReifiedRelationNode)):
+            if (
+                issubclass(segment.type, (RootNode, ReifiedRelationNode))
+                and not segment.metatype == "EmbeddedNode"
+            ):
                 return segment
         return self[0]
 
@@ -110,7 +124,7 @@ class Path(list[PathSegment]):
             ).reverse_name
 
         if len(self) > 2 and not self.is_all_reified_target:
-            return self.select_key_from_reified_non_target()
+            return self.select_key_from_path()
 
         if len(self) > 2 and self.contains_embedded:
             return self.get_reverse_key_from_embedded()
