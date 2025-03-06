@@ -309,13 +309,7 @@ This repo contains the third modelling/database layer rewrite of Pangloss. It us
 - When allowed via `Meta` configuration, a new instance of a model can be created via a reference (really only useful for 'empty' — i.e. only a label — models), with a user-provided ULID or external URI (in latter case, _Pangloss_ generates a new ULID and stores the URI)
 - `id` for search can also take a URI
 - URIs are stored in separate nodes (and can be edited)
+- Periodic background tasks can be registered using `@background_task` decorator
 
 # TODO:
 - DB layer
-
-
-
-## Bugs:
-
-- Incoming relation does not allow subclasses
-- Embedded .Set is the full Set of the model, not of the Embedded.. so requires UUID, label etc. (maybe need to distinguish between EmbeddedSet and EmbeddedCreate??)
