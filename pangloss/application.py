@@ -1,92 +1,91 @@
-from typing import Annotated
+import asyncio
+import contextlib
+import logging
+import sys
 
-from authx import AuthX, AuthXConfig
-from fastapi import Depends, FastAPI, HTTPException, Response
-from pydantic import BaseModel
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
+from pangloss.auth import security
+from pangloss.database import initialise_database_driver
+from pangloss.settings import BaseSettings
+from pangloss.users.routes import setup_user_routes
 
-class User(BaseModel):
-    username: str
-
-
-app = FastAPI(title="My Base App")
-
-
-config = AuthXConfig()
-config.JWT_ALGORITHM = "HS256"
-config.JWT_SECRET_KEY = "SECRET_KEY"
-config.JWT_TOKEN_LOCATION = ["headers", "query", "cookies", "json"]
-config.JWT_ACCESS_COOKIE_NAME = "access-token"
-config.JWT_REFRESH_COOKIE_NAME = "refresh-token"
-config.JWT_CSRF_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
-
-LOGGED_IN_USER_NAME_COOKIE_NAME = "logged_in_user_name"
-
-security = AuthX[User](config=config)
-
-app = FastAPI()
-
-security.handle_errors(app)
+logger = logging.getLogger("uvicorn.info")
+RunningBackgroundTasks = []
 
 
-@app.get("/")
-async def index():
-    return {"page": "Index"}
+def get_application(settings: BaseSettings):
+    DEVELOPMENT_MODE = "--reload" in sys.argv  # Dumb hack!
 
+    from pangloss.api import setup_api_routes
+    from pangloss.background_tasks import (
+        BackgroundTaskCloseRegistry,
+        BackgroundTaskRegistry,
+    )
+    from pangloss.initialisation import InitalisationTaskRegistery
+    from pangloss.model_config.model_manager import ModelManager
 
-class LoginCredentials(BaseModel):
-    username: str
-    password: str
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Load the ML model
+        for task in BackgroundTaskRegistry:
+            if not DEVELOPMENT_MODE or task["run_in_dev"]:
+                running_task = asyncio.create_task(task["function"]())  # type: ignore
 
+                RunningBackgroundTasks.append(running_task)
+            else:
+                logger.warning(
+                    f"Skipping background task '{task['name']}' for development mode"
+                )
+        yield
 
-@security.set_subject_getter
-def get_user_from_uid(email: str, *args) -> User:
-    print(email)
-    return User.model_validate({"username": "John Smith"})
+        for task in BackgroundTaskCloseRegistry:
+            await task()
 
+        logging.info("Closing background tasks...")
+        for task in RunningBackgroundTasks:
+            task.cancel()
 
-@app.post("/token")
-def get_token(credentials: LoginCredentials):
-    if credentials.username == "test" and credentials.password == "test":
-        token = security.create_access_token(uid=credentials.username)
-        return {"access_token": token}
-    raise HTTPException(401, detail={"message": "Bad credentials"})
+        logging.info("Background tasks closed")
 
+    for installed_app in settings.INSTALLED_APPS:
+        __import__(installed_app)
 
-@app.post("/session")
-def get_session(response: Response, username: str, password: str):
-    if username == "test" and password == "test":
-        access_token = security.create_access_token(uid=username)
-        response.set_cookie(
-            config.JWT_ACCESS_COOKIE_NAME, access_token, httponly=True, secure=True
-        )
-        response.set_cookie(LOGGED_IN_USER_NAME_COOKIE_NAME, value=username)
+        __import__(f"{installed_app}.models")
 
-        return {"message": "success"}
-    raise HTTPException(401, detail={"message": "Bad credentials"})
+        try:
+            __import__(f"{installed_app}.background_tasks")
+        except Exception:
+            pass
 
+        try:
+            __import__(f"{installed_app}.initialisation")
+        except Exception:
+            pass
 
-@app.delete("/session")
-def delete_session(response: Response):
-    response.delete_cookie(config.JWT_ACCESS_COOKIE_NAME)
-    response.delete_cookie(LOGGED_IN_USER_NAME_COOKIE_NAME)
+    ModelManager.initialise_models()
+    initialise_database_driver(settings)
+    _app: FastAPI = FastAPI(
+        title=settings.PROJECT_NAME,
+        swagger_ui_parameters={"defaultModelExpandDepth": 1, "deepLinking": True},
+        lifespan=lifespan,
+    )
 
+    _app = setup_api_routes(_app, settings)
+    _app = setup_user_routes(_app, settings)
+    _app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    _app.add_middleware(GZipMiddleware, minimum_size=400)
+    security.handle_errors(_app)
+    for task in InitalisationTaskRegistery:
+        logger.info(f"Initialising: {task['name']}")
+        task["function"]()
 
-@app.get("/protected", dependencies=[Depends(security.access_token_required)])
-def get_protected():
-    return {"message": "Hello World"}
-
-
-@app.get("/whoami")
-async def whoami(user: Annotated[User, Depends(security.get_current_subject)]):
-    return f"You are: {user.username}"
-
-
-def is_admin_user(user: Annotated[User, Depends(security.get_current_subject)]) -> User:
-    raise HTTPException(403, detail={"message": "Admin user required"})
-    return user
-
-
-@app.get("/admin")
-def is_admin(user: Annotated[User, Depends(is_admin_user)]):
-    return {"message": "is admin!"}
+    return _app

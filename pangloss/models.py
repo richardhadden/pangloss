@@ -4,6 +4,7 @@ from pangloss.model_config.models_base import (
     MultiKeyField,
     ReferenceSetBase,
     ReifiedRelation,
+    ReifiedRelationNode,
     RelationConfig,
     RootNode,
 )
@@ -15,6 +16,7 @@ reexported = (
     MultiKeyField,
     BaseMeta,
     ReferenceSetBase,
+    ReifiedRelationNode,
 )
 
 

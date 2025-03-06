@@ -7,12 +7,12 @@ if typing.TYPE_CHECKING:
         EdgeModel,
         MultiKeyField,
         ReifiedRelation,
-        RootNode,
     )
+    from pangloss.models import BaseNode
 
 
 class ModelManager:
-    base_models: dict[str, type["RootNode"]] = {}
+    base_models: dict[str, type["BaseNode"]] = {}
     reified_relation_models: dict[str, type["ReifiedRelation"]] = {}
     edge_models: dict[str, type["EdgeModel"]] = {}
     multikeyfields_models: dict[str, type["MultiKeyField"]] = {}
@@ -26,7 +26,7 @@ class ModelManager:
         cls.reified_relation_models = {}
 
     @classmethod
-    def register_base_model(cls, base_model: type["RootNode"]):
+    def register_base_model(cls, base_model: type["BaseNode"]):
         if base_model.__name__ == "BaseNode":
             return
 

@@ -1,10 +1,18 @@
-class PanglossError(Exception):
+class PanglossConfigError(Exception):
     pass
 
 
-class PanglossInitialisationError(PanglossError):
+class PanglossNotFoundError(Exception):
     pass
 
 
-class PanglossConfigError(PanglossError):
+class PanglossInitialisationError(Exception):
+    pass
+
+
+class PanglossCLIError(Exception):
+    pass
+
+
+class PanglossUserError(Exception):
     pass
