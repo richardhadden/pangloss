@@ -7,13 +7,13 @@ from collections import ChainMap, defaultdict
 
 import annotated_types
 
-from pangloss_new.model_config.models_base import ReifiedRelationNode
+from pangloss.model_config.models_base import ReifiedRelationNode
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
+    from pangloss.model_config.model_setup_functions.build_reverse_relation_definitions import (
         Path,
     )
-    from pangloss_new.model_config.models_base import (
+    from pangloss.model_config.models_base import (
         EdgeModel,
         HeritableTrait,
         MultiKeyField,

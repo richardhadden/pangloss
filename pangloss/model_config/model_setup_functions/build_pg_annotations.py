@@ -2,7 +2,7 @@ import typing
 from collections import ChainMap
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.models_base import (
+    from pangloss.model_config.models_base import (
         EdgeModel,
         MultiKeyField,
         ReifiedBase,
@@ -24,12 +24,12 @@ def build_pg_annotations(
     dynamically and try to fake a @classmethod+@property.
     """
 
-    from pangloss_new.model_config.models_base import (
+    from pangloss.model_config.models_base import (
         EdgeModel,
         MultiKeyField,
         ReifiedBase,
     )
-    from pangloss_new.models import BaseNode
+    from pangloss.models import BaseNode
 
     annotation_dicts = []
     for parent in cls.mro():

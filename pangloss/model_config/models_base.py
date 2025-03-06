@@ -18,7 +18,7 @@ from pydantic import (
 from pydantic_extra_types.ulid import ULID as ExtraTypeULID
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.field_definitions import (
+    from pangloss.model_config.field_definitions import (
         IncomingRelationDefinition,
         ModelFieldDefinitions,
     )
@@ -56,7 +56,7 @@ class EdgeModel(BaseModel, _StandardModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls) -> None:
-        from pangloss_new.model_config.model_manager import ModelManager
+        from pangloss.model_config.model_manager import ModelManager
 
         ModelManager.register_edge_model(cls)
 
@@ -292,7 +292,7 @@ class RootNode(_OwnsMethods):
             return cls.__pg_base_class__.HeadView
 
     def __init_subclass__(cls):
-        from pangloss_new.model_config.model_manager import ModelManager
+        from pangloss.model_config.model_manager import ModelManager
 
         ModelManager.register_base_model(cls)
 
@@ -462,7 +462,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
             and cls.__pydantic_generic_metadata__["args"]
         ):
             if not getattr(cls, "__pg_bound_field_definitions__", None):
-                from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+                from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
                     build_pg_bound_model_definition_for_instatiated_reified,
                 )
 
@@ -480,7 +480,7 @@ class ReifiedRelation[T](ReifiedBase, _StandardModel):
     target: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
 
     def __init_subclass__(cls) -> None:
-        from pangloss_new.model_config.model_manager import ModelManager
+        from pangloss.model_config.model_manager import ModelManager
 
         # Dubious hack to update the parameters used by typing module to allow
         # inheriting class to include additional type parameters
@@ -603,7 +603,7 @@ class MultiKeyField[T](BaseModel, _StandardModel):
     _meta: typing.ClassVar[MultiKeyFieldMeta]
 
     def __init_subclass__(cls) -> None:
-        from pangloss_new.model_config.model_manager import ModelManager
+        from pangloss.model_config.model_manager import ModelManager
 
         # Dubious hack to update the parameters used by typing module to allow
         # inheriting class to include additional type parameters

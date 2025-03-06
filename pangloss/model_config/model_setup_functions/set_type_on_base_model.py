@@ -1,7 +1,7 @@
 import typing
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.models_base import ReifiedRelation, RootNode
+    from pangloss.model_config.models_base import ReifiedRelation, RootNode
 
 
 def set_type_to_literal_on_base_model(cls: type["RootNode"] | type["ReifiedRelation"]):

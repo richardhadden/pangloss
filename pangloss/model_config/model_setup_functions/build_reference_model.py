@@ -2,14 +2,14 @@ import typing
 
 from pydantic import create_model
 
-from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
-from pangloss_new.model_config.model_setup_functions.field_builders import (
+from pangloss.model_config.field_definitions import PropertyFieldDefinition
+from pangloss.model_config.model_setup_functions.field_builders import (
     build_property_type_field,
 )
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.model_config.model_setup_functions.utils import (
     unpack_fields_onto_model,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     ReferenceCreateBase,
     ReferenceSetBase,
     ReferenceViewBase,

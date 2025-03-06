@@ -1,9 +1,9 @@
 import typing
 
-from pangloss_new.exceptions import PanglossInitialisationError
+from pangloss.exceptions import PanglossInitialisationError
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.models_base import (
+    from pangloss.model_config.models_base import (
         EdgeModel,
         MultiKeyField,
         ReifiedRelation,
@@ -58,43 +58,43 @@ class ModelManager:
 
     @classmethod
     def initialise_models(cls, _defined_in_test: bool = False):
-        from pangloss_new.model_config.model_setup_functions.build_create_model import (
+        from pangloss.model_config.model_setup_functions.build_create_model import (
             build_create_model,
         )
-        from pangloss_new.model_config.model_setup_functions.build_edit_head_view_model import (
+        from pangloss.model_config.model_setup_functions.build_edit_head_view_model import (
             build_edit_head_view_model,
         )
-        from pangloss_new.model_config.model_setup_functions.build_edit_set_model import (
+        from pangloss.model_config.model_setup_functions.build_edit_set_model import (
             build_edit_head_set_model,
         )
-        from pangloss_new.model_config.model_setup_functions.build_head_view_model import (
+        from pangloss.model_config.model_setup_functions.build_head_view_model import (
             build_head_view_model,
         )
-        from pangloss_new.model_config.model_setup_functions.build_model_meta import (
+        from pangloss.model_config.model_setup_functions.build_model_meta import (
             initialise_model_meta_inheritance,
         )
-        from pangloss_new.model_config.model_setup_functions.build_pg_annotations import (
+        from pangloss.model_config.model_setup_functions.build_pg_annotations import (
             build_pg_annotations,
         )
-        from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+        from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
             build_abstract_specialist_type_model_definitions,
             build_pg_model_definitions,
         )
-        from pangloss_new.model_config.model_setup_functions.build_reference_model import (
+        from pangloss.model_config.model_setup_functions.build_reference_model import (
             build_reference_create,
             build_reference_set,
             build_reference_view,
         )
-        from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
+        from pangloss.model_config.model_setup_functions.build_reverse_relation_definitions import (
             build_reverse_relations_definitions_to,
         )
-        from pangloss_new.model_config.model_setup_functions.initialise_subclassed_relations import (
+        from pangloss.model_config.model_setup_functions.initialise_subclassed_relations import (
             initialise_subclassed_relations,
         )
-        from pangloss_new.model_config.model_setup_functions.set_type_on_base_model import (
+        from pangloss.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
         )
-        from pangloss_new.model_config.models_base import _BaseClassProxy
+        from pangloss.model_config.models_base import _BaseClassProxy
 
         for specialising_abstract_class in _BaseClassProxy.__subclasses__():
             specialising_abstract_class.__pg_annotations__ = (

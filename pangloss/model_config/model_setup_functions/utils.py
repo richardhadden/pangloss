@@ -5,14 +5,14 @@ import typing
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from pangloss_new.model_config.field_definitions import RelationToNodeDefinition
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.field_definitions import RelationToNodeDefinition
+from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     ReifiedRelation,
     RootNode,
 )
-from pangloss_new.models import BaseNode
+from pangloss.models import BaseNode
 
 
 # TODO: This is not necessary at all as far as I can tell

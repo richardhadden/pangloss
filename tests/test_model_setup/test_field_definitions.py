@@ -3,8 +3,8 @@ import typing
 import annotated_types
 import pytest
 
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.model_config.field_definitions import (
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     ListFieldDefinition,
     MultiKeyFieldDefinition,
@@ -14,23 +14,23 @@ from pangloss_new.model_config.field_definitions import (
     RelationToReifiedDefinition,
     RelationToTypeVarDefinition,
 )
-from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.model_setup_functions.build_pg_annotations import (
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.model_config.model_setup_functions.build_pg_annotations import (
     build_pg_annotations,
 )
-from pangloss_new.model_config.model_setup_functions.build_pg_model_definition import (
+from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
     build_field_definition,
     build_pg_bound_model_definition_for_instatiated_reified,
     build_pg_model_definitions,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     CreateBase,
     EdgeModel,
     HeadViewBase,
     HeritableTrait,
     MultiKeyField,
 )
-from pangloss_new.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
+from pangloss.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
 
 def test_model_annotations():

@@ -3,10 +3,10 @@ from functools import cache
 
 from pydantic.fields import FieldInfo
 
-from pangloss_new.model_config.models_base import ReifiedRelation, RootNode
+from pangloss.model_config.models_base import ReifiedRelation, RootNode
 
 if typing.TYPE_CHECKING:
-    from pangloss_new.model_config.field_definitions import (
+    from pangloss.model_config.field_definitions import (
         ListFieldDefinition,
         MultiKeyFieldDefinition,
         PropertyFieldDefinition,

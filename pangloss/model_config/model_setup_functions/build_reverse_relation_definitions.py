@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Literal, cast
 
-from pangloss_new.model_config.field_definitions import (
+from pangloss.model_config.field_definitions import (
     ContextIncomingRelationDefinition,
     DirectIncomingRelationDefinition,
     EmbeddedFieldDefinition,
@@ -10,10 +10,10 @@ from pangloss_new.model_config.field_definitions import (
     RelationToNodeDefinition,
     RelationToReifiedDefinition,
 )
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.model_config.model_setup_functions.utils import (
     get_concrete_model_types,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     ReifiedRelation,
     ReifiedRelationNode,
     RootNode,

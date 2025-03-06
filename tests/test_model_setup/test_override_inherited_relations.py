@@ -2,10 +2,10 @@ from typing import Annotated
 
 import pytest
 
-from pangloss_new import initialise_models
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.models import BaseNode, RelationConfig
-from pangloss_new.utils import gen_ulid
+from pangloss import initialise_models
+from pangloss.exceptions import PanglossConfigError
+from pangloss.models import BaseNode, RelationConfig
+from pangloss.utils import gen_ulid
 
 
 def test_override_inherited_relations_in_model_fields():

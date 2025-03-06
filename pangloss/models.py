@@ -1,4 +1,4 @@
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     BaseMeta,
     Embedded,
     MultiKeyField,

@@ -5,8 +5,8 @@ import typing
 
 import annotated_types
 
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.model_config.field_definitions import (
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     FieldDefinition,
     ListFieldDefinition,
@@ -21,7 +21,7 @@ from pangloss_new.model_config.field_definitions import (
     TypeParamsToTypeMap,
     annotation_types,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     EdgeModel,
     EmbeddedCreateBase,
     MultiKeyField,
@@ -35,7 +35,7 @@ from pangloss_new.model_config.models_base import (
     ViewBase,
     _BaseClassProxy,
 )
-from pangloss_new.models import Embedded
+from pangloss.models import Embedded
 
 
 def get_relation_config_from_field_metadata(

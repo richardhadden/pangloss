@@ -1,6 +1,6 @@
 import pytest
 
-from pangloss_new.model_config.model_manager import ModelManager
+from pangloss.model_config.model_manager import ModelManager
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -3,14 +3,14 @@ import typing
 from pydantic import AnyHttpUrl
 from ulid import ULID
 
-from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.model_config.models_base import (
     ReferenceCreateBase,
     ReferenceSetBase,
     ReferenceViewBase,
 )
-from pangloss_new.models import BaseMeta, BaseNode
-from pangloss_new.utils import gen_ulid, url
+from pangloss.models import BaseMeta, BaseNode
+from pangloss.utils import gen_ulid, url
 
 
 def test_reference_set_on_model():

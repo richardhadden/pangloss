@@ -4,9 +4,9 @@ import pydantic
 import pytest
 from annotated_types import Gt, MaxLen
 
-from pangloss_new import initialise_models
-from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import (
+from pangloss import initialise_models
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.model_config.models_base import (
     BaseMeta,
     EdgeModel,
     Embedded,
@@ -14,8 +14,8 @@ from pangloss_new.model_config.models_base import (
     MultiKeyField,
     RelationConfig,
 )
-from pangloss_new.models import BaseNode, ReifiedRelation
-from pangloss_new.utils import gen_ulid
+from pangloss.models import BaseNode, ReifiedRelation
+from pangloss.utils import gen_ulid
 
 
 @no_type_check

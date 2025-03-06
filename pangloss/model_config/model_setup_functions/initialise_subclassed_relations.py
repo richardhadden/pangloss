@@ -1,12 +1,12 @@
 import types
 import typing
 
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.model_config.field_definitions import RelationFieldDefinition
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.field_definitions import RelationFieldDefinition
+from pangloss.model_config.model_setup_functions.utils import (
     get_concrete_model_types,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     ReifiedRelation,

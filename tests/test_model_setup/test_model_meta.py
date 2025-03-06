@@ -2,14 +2,14 @@ import typing
 
 import pytest
 
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.model_config.model_manager import ModelManager
-from pangloss_new.model_config.models_base import (
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     ReifiedRelation,
 )
-from pangloss_new.models import BaseMeta, BaseNode, RelationConfig
+from pangloss.models import BaseMeta, BaseNode, RelationConfig
 
 
 def test_base_meta_not_inherited_by_class_not_called_meta_raises_error():

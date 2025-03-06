@@ -1,13 +1,13 @@
-from pangloss_new import initialise_models
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss import initialise_models
+from pangloss.model_config.model_setup_functions.utils import (
     get_concrete_model_types,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     BaseMeta,
     HeritableTrait,
     NonHeritableTrait,
 )
-from pangloss_new.models import BaseNode
+from pangloss.models import BaseNode
 
 
 def test_get_concrete_classes_from_abstract():

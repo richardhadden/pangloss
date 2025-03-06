@@ -1,15 +1,15 @@
 import datetime
 from typing import Annotated, no_type_check
 
-from pangloss_new import initialise_models
-from pangloss_new.model_config.models_base import (
+from pangloss import initialise_models
+from pangloss.model_config.models_base import (
     EdgeModel,
     EditHeadViewBase,
     Embedded,
     ReifiedRelation,
 )
-from pangloss_new.models import BaseNode, RelationConfig
-from pangloss_new.utils import gen_ulid
+from pangloss.models import BaseNode, RelationConfig
+from pangloss.utils import gen_ulid
 
 
 @no_type_check

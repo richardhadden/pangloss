@@ -3,23 +3,23 @@ import typing
 from pydantic import create_model
 from pydantic.fields import FieldInfo
 
-from pangloss_new.model_config.field_definitions import (
+from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
     RelationFieldDefinition,
 )
-from pangloss_new.model_config.model_setup_functions.build_create_model import (
+from pangloss.model_config.model_setup_functions.build_create_model import (
     build_create_model,
     build_embedded_create_model,
 )
-from pangloss_new.model_config.model_setup_functions.field_builders import (
+from pangloss.model_config.model_setup_functions.field_builders import (
     build_property_fields,
 )
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
     get_concrete_model_types,
     unpack_fields_onto_model,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     CreateBase,
     EdgeModel,
     EditHeadSetBase,

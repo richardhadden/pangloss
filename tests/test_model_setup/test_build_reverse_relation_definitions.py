@@ -1,20 +1,20 @@
 from typing import Annotated, no_type_check
 
-from pangloss_new import initialise_models
-from pangloss_new.model_config.field_definitions import (
+from pangloss import initialise_models
+from pangloss.model_config.field_definitions import (
     ContextIncomingRelationDefinition,
     DirectIncomingRelationDefinition,
 )
-from pangloss_new.model_config.model_setup_functions.build_reverse_relation_definitions import (
+from pangloss.model_config.model_setup_functions.build_reverse_relation_definitions import (
     PathSegment,
     get_reverse_relation_paths,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     Embedded,
     ReifiedRelation,
     RelationConfig,
 )
-from pangloss_new.models import BaseNode
+from pangloss.models import BaseNode
 
 
 @no_type_check

@@ -1,19 +1,19 @@
 import inspect
 
-from pangloss_new.exceptions import PanglossConfigError
-from pangloss_new.model_config.field_definitions import PropertyFieldDefinition
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.field_definitions import PropertyFieldDefinition
+from pangloss.model_config.model_setup_functions.utils import (
     get_direct_instantiations_of_trait,
     model_is_trait,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     BaseMeta,
     HeritableTrait,
     NonHeritableTrait,
     RootNode,
     Trait,
 )
-from pangloss_new.models import BaseNode
+from pangloss.models import BaseNode
 
 
 def initialise_model_meta_inheritance(model: type[RootNode]):

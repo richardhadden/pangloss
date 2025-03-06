@@ -4,22 +4,24 @@ from functools import cache
 from pydantic import create_model
 from pydantic.fields import FieldInfo
 
-from pangloss_new.model_config.field_definitions import (
+from pangloss.model_config.field_definitions import (
+    ContextIncomingRelationDefinition,
+    DirectIncomingRelationDefinition,
     EmbeddedFieldDefinition,
     RelationFieldDefinition,
 )
-from pangloss_new.model_config.model_setup_functions.field_builders import (
+from pangloss.model_config.model_setup_functions.field_builders import (
     build_property_fields,
 )
-from pangloss_new.model_config.model_setup_functions.utils import (
+from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
     get_concrete_model_types,
     unpack_fields_onto_model,
 )
-from pangloss_new.model_config.models_base import (
+from pangloss.model_config.models_base import (
     EdgeModel,
-    EditHeadViewBase,
     EmbeddedViewBase,
+    HeadViewBase,
     ReferenceViewBase,
     ReifiedRelation,
     ReifiedRelationViewBase,
@@ -51,31 +53,32 @@ def get_field_type_definitions(
         fields[field.field_name] = get_relation_field(field)
 
     for field in model._meta.fields.embedded_fields:
-        fields[field.field_name] = get_embedded_field(field, model)
+        fields[field.field_name] = get_embedded_field(field)
 
     return fields
 
 
-def build_edit_head_view_model(model: type[RootNode]):
+def build_head_view_model(model: type[RootNode]):
     """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
 
     # If model.Create already exists, return early
-    if model.has_own("EditHeadView"):
+    if model.has_own("HeadView"):
         return
 
     # Construct class
 
     # To avoid recursion of self-referencing models, the create model
     # needs to be built and *then* have its fields generated and added!
-    model.EditHeadView = create_model(
-        f"{model.__name__}EditHeadView",
+    model.HeadView = create_model(
+        f"{model.__name__}HeadView",
         __module__=model.__module__,
-        __base__=EditHeadViewBase,
+        __base__=HeadViewBase,
     )
 
-    unpack_fields_onto_model(model.EditHeadView, get_field_type_definitions(model))
-    model.EditHeadView.__pg_base_class__ = model
-    model.EditHeadView.model_rebuild(force=True)
+    unpack_fields_onto_model(model.HeadView, get_field_type_definitions(model))
+    model.HeadView.__pg_base_class__ = model
+    build_reverse_relations_for_model(model.HeadView)
+    model.HeadView.model_rebuild(force=True)
 
 
 def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
@@ -106,6 +109,7 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
         )
 
         unpack_fields_onto_model(model.View, get_field_type_definitions(model))
+
         model.View.__pg_base_class__ = model
         model.View.model_rebuild(force=True)
 
@@ -209,12 +213,119 @@ def get_models_for_embedded_field(
     return embedded_types
 
 
-def get_embedded_field(
-    field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
-) -> FieldInfo:
+def get_embedded_field(field: EmbeddedFieldDefinition) -> FieldInfo:
     embedded_types = get_models_for_embedded_field(field)
 
     field_info = FieldInfo.from_annotation(list[typing.Union[*embedded_types]])
     if field.validators:
         field_info.metadata = field.validators
     return field_info
+
+
+def build_reverse_relations_for_model(model_head_view: type[HeadViewBase]) -> None:
+    assert issubclass(model_head_view.__pg_base_class__, RootNode)
+    if not model_head_view.__pg_base_class__._meta.reverse_relations:
+        return
+    for (
+        reverse_relation_field_name,
+        reverse_relation_definition_set,
+    ) in model_head_view.__pg_base_class__._meta.reverse_relations.items():
+        concrete_classes_for_field = []
+        for reverse_relation_definition in reverse_relation_definition_set:
+            if isinstance(
+                reverse_relation_definition, DirectIncomingRelationDefinition
+            ):
+                concrete_classes_for_field.append(
+                    build_direct_reverse_relation(reverse_relation_definition)
+                )
+            elif isinstance(
+                reverse_relation_definition, ContextIncomingRelationDefinition
+            ):
+                concrete_classes_for_field.append(
+                    build_context_reverse_relation(
+                        target_model=model_head_view.__pg_base_class__,
+                        reverse_relation_definition=reverse_relation_definition,
+                    )
+                )
+
+        model_head_view.model_fields[reverse_relation_field_name] = (
+            FieldInfo.from_annotation(list[typing.Union[*concrete_classes_for_field]])
+        )
+        model_head_view.model_fields[reverse_relation_field_name].default_factory = list
+    model_head_view.model_rebuild(force=True)
+
+
+# Event.View.in_context_of.Cat.is_involved_in = ContextViewModel
+#           ^target
+
+
+def build_context_reverse_relation(
+    target_model: type[RootNode],
+    reverse_relation_definition: ContextIncomingRelationDefinition,
+):
+    build_view_model(reverse_relation_definition.reverse_target)
+
+    context_reverse_relation_model_name = (
+        f"{reverse_relation_definition.reverse_target.__name__}View"
+        f"__in_context_of__{target_model.__name__}"
+        f"__{reverse_relation_definition.reverse_name}"
+    )
+    # THIS HERE should not be [1] but the next that is not an Embedded...
+    next_not_embedded_index = 1
+    for i, segment in enumerate(
+        reverse_relation_definition.forward_path_object[1:-1], start=1
+    ):
+        if (
+            segment.metatype == "EmbeddedNode"
+            and reverse_relation_definition.forward_path_object[i + 1].metatype
+            != "EmbeddedNode"
+        ):
+            next_not_embedded_index = i + 1
+
+    context_type_base = reverse_relation_definition.forward_path_object[
+        next_not_embedded_index
+    ].type
+
+    build_view_model(context_type_base)
+    context_type = context_type_base.View
+
+    if (
+        hasattr(reverse_relation_definition.relation_definition, "edge_model")
+        and reverse_relation_definition.relation_definition.edge_model
+    ):
+        context_type = add_edge_model(
+            context_type, reverse_relation_definition.relation_definition.edge_model
+        )
+
+    context_field_def = {
+        reverse_relation_definition.relation_definition.field_name: (
+            list[context_type],
+            ...,
+        )
+    }
+
+    context_reverse_relation_model = create_model(  # type: ignore
+        context_reverse_relation_model_name,
+        __base__=ViewBase,
+        **context_field_def,  # type: ignore
+    )
+
+    reverse_relation_definition.reverse_target.View.in_context_of._add(
+        relation_target_model=target_model,
+        view_in_context_model=context_reverse_relation_model,
+        reverse_field_name=reverse_relation_definition.reverse_name,
+    )
+
+    return context_reverse_relation_model
+
+
+def build_direct_reverse_relation(
+    reverse_relation_definition: DirectIncomingRelationDefinition,
+):
+    if reverse_relation_definition.relation_definition.edge_model:
+        return add_edge_model(
+            reverse_relation_definition.reverse_target.ReferenceView,
+            reverse_relation_definition.relation_definition.edge_model,
+        )
+
+    return reverse_relation_definition.reverse_target.ReferenceView
