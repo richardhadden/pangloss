@@ -292,15 +292,27 @@ class Identification(ReifiedRelation[TIdentificationTarget]):
 ```
 __note__: This isn't the case any more
 
+# Changes from version 0.2
 
+This repo contains the third modelling/database layer rewrite of Pangloss. It uses plain Python classes for model definitions, and builds a more abstract model representation (much more useful for creating frontend types and validators than the previous version, which involved introspecting Pydantic models). Changes are:
+
+- `id`'s are called `id` not `uuid`, and use ULIDs not UUID
+- All models have a `_meta` attribute containing abstract model representation
+- Multiple inheritance from `BaseNode` types
+- Subclassing relations must be a subtype of the subclassed relations
+- Can use the superclass name for a field instead of the subclassed one (might be useful)
+- `type` field of ReifiedRelation with generic is the generic type, not the non-generic, i.e. `Identification` not `Identification[Person]`
+- View/EditView models are distinguished from `HeadView`/`HeadEditView` models — the `Head` variety is for the top node, others for contained nodes
+- All contained nodes carry a reference to the `HeadNode` (better for indexing, and direct lookup of context)
+- Some really sneaky methods for allowing lookups of specialised models (e.g. with relation via `EdgeModel`): `Person.View.via.Certainty`
+- Authentication is using AuthX, not the FastAPI homespun example
+- When allowed via `Meta` configuration, a new instance of a model can be created via a reference (really only useful for 'empty' — i.e. only a label — models), with a user-provided ULID or external URI (in latter case, _Pangloss_ generates a new ULID and stores the URI)
+- `id` for search can also take a URI
+- URIs are stored in separate nodes (and can be edited)
 
 # TODO:
-
-
 - DB layer
-- API layer
-- Allow reified relations from Embedded nodes
-- Allow edge models on Embedded nodes
+
 
 
 ## Bugs:
