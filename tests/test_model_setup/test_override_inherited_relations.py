@@ -163,7 +163,7 @@ def test_field_from_container_model_bound_to_contained():
             Person, RelationConfig(reverse_name="carried_out_order")
         ]
         thing_ordered: Annotated[
-            DoingThing,
+            DoingThing | OtherThing,
             RelationConfig(
                 reverse_name="was_ordered_in",
                 create_inline=True,
@@ -205,3 +205,21 @@ def test_field_from_container_model_bound_to_contained():
 
     assert order.thing_ordered[0].when == "Sometime"
     assert order.thing_ordered[0].done_by == order.person_carrying_out_order
+
+    order = Order(
+        label="An Order",
+        when="Last Tuesday",
+        person_giving_order=[{"type": "Person", "id": gen_ulid()}],
+        person_carrying_out_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[
+            {
+                "type": "OtherThing",
+                "label": "OtherThing Ordered",
+            }
+        ],
+    )
+
+    assert isinstance(order.thing_ordered[0], OtherThing.Create)
+    assert order.thing_ordered[0].type == "OtherThing"
+    assert order.thing_ordered[0].when == "After Last Tuesday"
+    # assert order.thing_ordered[0].done_by == order.person_carrying_out_order
