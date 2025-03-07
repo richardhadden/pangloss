@@ -155,6 +155,9 @@ class RelationFieldDefinition(FieldDefinition):
     field_type_definitions: list[RelationDefinition] = dataclasses.field(
         default_factory=list
     )
+    bind_fields_to_related: typing.Optional[
+        typing.Iterable[tuple[str, str] | tuple[str, str, typing.Callable]]
+    ] = dataclasses.field(default_factory=list)
 
     edge_model: typing.Optional[type["EdgeModel"]] = None
     subclasses_relation: typing.Optional[str] = None

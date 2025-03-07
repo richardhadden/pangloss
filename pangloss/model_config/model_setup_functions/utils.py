@@ -5,7 +5,9 @@ import typing
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from pangloss.model_config.field_definitions import RelationToNodeDefinition
+from pangloss.model_config.field_definitions import (
+    RelationToNodeDefinition,
+)
 from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,

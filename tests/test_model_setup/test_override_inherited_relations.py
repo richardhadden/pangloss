@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, no_type_check
 
 import pytest
 
@@ -137,3 +137,71 @@ def test_override_relation_raises_error_when_overridden_not_subclass_of_parent()
 
     with pytest.raises(PanglossConfigError):
         initialise_models()
+
+
+@no_type_check
+def test_field_from_container_model_bound_to_contained():
+    class Person(BaseNode):
+        name: str
+
+    class DoingThing(BaseNode):
+        when: str
+        done_by: Annotated[Person, RelationConfig(reverse_name="did")]
+
+    class OtherThing(BaseNode):
+        when: str
+
+    class NothingToDoWithIt(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        when: str  # <-- "Last Tuesday"
+        person_giving_order: Annotated[
+            Person, RelationConfig(reverse_name="gave_order")
+        ]
+        person_carrying_out_order: Annotated[
+            Person, RelationConfig(reverse_name="carried_out_order")
+        ]
+        thing_ordered: Annotated[
+            DoingThing,
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                bind_fields_to_related=[
+                    ("person_carrying_out_order", "done_by"),
+                    ("when", "when", lambda w: f"After {w}"),
+                ],
+            ),
+        ]
+
+    initialise_models()
+
+    order = Order(
+        label="An Order",
+        when="Last Tuesday",
+        person_giving_order=[{"type": "Person", "id": gen_ulid()}],
+        person_carrying_out_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[{"type": "DoingThing", "label": "A Thing Ordered"}],
+    )
+
+    assert order.thing_ordered[0].when == "After Last Tuesday"
+    assert order.thing_ordered[0].done_by == order.person_carrying_out_order
+
+    # Now check a field is not using container version if it includes
+    # its own
+    order = Order(
+        label="An Order",
+        when="Last Tuesday",
+        person_giving_order=[{"type": "Person", "id": gen_ulid()}],
+        person_carrying_out_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[
+            {
+                "type": "DoingThing",
+                "label": "A Thing Ordered",
+                "when": "Sometime",
+            }  # <-- has "when"
+        ],
+    )
+
+    assert order.thing_ordered[0].when == "Sometime"
+    assert order.thing_ordered[0].done_by == order.person_carrying_out_order

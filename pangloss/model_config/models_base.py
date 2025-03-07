@@ -14,8 +14,11 @@ from pydantic import (
     Field,
     PlainSerializer,
     computed_field,
+    model_validator,
 )
 from pydantic_extra_types.ulid import ULID as ExtraTypeULID
+
+from pangloss.exceptions import PanglossConfigError
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
@@ -59,6 +62,44 @@ class EdgeModel(BaseModel, _StandardModel):
         from pangloss.model_config.model_manager import ModelManager
 
         ModelManager.register_edge_model(cls)
+
+
+class _BindingSubModelValidator[T]:
+    _has_bindable_relations: typing.ClassVar[bool] = False
+    _bindable_relations: typing.ClassVar[list]
+
+    @classmethod
+    def set_has_bindable_relations(cls) -> None:
+        bindable_relations = [
+            rf
+            for rf in typing.cast(
+                type["CreateBase | EditHeadSetBase | EditSetBase"], cls
+            ).__pg_base_class__._meta.fields.relation_fields
+            if rf.bind_fields_to_related
+        ]
+        if bindable_relations:
+            cls._bindable_relations = bindable_relations
+            cls._has_bindable_relations = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def binding_submodel_validator(cls, data):
+        if not cls._has_bindable_relations:
+            return data
+
+        for bindable_relation in cls._bindable_relations:
+            assert bindable_relation.bind_fields_to_related
+
+            for binding_def in bindable_relation.bind_fields_to_related:
+                if data[binding_def[0]]:
+                    for c in data[bindable_relation.field_name]:
+                        if not c.get(binding_def[1], None):
+                            if len(binding_def) == 3:
+                                c[binding_def[1]] = binding_def[2](data[binding_def[0]])
+                            else:
+                                c[binding_def[1]] = data[binding_def[0]]
+
+        return data
 
 
 class _OwnsMethods:
@@ -300,7 +341,13 @@ class RootNode(_OwnsMethods):
         return cls.Create(*args, **kwargs)
 
 
-class CreateBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["CreateBase"]):
+class CreateBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["CreateBase"],
+    _BindingSubModelValidator,
+):
     # id: Can take an optional ID or URI
 
     type: str
@@ -359,7 +406,11 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
 
 
 class EditHeadSetBase(
-    BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EditHeadSetBase"]
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["EditHeadSetBase"],
+    _BindingSubModelValidator,
 ):
     """Base model for updates Post-ed to API
 
@@ -371,7 +422,13 @@ class EditHeadSetBase(
     urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
-class EditSetBase(BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["EditSetBase"]):
+class EditSetBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _ViaEdge["EditSetBase"],
+    _BindingSubModelValidator,
+):
     """Base model for updates Post-ed to API"""
 
     id: ULID
@@ -616,9 +673,19 @@ class MultiKeyField[T](BaseModel, _StandardModel):
 @dataclasses.dataclass
 class RelationConfig:
     reverse_name: str
+    """Reverse name for the relationship"""
+    bind_fields_to_related: typing.Optional[
+        typing.Iterable[tuple[str, str] | tuple[str, str, typing.Callable]]
+    ] = dataclasses.field(default_factory=list)
+    """Use the value of the containing model field as the value of contained model 
+    field, via optional transforming function"""
 
     subclasses_relation: typing.Optional[list[str] | frozenset[str]] = None
+    """This relation is a subclass of the relation of a parent model"""
+
     edge_model: typing.Optional[type["EdgeModel"]] = None
+    """Model to use as for edge of the relationship"""
+
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )
@@ -635,3 +702,8 @@ class RelationConfig:
 
     def __post_init__(self):
         self.reverse_name = self.reverse_name.lower().replace(" ", "_")
+
+        if self.bind_fields_to_related and not self.create_inline:
+            raise PanglossConfigError(
+                "Cannot use `bind_field_to_related` unless also `create_inline=True`"
+            )

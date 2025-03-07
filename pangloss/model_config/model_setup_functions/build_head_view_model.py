@@ -76,7 +76,9 @@ def build_head_view_model(model: type[RootNode]):
     )
 
     unpack_fields_onto_model(model.HeadView, get_field_type_definitions(model))
+
     model.HeadView.__pg_base_class__ = model
+
     build_reverse_relations_for_model(model.HeadView)
     model.HeadView.model_rebuild(force=True)
 
@@ -109,8 +111,8 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
         )
 
         unpack_fields_onto_model(model.View, get_field_type_definitions(model))
-
         model.View.__pg_base_class__ = model
+
         model.View.model_rebuild(force=True)
 
 

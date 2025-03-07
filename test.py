@@ -21,8 +21,9 @@ class Order(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def thing(cls, data):
-        for c in data["thing_ordered"]:
-            c["carried_out_by"] = data["carried_out_by"]
+        if not data["thing_ordered"]:
+            for c in data["thing_ordered"]:
+                c["carried_out_by"] = data["carried_out_by"]
         return data
 
 

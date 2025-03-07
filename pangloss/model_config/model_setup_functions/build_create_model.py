@@ -88,6 +88,7 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
 
         unpack_fields_onto_model(model.Create, build_field_type_definitions(model))
         model.Create.__pg_base_class__ = model
+        model.Create.set_has_bindable_relations()
         model.Create.model_rebuild(force=True)
 
 

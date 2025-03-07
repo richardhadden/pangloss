@@ -299,6 +299,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dill"
+version = "0.3.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/43/86fe3f9e130c4137b0f1b50784dd70a5087b911fe07fa81e53e0c4c47fea/dill-0.3.9.tar.gz", hash = "sha256:81aa267dddf68cbfe8029c42ca9ec6a4ab3b22371d1c450abc54422577b4512c", size = 187000 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/d1/e73b6ad76f0b1fb7f23c35c6d95dbc506a9c8804f43dda8cb5b0fa6331fd/dill-0.3.9-py3-none-any.whl", hash = "sha256:468dff3b89520b474c0397703366b7b95eebe6303f108adf9b19da1f702be87a", size = 119418 },
+]
+
+[[package]]
 name = "dnspython"
 version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -306,6 +315,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/b5/4a/263763cb2ba3816dd
 wheels = [
     { url = "https://files.pythonhosted.org/packages/68/1b/e0a87d256e40e8c888847551b20a017a6b98139178505dc7ffb96f04e954/dnspython-2.7.0-py3-none-any.whl", hash = "sha256:b4c34b7d10b51bcc3a5071e7b8dee77939f1e878477eeecc965e9835f63c6c86", size = 313632 },
 ]
+
+[[package]]
+name = "dukpy"
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/0e/e9c0c4d86142c529a62996d290e2f7d15cc4f214acf5386adc102191af94/dukpy-0.2.3.tar.gz", hash = "sha256:cc8dd158326f95231d320da80be6e6a1d72bbaad9de2569eaffb6af736f45e6b", size = 1867359 }
 
 [[package]]
 name = "ecdsa"
@@ -455,6 +470,19 @@ wheels = [
 ]
 
 [[package]]
+name = "javascripthon"
+version = "0.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dukpy" },
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/a8/cec12d3d666d1e27e28a9d45d17ec583cfbd0f741304b759050d7b91fade/javascripthon-0.13.tar.gz", hash = "sha256:aef945c3c544f3c527b6497a01a3e057d2049b9a2f660f99ad0cf1da7995bfdb", size = 544270 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/90/13/915796fd1e6abab2389f287405f281f069182ac259e588268cc7f936f046/javascripthon-0.13-py3-none-any.whl", hash = "sha256:5a9bda2c4f2b8e6f569eb228a0b97a111d413e2b5644cd77fcc0f52d34a0c3ad", size = 526798 },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.5"
 source = { registry = "https://pypi.org/simple" }
@@ -573,7 +601,9 @@ dependencies = [
     { name = "authx-extra" },
     { name = "bcrypt" },
     { name = "cookiecutter" },
+    { name = "dill" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "javascripthon" },
     { name = "neo4j" },
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
@@ -598,7 +628,9 @@ requires-dist = [
     { name = "authx-extra", specifier = ">=1.2.0" },
     { name = "bcrypt", specifier = ">=4.3.0" },
     { name = "cookiecutter", specifier = ">=2.6.0" },
+    { name = "dill", specifier = ">=0.3.9" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.11" },
+    { name = "javascripthon", specifier = ">=0.13" },
     { name = "neo4j", specifier = ">=5.28.1" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pydantic-extra-types", specifier = ">=2.10.2" },
@@ -992,6 +1024,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/42/55/e6c90f13880aeef327746052907e7e930681f26a164fe130ddac28b08269/ruff-0.9.9-py3-none-win32.whl", hash = "sha256:6b4c376d929c25ecd6d87e182a230fa4377b8e5125a4ff52d506ee8c087153c1", size = 10227912 },
     { url = "https://files.pythonhosted.org/packages/35/b2/da925693cb82a1208aa34966c0f36cb222baca94e729dd22a587bc22d0f3/ruff-0.9.9-py3-none-win_amd64.whl", hash = "sha256:837982ea24091d4c1700ddb2f63b7070e5baec508e43b01de013dc7eff974ff1", size = 11355632 },
     { url = "https://files.pythonhosted.org/packages/31/d8/de873d1c1b020d668d8ec9855d390764cb90cf8f6486c0983da52be8b7b7/ruff-0.9.9-py3-none-win_arm64.whl", hash = "sha256:3ac78f127517209fe6d96ab00f3ba97cafe38718b23b1db3e96d8b2d39e37ddf", size = 10435860 },
+]
+
+[[package]]
+name = "setuptools"
+version = "75.8.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d1/53/43d99d7687e8cdef5ab5f9ec5eaf2c0423c2b35133a2b7e7bc276fc32b21/setuptools-75.8.2.tar.gz", hash = "sha256:4880473a969e5f23f2a2be3646b2dfd84af9028716d398e46192f84bc36900d2", size = 1344083 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/38/7d7362e031bd6dc121e5081d8cb6aa6f6fedf2b67bf889962134c6da4705/setuptools-75.8.2-py3-none-any.whl", hash = "sha256:558e47c15f1811c1fa7adbd0096669bf76c1d3f433f58324df69f3f5ecac4e8f", size = 1229385 },
 ]
 
 [[package]]

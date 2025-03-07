@@ -81,6 +81,7 @@ def build_edit_head_set_model(model: type[RootNode]):
 
     unpack_fields_onto_model(model.EditHeadSet, get_field_type_definitions(model))
     model.EditHeadSet.__pg_base_class__ = model
+    model.EditHeadSet.set_has_bindable_relations()
     model.EditHeadSet.model_rebuild(force=True)
 
 
@@ -111,8 +112,9 @@ def build_edit_set_model(model: type[RootNode] | type[ReifiedRelation]):
             __base__=EditSetBase,
         )
 
-        unpack_fields_onto_model(model.EditSet, get_field_type_definitions(model))
         model.EditSet.__pg_base_class__ = model
+        model.EditSet.set_has_bindable_relations()
+        unpack_fields_onto_model(model.EditSet, get_field_type_definitions(model))
         model.EditSet.model_rebuild(force=True)
 
 
