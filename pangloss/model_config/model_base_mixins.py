@@ -5,12 +5,14 @@ from pydantic import ConfigDict, model_validator
 
 if typing.TYPE_CHECKING:
     from models_base import (
+        BaseMeta,
         CreateBase,
         EditHeadSetBase,
         EditSetBase,
         ModelFieldDefinitions,
         ReferenceSetBase,
         ReifiedCreateBase,
+        ReifiedMeta,
         ReifiedRelation,
         ReifiedRelationViewBase,
         RootNode,
@@ -85,6 +87,14 @@ class _OwnsMethods:
         return cls.__dict__.get(key, None)
 
 
+class MetaDescriptor:
+    def __get__(
+        self, obj, type: "_BaseClassProxy | None" = None
+    ) -> "BaseMeta | ReifiedMeta":
+        assert type
+        return type.__pg_base_class__._meta
+
+
 class _BaseClassProxy(_OwnsMethods):
     __pg_annotations__: typing.ClassVar[dict[str, typing.Any]]
     __pg_base_class__: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
@@ -97,6 +107,8 @@ class _BaseClassProxy(_OwnsMethods):
     @property
     def collapse_when(self):
         return getattr(self.__pg_base_class__, "collapse_when", None)
+
+    _meta: typing.ClassVar["BaseMeta"] = typing.cast("BaseMeta", MetaDescriptor())
 
 
 RelationViaEdgeType = typing.TypeVar(
