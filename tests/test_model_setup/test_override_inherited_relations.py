@@ -222,6 +222,3 @@ def test_field_from_container_model_bound_to_contained():
     assert isinstance(order.thing_ordered[0], OtherThing.Create)
     assert order.thing_ordered[0].type == "OtherThing"
     assert order.thing_ordered[0].when == "After Last Tuesday"
-    # assert order.thing_ordered[0].done_by == order.person_carrying_out_order
-
-    assert Order.Create._meta is Order._meta

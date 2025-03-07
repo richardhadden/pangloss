@@ -9,7 +9,6 @@ if typing.TYPE_CHECKING:
         CreateBase,
         EditHeadSetBase,
         EditSetBase,
-        ModelFieldDefinitions,
         ReferenceSetBase,
         ReifiedCreateBase,
         ReifiedMeta,
@@ -89,16 +88,14 @@ class _OwnsMethods:
 
 class MetaDescriptor:
     def __get__(
-        self, obj, type: "_BaseClassProxy | None" = None
+        self, obj, parent_type: "_BaseClassProxy | None" = None
     ) -> "BaseMeta | ReifiedMeta":
-        assert type
-        return type.__pg_base_class__._meta
+        assert parent_type
+        return parent_type.__pg_base_class__._meta
 
 
 class _BaseClassProxy(_OwnsMethods):
-    __pg_annotations__: typing.ClassVar[dict[str, typing.Any]]
     __pg_base_class__: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
-    __pg_specialist_type_fields_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @property
     def __pg_field_definitions__(self):
@@ -188,12 +185,12 @@ class ViewInContext(typing.Generic[ViewInContextType]):
         self,
         relation_target_model: type["RootNode"],
         view_in_context_model: type[ViewInContextType],
-        reverse_field_name: str,
+        field_name: str,
     ):
         if relation_target_model.__name__ not in self._classes:
             self._classes[relation_target_model.__name__] = ContextFieldName()
         self._classes[relation_target_model.__name__]._add(
-            reverse_field_name=reverse_field_name,
+            reverse_field_name=field_name,
             view_in_context_model=view_in_context_model,
         )
 
@@ -209,11 +206,11 @@ class ViewInContext(typing.Generic[ViewInContextType]):
                 raise AttributeError(
                     f"{self._cls.__pg_base_class__.__name__}"
                     f".{self._cls.__name__.replace(self._cls.__pg_base_class__.__name__, '')} "
-                    f"has no reverse context model for {name}"
+                    f"has no context model for {name}"
                 )
 
 
-class _ReverseRelationInContextOf(typing.Generic[ViewInContextType]):
+class _RelationInContextOf(typing.Generic[ViewInContextType]):
     in_context_of: typing.ClassVar[ViewInContext[ViewInContextType]]  # type: ignore
 
     def __init_subclass__(cls) -> None:

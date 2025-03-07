@@ -153,3 +153,12 @@ def test_supertypes():
         "HeritableB",
         "NonHeritableB",
     ]
+
+
+def test_model_meta_of_derived_types():
+    class Event(BaseNode):
+        when: int
+
+    ModelManager.initialise_models()
+
+    assert Event.Create._meta is Event._meta

@@ -131,6 +131,7 @@ def get_models_for_relation_field(
         if field.create_inline:
             build_create_model(base_type)
             related_models.append(base_type.Create)
+
         else:
             related_models.append(base_type.ReferenceSet)
             if base_type.Meta.create_by_reference:

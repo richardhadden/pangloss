@@ -20,7 +20,7 @@ from pangloss.model_config.model_base_mixins import (
     _BaseClassProxy,
     _BindingSubModelValidator,
     _OwnsMethods,
-    _ReverseRelationInContextOf,
+    _RelationInContextOf,
     _StandardModel,
     _ViaEdge,
 )
@@ -173,7 +173,7 @@ class ViewBase(
     _StandardModel,
     _BaseClassProxy,
     _ViaEdge["ViewBase"],
-    _ReverseRelationInContextOf["ViewBase"],
+    _RelationInContextOf["ViewBase"],
 ):
     """Base model returned by API for viewing/editing when not Head.
 
@@ -307,11 +307,11 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
     __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
+    _meta: typing.ClassVar[ReifiedMeta]
+
     collapse_when: typing.ClassVar[
         typing.Optional[typing.Callable[[typing.Self], bool]]
     ] = None
-
-    _meta: typing.ClassVar[ReifiedMeta]
 
     @classmethod
     def __pydantic_init_subclass__(cls):
@@ -368,7 +368,7 @@ class ReifiedRelationViewBase(
     _StandardModel,
     _BaseClassProxy,
     _ViaEdge["ReifiedRelationViewBase"],
-    _ReverseRelationInContextOf["ReifiedRelationViewBase"],
+    _RelationInContextOf["ReifiedRelationViewBase"],
 ):
     """Base model for viewing a reified relation (contains uuid and additional metadata)"""
 

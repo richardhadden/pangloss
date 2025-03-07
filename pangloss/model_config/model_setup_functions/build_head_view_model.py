@@ -315,7 +315,7 @@ def build_context_reverse_relation(
     reverse_relation_definition.reverse_target.View.in_context_of._add(
         relation_target_model=target_model,
         view_in_context_model=context_reverse_relation_model,
-        reverse_field_name=reverse_relation_definition.reverse_name,
+        field_name=reverse_relation_definition.reverse_name,
     )
 
     return context_reverse_relation_model

@@ -438,3 +438,42 @@ def test_build_create_model_with_inline_self_reference():
             }
         ],
     )
+
+
+def test_build_creation_model_with_bound_container_value():
+    class Person(BaseNode):
+        name: str
+
+    class DoingThing(BaseNode):
+        when: str
+        done_by: Annotated[Person, RelationConfig(reverse_name="did")]
+
+    class OtherThing(BaseNode):
+        when: str
+
+    class NothingToDoWithIt(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        when: str  # <-- "Last Tuesday"
+        person_giving_order: Annotated[
+            Person, RelationConfig(reverse_name="gave_order")
+        ]
+        person_carrying_out_order: Annotated[
+            Person, RelationConfig(reverse_name="carried_out_order")
+        ]
+        thing_ordered: Annotated[
+            DoingThing | OtherThing | NothingToDoWithIt,
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                bind_fields_to_related=[
+                    ("person_carrying_out_order", "done_by"),
+                    ("when", "when", lambda w: f"After {w}"),
+                ],
+            ),
+        ]
+
+    ModelManager.initialise_models()
+
+    # assert Order.Create.model_fields["thing_ordered"].annotation == ""

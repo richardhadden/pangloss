@@ -213,6 +213,15 @@ class FieldSubset[T]:
         for field in self.fields.values():
             yield field
 
+    def keys(self):
+        return self.fields.keys()
+
+    def values(self):
+        return self.fields.values()
+
+    def items(self):
+        return self.fields.items()
+
 
 @dataclasses.dataclass
 class ModelFieldDefinitions:
@@ -239,6 +248,15 @@ class ModelFieldDefinitions:
     def __delitem__(self, key):
         if key in self.fields:
             del self.fields[key]
+
+    def keys(self):
+        return self.fields.keys()
+
+    def values(self):
+        return self.fields.values()
+
+    def items(self):
+        return self.fields.items()
 
     @property
     def relation_fields(
