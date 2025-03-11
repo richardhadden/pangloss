@@ -1,4 +1,4 @@
-from typing import Annotated, Union, get_args, get_origin, no_type_check
+from typing import Annotated, Optional, Union, get_args, get_origin, no_type_check
 
 import pydantic
 import pytest
@@ -440,6 +440,7 @@ def test_build_create_model_with_inline_self_reference():
     )
 
 
+@no_type_check
 def test_build_creation_model_with_bound_container_value():
     class Person(BaseNode):
         name: str
@@ -475,5 +476,14 @@ def test_build_creation_model_with_bound_container_value():
         ]
 
     ModelManager.initialise_models()
+
+    assert (
+        DoingThing.Create.in_context_of.Order.thing_ordered.model_fields[
+            "done_by"
+        ].annotation
+        == Optional[list[Person.ReferenceSet]]
+    )
+
+    # assert DoingThing.Create.in_context_of.Order.thing_ordered
 
     # assert Order.Create.model_fields["thing_ordered"].annotation == ""

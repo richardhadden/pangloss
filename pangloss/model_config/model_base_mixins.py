@@ -141,8 +141,9 @@ class _ViaEdge(typing.Generic[RelationViaEdgeType]):
         return super().__init_subclass__()
 
 
-ViewInContextType = typing.TypeVar(
-    "ViewInContextType", bound="type[ViewBase | ReifiedRelationViewBase]"
+RelationInContextType = typing.TypeVar(
+    "RelationInContextType",
+    bound="type[ViewBase | ReifiedRelationViewBase | CreateBase | ReifiedCreateBase]",
 )
 
 
@@ -173,9 +174,9 @@ class ContextFieldName[V]:
 #           ^target
 
 
-class ViewInContext(typing.Generic[ViewInContextType]):
-    _classes: dict[str, ContextFieldName[type[ViewInContextType]]]
-    _cls: type[ViewInContextType]
+class RelationInContexxt(typing.Generic[RelationInContextType]):
+    _classes: dict[str, ContextFieldName[type[RelationInContextType]]]
+    _cls: type[RelationInContextType]
 
     def __init__(self, cls):
         self._cls = cls
@@ -183,8 +184,8 @@ class ViewInContext(typing.Generic[ViewInContextType]):
 
     def _add(
         self,
-        relation_target_model: type["RootNode"],
-        view_in_context_model: type[ViewInContextType],
+        relation_target_model: type["RootNode | ReifiedRelation"],
+        view_in_context_model: type[RelationInContextType],
         field_name: str,
     ):
         if relation_target_model.__name__ not in self._classes:
@@ -196,7 +197,7 @@ class ViewInContext(typing.Generic[ViewInContextType]):
 
     def __getattr__(
         self, name: str
-    ) -> ContextFieldName[type[ViewInContextType]] | None:
+    ) -> ContextFieldName[type[RelationInContextType]] | None:
         try:
             return getattr(super(), name)
         except AttributeError:
@@ -210,9 +211,9 @@ class ViewInContext(typing.Generic[ViewInContextType]):
                 )
 
 
-class _RelationInContextOf(typing.Generic[ViewInContextType]):
-    in_context_of: typing.ClassVar[ViewInContext[ViewInContextType]]  # type: ignore
+class _RelationInContextOf(typing.Generic[RelationInContextType]):
+    in_context_of: typing.ClassVar[RelationInContexxt[RelationInContextType]]  # type: ignore
 
     def __init_subclass__(cls) -> None:
-        cls.in_context_of = ViewInContext[ViewInContextType](cls)
+        cls.in_context_of = RelationInContexxt[RelationInContextType](cls)
         return super().__init_subclass__()

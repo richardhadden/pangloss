@@ -31,7 +31,7 @@ archive.zip
 # macOS
 .DS_Store
 
-neo4j-docker-test-pangloss/
+.neo4j-docker-test-pangloss/
 
 
 *query_dump.cypher

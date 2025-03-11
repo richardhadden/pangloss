@@ -40,7 +40,7 @@ def build_reified_model_name(model: type[ReifiedRelation]) -> str:
 
 
 def build_field_type_definitions(
-    model: type[RootNode | ReifiedRelation],
+    model: type[RootNode | ReifiedRelation], bound_field_names: set[str] | None = None
 ):
     """For each type of possible field, build a dict of field name
     and pydantic tuple-type definition"""
@@ -49,7 +49,10 @@ def build_field_type_definitions(
     fields.update(build_property_fields(model))
 
     for field in model._meta.fields.relation_fields:
-        fields[field.field_name] = build_relation_field(field, model)
+        if bound_field_names and field.field_name in bound_field_names:
+            fields[field.field_name] = build_relation_field(field, model, True)
+        else:
+            fields[field.field_name] = build_relation_field(field, model)
 
     for field in model._meta.fields.embedded_fields:
         fields[field.field_name] = build_embedded_field(field, model)
@@ -120,8 +123,45 @@ def add_edge_model(
     return model_with_edge
 
 
+def build_bound_field_creation_model(
+    field: RelationFieldDefinition,
+    parent_model: type[RootNode] | type[ReifiedRelation],
+    base_type_for_bound_model: type[RootNode],
+    bound_relation_field_names: set[str],
+):
+    bound_field_model = create_model(
+        f"{base_type_for_bound_model.__name__}_Create__in_context_of__{parent_model.__name__}__{field.field_name}",
+        __base__=base_type_for_bound_model.Create,
+    )
+    build_field_type_definitions(base_type_for_bound_model)
+
+    unpack_fields_onto_model(
+        bound_field_model,
+        build_field_type_definitions(
+            base_type_for_bound_model, bound_relation_field_names
+        ),
+    )
+    bound_field_model.__pg_base_class__ = base_type_for_bound_model
+    bound_field_model.model_rebuild(force=True)
+
+    # TODO: figure out how to register this!!
+    base_type_for_bound_model.Create.in_context_of._add(
+        relation_target_model=parent_model,
+        view_in_context_model=bound_field_model,
+        field_name=field.field_name,
+    )
+
+    return bound_field_model
+
+
+# Event.View.in_context_of.Cat.is_involved_in = ContextViewModel
+#           ^target
+
+
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
+    parent_model: type[RootNode] | type[ReifiedRelation],
+    bound_relation_field_names: set[str] | None = None,
 ) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase]]:
     """Creates a list of actual classes to be referenced by a relation"""
     related_models = []
@@ -130,7 +170,16 @@ def get_models_for_relation_field(
     for base_type in get_base_models_for_relations_to_node(field.relations_to_node):
         if field.create_inline:
             build_create_model(base_type)
-            related_models.append(base_type.Create)
+            if bound_relation_field_names and any(
+                bf in base_type._meta.fields for bf in bound_relation_field_names
+            ):
+                bound_field_model = build_bound_field_creation_model(
+                    field, parent_model, base_type, bound_relation_field_names
+                )
+                related_models.append(bound_field_model)
+
+            else:
+                related_models.append(base_type.Create)
 
         else:
             related_models.append(base_type.ReferenceSet)
@@ -145,10 +194,31 @@ def get_models_for_relation_field(
     return related_models
 
 
+def get_bound_relation_field_names_for_bound(
+    model: type["RootNode"],
+) -> set[str]:
+    bound_relations = [
+        rf for rf in model._meta.fields.relation_fields if rf.bind_fields_to_related
+    ]
+    bound_relation_field_names = set()
+    for bound_relation in bound_relations:
+        assert bound_relation.bind_fields_to_related
+        bound_relation_field_names.update(
+            br[1] for br in bound_relation.bind_fields_to_related
+        )
+    return bound_relation_field_names
+
+
 def build_relation_field(
-    field: RelationFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+    field: RelationFieldDefinition,
+    model: type["RootNode"] | type["ReifiedRelation"],
+    is_bound: bool = False,
 ) -> FieldInfo:
-    related_models = get_models_for_relation_field(field)
+    bound_fields = set()
+    if issubclass(model, RootNode):
+        bound_fields = get_bound_relation_field_names_for_bound(model)
+
+    related_models = get_models_for_relation_field(field, model, bound_fields)
 
     if field.edge_model:
         related_models = [add_edge_model(t, field.edge_model) for t in related_models]
@@ -157,7 +227,16 @@ def build_relation_field(
     for m in related_models:
         m.model_rebuild(force=True)
 
-    field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
+    if is_bound:
+        field_info = FieldInfo.from_annotation(
+            typing.cast(
+                type[typing.Any], typing.Optional[list[typing.Union[*related_models]]]
+            )
+        )
+        field_info.default = None
+        field_info.rebuild_annotation()
+    else:
+        field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
     if len(field.relation_labels) > 1:
         field_info.validation_alias = AliasChoices(
             *field.relation_labels, *(humps.camelize(l) for l in field.relation_labels)
