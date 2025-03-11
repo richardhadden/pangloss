@@ -160,9 +160,11 @@ class CreateBase(
     _BaseClassProxy,
     _ViaEdge["CreateBase"],
     _BindingSubModelValidator,
-    _RelationInContextOf["CreateBase | ReifiedCreateBase"],
+    _RelationInContextOf["CreateBase"],
 ):
     # id: Can take an optional ID or URI
+
+    post_validator: typing.ClassVar[typing.Callable]
 
     type: str
     id: ULID | AnyHttpUrl | None = None

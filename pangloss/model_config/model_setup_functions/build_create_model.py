@@ -2,7 +2,7 @@ import typing
 from functools import cache
 
 import humps
-from pydantic import AliasChoices, BaseModel, create_model
+from pydantic import AliasChoices, BaseModel, create_model, model_validator
 from pydantic.fields import FieldInfo
 
 from pangloss.model_config.field_definitions import (
@@ -132,6 +132,7 @@ def build_bound_field_creation_model(
     bound_field_model = create_model(
         f"{base_type_for_bound_model.__name__}_Create__in_context_of__{parent_model.__name__}__{field.field_name}",
         __base__=base_type_for_bound_model.Create,
+        post_validator=(typing.ClassVar[typing.Callable], ...),
     )
     build_field_type_definitions(base_type_for_bound_model)
 
@@ -142,9 +143,18 @@ def build_bound_field_creation_model(
         ),
     )
     bound_field_model.__pg_base_class__ = base_type_for_bound_model
+
+    def post_validator(self: "CreateBase"):
+        print("VALIDATIN!")
+        self.__pg_base_class__.Create.model_validate(**dict(self))
+        return self
+
+    bound_field_model.post_validator = typing.cast(
+        typing.Callable, model_validator(mode="after")(post_validator)
+    )
+
     bound_field_model.model_rebuild(force=True)
 
-    # TODO: figure out how to register this!!
     base_type_for_bound_model.Create.in_context_of._add(
         relation_target_model=parent_model,
         view_in_context_model=bound_field_model,
@@ -170,6 +180,9 @@ def get_models_for_relation_field(
     for base_type in get_base_models_for_relations_to_node(field.relations_to_node):
         if field.create_inline:
             build_create_model(base_type)
+
+            # Check if any of the fields bound to parent_model field are in this model,
+            # and if so, create a bound_field_model instead of the usual one
             if bound_relation_field_names and any(
                 bf in base_type._meta.fields for bf in bound_relation_field_names
             ):
@@ -227,7 +240,9 @@ def build_relation_field(
     for m in related_models:
         m.model_rebuild(force=True)
 
-    if is_bound:
+    if (
+        is_bound
+    ):  # If the field is bound to value from parent field, make this field optional
         field_info = FieldInfo.from_annotation(
             typing.cast(
                 type[typing.Any], typing.Optional[list[typing.Union[*related_models]]]
@@ -237,6 +252,7 @@ def build_relation_field(
         field_info.rebuild_annotation()
     else:
         field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
+
     if len(field.relation_labels) > 1:
         field_info.validation_alias = AliasChoices(
             *field.relation_labels, *(humps.camelize(l) for l in field.relation_labels)

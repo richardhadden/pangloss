@@ -762,6 +762,7 @@ def test_build_pg_annotation_for_multikeyfield():
 
 
 def test_build_pg_annotations_for_specialising_abstract_classes():
+    ModelManager.initialise_models()
     assert list(CreateBase.__pg_specialist_type_fields_definitions__.fields.keys()) == [
         "type",
         "id",

@@ -564,9 +564,20 @@ def build_pg_model_definitions(
     model.__pg_field_definitions__ = ModelFieldDefinitions(field_definitions)
 
 
-def build_abstract_specialist_type_model_definitions(model: type[_BaseClassProxy]):
+from pydantic import BaseModel
+
+
+class BaseModelBaseClassProxy(BaseModel, _BaseClassProxy):
+    pass
+
+
+def build_abstract_specialist_type_model_definitions(
+    model: type[BaseModelBaseClassProxy],
+):
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
+        if field_name in model.__class_vars__:
+            continue
         field_definitions[field_name] = build_field_definition(
             field_name, annotation, model=model
         )

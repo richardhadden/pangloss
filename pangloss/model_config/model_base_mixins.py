@@ -4,7 +4,8 @@ import humps
 from pydantic import ConfigDict, model_validator
 
 if typing.TYPE_CHECKING:
-    from models_base import (
+    from pangloss.model_config.field_definitions import ModelFieldDefinitions
+    from pangloss.model_config.models_base import (
         BaseMeta,
         CreateBase,
         EditHeadSetBase,
@@ -86,7 +87,7 @@ class _OwnsMethods:
         return cls.__dict__.get(key, None)
 
 
-class MetaDescriptor:
+class _MetaDescriptor:
     def __get__(
         self, obj, parent_type: "_BaseClassProxy | None" = None
     ) -> "BaseMeta | ReifiedMeta":
@@ -96,16 +97,17 @@ class MetaDescriptor:
 
 class _BaseClassProxy(_OwnsMethods):
     __pg_base_class__: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
+    __pg_specialist_type_fields_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @property
     def __pg_field_definitions__(self):
-        return (self.__pg_base_class__.__pg_field_definitions__,)
+        return self.__pg_base_class__.__pg_field_definitions__
 
     @property
     def collapse_when(self):
         return getattr(self.__pg_base_class__, "collapse_when", None)
 
-    _meta: typing.ClassVar["BaseMeta"] = typing.cast("BaseMeta", MetaDescriptor())
+    _meta: typing.ClassVar["BaseMeta"] = typing.cast("BaseMeta", _MetaDescriptor())
 
 
 RelationViaEdgeType = typing.TypeVar(
@@ -113,7 +115,7 @@ RelationViaEdgeType = typing.TypeVar(
 )
 
 
-class RelationsViaEdge(typing.Generic[RelationViaEdgeType]):
+class _RelationsViaEdge(typing.Generic[RelationViaEdgeType]):
     _classes: dict[str, type[RelationViaEdgeType]]
 
     def __init__(self):
@@ -134,10 +136,10 @@ class RelationsViaEdge(typing.Generic[RelationViaEdgeType]):
 
 
 class _ViaEdge(typing.Generic[RelationViaEdgeType]):
-    via: typing.ClassVar[RelationsViaEdge[RelationViaEdgeType]]  # type: ignore
+    via: typing.ClassVar[_RelationsViaEdge[RelationViaEdgeType]]  # type: ignore
 
     def __init_subclass__(cls) -> None:
-        cls.via = RelationsViaEdge[RelationViaEdgeType]()
+        cls.via = _RelationsViaEdge[RelationViaEdgeType]()
         return super().__init_subclass__()
 
 
@@ -147,7 +149,7 @@ RelationInContextType = typing.TypeVar(
 )
 
 
-class ContextFieldName[V]:
+class _ContextFieldName[V]:
     _context_field_names: dict[str, V]
 
     def __init__(self):
@@ -174,8 +176,8 @@ class ContextFieldName[V]:
 #           ^target
 
 
-class RelationInContexxt(typing.Generic[RelationInContextType]):
-    _classes: dict[str, ContextFieldName[type[RelationInContextType]]]
+class _RelationInContext(typing.Generic[RelationInContextType]):
+    _classes: dict[str, _ContextFieldName[type[RelationInContextType]]]
     _cls: type[RelationInContextType]
 
     def __init__(self, cls):
@@ -189,7 +191,7 @@ class RelationInContexxt(typing.Generic[RelationInContextType]):
         field_name: str,
     ):
         if relation_target_model.__name__ not in self._classes:
-            self._classes[relation_target_model.__name__] = ContextFieldName()
+            self._classes[relation_target_model.__name__] = _ContextFieldName()
         self._classes[relation_target_model.__name__]._add(
             reverse_field_name=field_name,
             view_in_context_model=view_in_context_model,
@@ -197,7 +199,7 @@ class RelationInContexxt(typing.Generic[RelationInContextType]):
 
     def __getattr__(
         self, name: str
-    ) -> ContextFieldName[type[RelationInContextType]] | None:
+    ) -> _ContextFieldName[type[RelationInContextType]] | None:
         try:
             return getattr(super(), name)
         except AttributeError:
@@ -207,13 +209,13 @@ class RelationInContexxt(typing.Generic[RelationInContextType]):
                 raise AttributeError(
                     f"{self._cls.__pg_base_class__.__name__}"
                     f".{self._cls.__name__.replace(self._cls.__pg_base_class__.__name__, '')} "
-                    f"has no context model for {name}"
+                    f"has no in_context model for model {name}"
                 )
 
 
 class _RelationInContextOf(typing.Generic[RelationInContextType]):
-    in_context_of: typing.ClassVar[RelationInContexxt[RelationInContextType]]  # type: ignore
+    in_context_of: typing.ClassVar[_RelationInContext[RelationInContextType]]  # type: ignore
 
     def __init_subclass__(cls) -> None:
-        cls.in_context_of = RelationInContexxt[RelationInContextType](cls)
+        cls.in_context_of = _RelationInContext[RelationInContextType](cls)
         return super().__init_subclass__()
