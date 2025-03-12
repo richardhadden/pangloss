@@ -207,6 +207,7 @@ def get_models_for_relation_field(
     return related_models
 
 
+@cache
 def get_bound_relation_field_names_for_bound(
     model: type["RootNode"],
 ) -> set[str]:

@@ -4,6 +4,7 @@ import types
 import typing
 
 import annotated_types
+from pydantic import BaseModel
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
@@ -564,11 +565,8 @@ def build_pg_model_definitions(
     model.__pg_field_definitions__ = ModelFieldDefinitions(field_definitions)
 
 
-from pydantic import BaseModel
-
-
 class BaseModelBaseClassProxy(BaseModel, _BaseClassProxy):
-    pass
+    __pg_annotations__: typing.ClassVar
 
 
 def build_abstract_specialist_type_model_definitions(
