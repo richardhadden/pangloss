@@ -1,6 +1,8 @@
 import typing
+import warnings
+from functools import cache
 
-from pydantic import create_model
+from pydantic import create_model, model_validator
 from pydantic.fields import FieldInfo
 
 from pangloss.model_config.field_definitions import (
@@ -46,6 +48,7 @@ def get_reified_model_name(model: type[ReifiedRelation]) -> str:
 
 def get_field_type_definitions(
     model: type[RootNode | ReifiedRelation],
+    bound_field_names: set[str] | None = None,
 ):
     """For each type of possible field, build a dict of field name
     and pydantic tuple-type definition"""
@@ -54,7 +57,10 @@ def get_field_type_definitions(
     fields.update(build_property_fields(model))
 
     for field in model._meta.fields.relation_fields:
-        fields[field.field_name] = get_relation_field(field)
+        if bound_field_names and field.field_name in bound_field_names:
+            fields[field.field_name] = get_relation_field(field, model, True)
+        else:
+            fields[field.field_name] = get_relation_field(field, model)
 
     for field in model._meta.fields.embedded_fields:
         fields[field.field_name] = get_embedded_field(field)
@@ -154,8 +160,122 @@ def add_edge_model[
     return model_with_edge
 
 
+@model_validator(mode="after")
+def bound_field_creation_model_after_validator(self: "CreateBase") -> typing.Any:
+    """Validator to validate the created object after the fields have
+    been bound"""
+    return self.__pg_base_class__.Create.model_validate(self)
+
+
+def build_bound_field_creation_model(
+    field: RelationFieldDefinition,
+    parent_model: type[RootNode] | type[ReifiedRelation],
+    base_type_for_bound_model: type[RootNode],
+    bound_relation_field_names: set[str],
+):
+    """Creates a variant of a model (base_type_for_bound_models) with the fields
+    that are bound to the parent made optional. Also adds a validator function that
+    checks the data from parent-bound fields are included"""
+
+    # Bug with Pydantic: adding __validators__ (as per documentation) causes a
+    # runtime warning that fields should not start with an underscore... but of course it can
+    # so suppress the warning here
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        # Create a new model
+        bound_field_model = create_model(
+            f"{base_type_for_bound_model.__name__}_Create__in_context_of__{parent_model.__name__}__{field.field_name}",
+            __base__=base_type_for_bound_model.Create,
+            __model__=base_type_for_bound_model.__module__,
+            __validators__={
+                "post_validator": typing.cast(
+                    typing.Callable, bound_field_creation_model_after_validator
+                )
+            },
+        )
+
+    get_field_type_definitions(base_type_for_bound_model)
+
+    unpack_fields_onto_model(
+        bound_field_model,
+        get_field_type_definitions(
+            base_type_for_bound_model, bound_relation_field_names
+        ),
+    )
+    bound_field_model.__pg_base_class__ = base_type_for_bound_model
+    bound_field_model.model_rebuild(force=True)
+
+    # Register the model using the Create.in_context_of mechanism
+    base_type_for_bound_model.Create.in_context_of._add(
+        relation_target_model=parent_model,
+        view_in_context_model=bound_field_model,
+        field_name=field.field_name,
+    )
+
+    return bound_field_model
+
+
+@model_validator(mode="after")
+def bound_field_edit_model_after_validator(self: "CreateBase") -> typing.Any:
+    """Validator to validate the created object after the fields have
+    been bound"""
+    return self.__pg_base_class__.EditSet.model_validate(self)
+
+
+def build_bound_field_edit_model(
+    field: RelationFieldDefinition,
+    parent_model: type[RootNode] | type[ReifiedRelation],
+    base_type_for_bound_model: type[RootNode],
+    bound_relation_field_names: set[str],
+):
+    """Creates a variant of a model (base_type_for_bound_models) with the fields
+    that are bound to the parent made optional. Also adds a validator function that
+    checks the data from parent-bound fields are included"""
+
+    # Bug with Pydantic: adding __validators__ (as per documentation) causes a
+    # runtime warning that fields should not start with an underscore... but of course it can
+    # so suppress the warning here
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        # Create a new model
+        bound_field_model = create_model(
+            f"{base_type_for_bound_model.__name__}_EditSet__in_context_of__{parent_model.__name__}__{field.field_name}",
+            __base__=base_type_for_bound_model.EditSet,
+            __model__=base_type_for_bound_model.__module__,
+            __validators__={
+                "post_validator": typing.cast(
+                    typing.Callable, bound_field_edit_model_after_validator
+                )
+            },
+        )
+
+    get_field_type_definitions(base_type_for_bound_model)
+
+    unpack_fields_onto_model(
+        bound_field_model,
+        get_field_type_definitions(
+            base_type_for_bound_model, bound_relation_field_names
+        ),
+    )
+    bound_field_model.__pg_base_class__ = base_type_for_bound_model
+    bound_field_model.model_rebuild(force=True)
+
+    # Register the model using the Create.in_context_of mechanism
+    base_type_for_bound_model.EditSet.in_context_of._add(
+        relation_target_model=parent_model,
+        view_in_context_model=bound_field_model,
+        field_name=field.field_name,
+    )
+
+    return bound_field_model
+
+
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
+    parent_model: type[RootNode] | type[ReifiedRelation],
+    bound_relation_field_names: set[str] | None = None,
 ) -> list[
     type[
         ReferenceSetBase
@@ -173,10 +293,28 @@ def get_models_for_relation_field(
         if field.edit_inline:
             # If editable inline, it can either be a
             # setting of existing (EditSet) or new (Create)
-            build_edit_set_model(base_type)
-            related_models.append(base_type.EditSet)
-            build_create_model(base_type)
-            related_models.append(base_type.Create)
+            if bound_relation_field_names and any(
+                bf in base_type._meta.fields for bf in bound_relation_field_names
+            ):
+                build_edit_set_model(base_type)
+                build_create_model(base_type)
+
+                # If there are any bound fields, create bound_fields
+                bound_field_edit_model = build_bound_field_edit_model(
+                    field, parent_model, base_type, bound_relation_field_names
+                )
+                related_models.append(bound_field_edit_model)
+
+                bound_field_creation_model = build_bound_field_creation_model(
+                    field, parent_model, base_type, bound_relation_field_names
+                )
+                related_models.append(bound_field_creation_model)
+
+            else:
+                build_edit_set_model(base_type)
+                build_create_model(base_type)
+                related_models.append(base_type.EditSet)
+                related_models.append(base_type.Create)
         else:
             if base_type._meta.create_by_reference:
                 related_models.append(base_type.ReferenceCreate)
@@ -192,8 +330,31 @@ def get_models_for_relation_field(
     return related_models
 
 
-def get_relation_field(field: RelationFieldDefinition) -> FieldInfo:
-    related_models = get_models_for_relation_field(field)
+@cache
+def get_bound_relation_field_names_for_bound(
+    model: type["RootNode"],
+) -> set[str]:
+    bound_relations = [
+        rf for rf in model._meta.fields.relation_fields if rf.bind_fields_to_related
+    ]
+    bound_relation_field_names = set()
+    for bound_relation in bound_relations:
+        assert bound_relation.bind_fields_to_related
+        bound_relation_field_names.update(
+            br[1] for br in bound_relation.bind_fields_to_related
+        )
+    return bound_relation_field_names
+
+
+def get_relation_field(
+    field: RelationFieldDefinition,
+    model: type["RootNode"] | type["ReifiedRelation"],
+    is_bound: bool = False,
+) -> FieldInfo:
+    # Get the relations which are fields bound to this model
+    bound_fields = get_bound_relation_field_names_for_bound(model)
+
+    related_models = get_models_for_relation_field(field, model, bound_fields)
 
     if field.edge_model:
         related_models = [add_edge_model(t, field.edge_model) for t in related_models]
@@ -202,7 +363,16 @@ def get_relation_field(field: RelationFieldDefinition) -> FieldInfo:
     for m in related_models:
         m.model_rebuild(force=True)
 
-    field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
+    if is_bound:
+        field_info = FieldInfo.from_annotation(
+            typing.cast(
+                type[typing.Any], typing.Optional[list[typing.Union[*related_models]]]
+            )
+        )
+        field_info.default = None
+        field_info.rebuild_annotation()
+    else:
+        field_info = FieldInfo.from_annotation(list[typing.Union[*related_models]])
 
     if field.validators:
         field_info.metadata = field.validators

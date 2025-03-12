@@ -228,7 +228,7 @@ class EditHeadSetBase(
     _ViaEdge["EditHeadSetBase"],
     _BindingSubModelValidator,
 ):
-    """Base model for updates Post-ed to API
+    """Base Head model for updates PATCH-ed to API
 
     Nested items can be other ReferenceSetBase, EditSetBase or CreateBase models"""
 
@@ -244,8 +244,9 @@ class EditSetBase(
     _BaseClassProxy,
     _ViaEdge["EditSetBase"],
     _BindingSubModelValidator,
+    _RelationInContextOf["EditSetBase"],
 ):
-    """Base model for updates Post-ed to API"""
+    """Base model for updates PATCH-ed to API"""
 
     id: ULID
     type: str

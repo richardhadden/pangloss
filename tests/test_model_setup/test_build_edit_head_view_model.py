@@ -340,3 +340,85 @@ def test_edit_head_view_model_with_double_reified():
     )
     assert isinstance(p.owns_cat[0].other[0], Identification[Dog].View)
     assert isinstance(p.owns_cat[0].other[0].target[0], Dog.ReferenceView.via.Certainty)
+
+
+@no_type_check
+def test_build_edit_model_with_bound_container_value():
+    class Person(BaseNode):
+        name: str
+
+    class DoingThing(BaseNode):
+        when: str
+        done_by: Annotated[Person, RelationConfig(reverse_name="did")]
+
+    class OtherThing(BaseNode):
+        when: str
+
+    class NothingToDoWithIt(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        when: str  # <-- "Last Tuesday"
+        person_giving_order: Annotated[
+            Person, RelationConfig(reverse_name="gave_order")
+        ]
+        person_carrying_out_order: Annotated[
+            Person, RelationConfig(reverse_name="carried_out_order")
+        ]
+        thing_ordered: Annotated[
+            DoingThing | OtherThing | NothingToDoWithIt,
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                edit_inline=True,
+                bind_fields_to_related=[
+                    ("person_carrying_out_order", "done_by"),
+                    ("when", "when", lambda w: f"After {w}"),
+                ],
+            ),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.EditHeadSet.model_fields["thing_ordered"].annotation
+        == list[
+            DoingThing.Create.in_context_of.Order.thing_ordered
+            | DoingThing.EditSet.in_context_of.Order.thing_ordered
+            | OtherThing.Create.in_context_of.Order.thing_ordered
+            | OtherThing.EditSet.in_context_of.Order.thing_ordered
+            | NothingToDoWithIt.EditSet
+            | NothingToDoWithIt.Create
+        ]
+    )
+
+    order = Order.EditHeadSet(
+        id=gen_ulid(),
+        when="last Tuesday",
+        label="An Order",
+        person_giving_order=[{"type": "Person", "id": gen_ulid()}],
+        person_carrying_out_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[
+            {"id": gen_ulid(), "type": "DoingThing", "label": "A Thing Done"}
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "DoingThing"
+    assert order.thing_ordered[0].done_by[0].type == "Person"
+
+    print(type(order.thing_ordered[0]))
+    assert isinstance(
+        order.thing_ordered[0],
+        DoingThing.EditSet.in_context_of.Order.thing_ordered,
+    )
+
+    """ list[
+        typing.Union[
+            pangloss.model_config.model_setup_functions.build_edit_set_model.DoingThing_Create__in_context_of__Order__thing_ordered,
+            pangloss.model_config.model_setup_functions.build_edit_set_model.DoingThing_EditSet__in_context_of__Order__thing_ordered,
+            pangloss.model_config.model_setup_functions.build_edit_set_model.OtherThing_Create__in_context_of__Order__thing_ordered,
+            pangloss.model_config.model_setup_functions.build_edit_set_model.OtherThing_EditSet__in_context_of__Order__thing_ordered,
+            tests.test_model_setup.test_build_edit_head_view_model.NothingToDoWithItEditSet,
+            tests.test_model_setup.test_build_edit_head_view_model.NothingToDoWithItCreate,
+        ]
+    ] """

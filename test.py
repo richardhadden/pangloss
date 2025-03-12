@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 
 class Person(BaseModel):
@@ -8,34 +8,7 @@ class Person(BaseModel):
     name: str
 
 
-class DidThing(BaseModel):
-    type: Literal["DidThing"] = "DidThing"
-    carried_out_by: Person
+p = Person.model_validate({"type": "Person", "name": "John"})
 
-
-class Order(BaseModel):
-    type: Literal["Order"] = "Order"
-    carried_out_by: Person
-    thing_ordered: list[DidThing]
-
-    @model_validator(mode="before")
-    @classmethod
-    def thing(cls, data):
-        if not data["thing_ordered"]:
-            for c in data["thing_ordered"]:
-                c["carried_out_by"] = data["carried_out_by"]
-        return data
-
-
-o = Order(
-    type="Order",
-    carried_out_by=Person(type="Person", name="John"),
-    thing_ordered=[
-        {
-            "type": "DidThing",
-            "carried_out_by": {"type": "Person", "name": "Toby"},
-        }
-    ],
-)
-
-print(o)
+print(p)
+print(type(p))

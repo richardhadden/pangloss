@@ -501,7 +501,3 @@ def test_build_creation_model_with_bound_container_value():
 
     assert order.thing_ordered[0].when == "After last Tuesday"
     assert order.thing_ordered[0].done_by[0].type == "Person"
-
-    # assert DoingThing.Create.in_context_of.Order.thing_ordered
-
-    # assert Order.Create.model_fields["thing_ordered"].annotation == ""

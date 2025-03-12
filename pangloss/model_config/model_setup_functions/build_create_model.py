@@ -160,7 +160,7 @@ def build_bound_field_creation_model(
             },
         )
 
-    build_field_type_definitions(base_type_for_bound_model)
+    # build_field_type_definitions(base_type_for_bound_model)
 
     unpack_fields_onto_model(
         bound_field_model,
