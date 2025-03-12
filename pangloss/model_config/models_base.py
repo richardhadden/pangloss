@@ -492,7 +492,9 @@ class RelationConfig:
     reverse_name: str
     """Reverse name for the relationship"""
     bind_fields_to_related: typing.Optional[
-        typing.Iterable[tuple[str, str] | tuple[str, str, typing.Callable]]
+        typing.Iterable[
+            tuple[str, str] | tuple[str, str, typing.Callable] | "BoundField"
+        ]
     ] = dataclasses.field(default_factory=list)
     """Use the value of the containing model field as the value of contained model 
     field, via optional transforming function"""
@@ -524,3 +526,9 @@ class RelationConfig:
             raise PanglossConfigError(
                 "Cannot use `bind_field_to_related` unless also `create_inline=True`"
             )
+
+
+class BoundField(typing.NamedTuple):
+    parent_field_name: str
+    bound_field_name: str
+    transform: typing.Optional[typing.Callable] = None

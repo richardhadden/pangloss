@@ -8,6 +8,7 @@ from pangloss import initialise_models
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.models_base import (
     BaseMeta,
+    BoundField,
     EdgeModel,
     Embedded,
     HeritableTrait,
@@ -469,8 +470,11 @@ def test_build_creation_model_with_bound_container_value():
                 reverse_name="was_ordered_in",
                 create_inline=True,
                 bind_fields_to_related=[
-                    ("person_carrying_out_order", "done_by"),
-                    ("when", "when", lambda w: f"After {w}"),
+                    BoundField(
+                        parent_field_name="person_carrying_out_order",
+                        bound_field_name="done_by",
+                    ),
+                    BoundField("when", "when", lambda w: f"After {w}"),
                 ],
             ),
         ]
