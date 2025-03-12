@@ -484,6 +484,24 @@ def test_build_creation_model_with_bound_container_value():
         == Optional[list[Person.ReferenceSet]]
     )
 
+    assert (
+        DoingThing.Create.in_context_of.Order.thing_ordered.model_fields[
+            "when"
+        ].annotation
+        == str | None
+    )
+
+    order = Order(
+        when="last Tuesday",
+        label="An Order",
+        person_giving_order=[{"type": "Person", "id": gen_ulid()}],
+        person_carrying_out_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[{"type": "DoingThing", "label": "A Thing Done"}],
+    )
+
+    assert order.thing_ordered[0].when == "After last Tuesday"
+    assert order.thing_ordered[0].done_by[0].type == "Person"
+
     # assert DoingThing.Create.in_context_of.Order.thing_ordered
 
     # assert Order.Create.model_fields["thing_ordered"].annotation == ""

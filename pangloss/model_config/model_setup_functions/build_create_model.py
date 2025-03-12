@@ -1,4 +1,5 @@
 import typing
+import warnings
 from functools import cache
 
 import humps
@@ -46,7 +47,7 @@ def build_field_type_definitions(
     and pydantic tuple-type definition"""
 
     fields = {}
-    fields.update(build_property_fields(model))
+    fields.update(build_property_fields(model, bound_field_names))
 
     for field in model._meta.fields.relation_fields:
         if bound_field_names and field.field_name in bound_field_names:
@@ -123,17 +124,42 @@ def add_edge_model(
     return model_with_edge
 
 
+@model_validator(mode="after")
+def bound_field_creation_model_after_validator(self: "CreateBase") -> typing.Any:
+    """Validator to validate the created object after the fields have
+    been bound"""
+    self.__pg_base_class__.Create.model_validate(self)
+    return self
+
+
 def build_bound_field_creation_model(
     field: RelationFieldDefinition,
     parent_model: type[RootNode] | type[ReifiedRelation],
     base_type_for_bound_model: type[RootNode],
     bound_relation_field_names: set[str],
 ):
-    bound_field_model = create_model(
-        f"{base_type_for_bound_model.__name__}_Create__in_context_of__{parent_model.__name__}__{field.field_name}",
-        __base__=base_type_for_bound_model.Create,
-        post_validator=(typing.ClassVar[typing.Callable], ...),
-    )
+    """Creates a variant of a model (base_type_for_bound_models) with the fields
+    that are bound to the parent made optional. Also adds a validator function that
+    checks the data from parent-bound fields are included"""
+
+    # Bug with Pydantic: adding __validators__ (as per documentation) causes a
+    # runtime warning that fields should not start with an underscore... but of course it can
+    # so suppress the warning here
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        # Create a new model
+        bound_field_model = create_model(
+            f"{base_type_for_bound_model.__name__}_Create__in_context_of__{parent_model.__name__}__{field.field_name}",
+            __base__=base_type_for_bound_model.Create,
+            __model__=base_type_for_bound_model.__module__,
+            __validators__={
+                "post_validator": typing.cast(
+                    typing.Callable, bound_field_creation_model_after_validator
+                )
+            },
+        )
+
     build_field_type_definitions(base_type_for_bound_model)
 
     unpack_fields_onto_model(
@@ -143,18 +169,9 @@ def build_bound_field_creation_model(
         ),
     )
     bound_field_model.__pg_base_class__ = base_type_for_bound_model
-
-    def post_validator(self: "CreateBase"):
-        print("VALIDATIN!")
-        self.__pg_base_class__.Create.model_validate(**dict(self))
-        return self
-
-    bound_field_model.post_validator = typing.cast(
-        typing.Callable, model_validator(mode="after")(post_validator)
-    )
-
     bound_field_model.model_rebuild(force=True)
 
+    # Register the model using the Create.in_context_of mechanism
     base_type_for_bound_model.Create.in_context_of._add(
         relation_target_model=parent_model,
         view_in_context_model=bound_field_model,
@@ -228,9 +245,8 @@ def build_relation_field(
     model: type["RootNode"] | type["ReifiedRelation"],
     is_bound: bool = False,
 ) -> FieldInfo:
-    bound_fields = set()
-    if issubclass(model, RootNode):
-        bound_fields = get_bound_relation_field_names_for_bound(model)
+    # Get the relations which are fields bound to this model
+    bound_fields = get_bound_relation_field_names_for_bound(model)
 
     related_models = get_models_for_relation_field(field, model, bound_fields)
 
