@@ -12,13 +12,13 @@ from rich.panel import Panel
 # from pangloss.model_setup.model_manager import ModelManager
 from pangloss.cli.users import user_cli
 from pangloss.cli.utils import get_project_path
-from pangloss.database import initialise_database_driver
 from pangloss.exceptions import PanglossInitialisationError
 
 # from pangloss.types_generation import type_generation_cli
 # from pangloss.translation import translation_cli
 from pangloss.indexes import install_indexes_and_constraints
 from pangloss.initialisation import get_project_settings
+from pangloss.neo4j.database import initialise_database_driver
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 

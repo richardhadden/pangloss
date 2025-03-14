@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 
-from pydantic import field_validator
+from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings
 from pydantic_settings import SettingsConfigDict
 
@@ -22,6 +22,8 @@ class BaseSettings(PydanticBaseSettings):
     AUTHJWT_SECRET_KEY: str
 
     INTERFACE_LANGUAGES: list[str]
+
+    ENTITY_BASE_URL: AnyHttpUrl
 
     @field_validator("BACKEND_CORS_ORIGINS")
     def assemble_cors_origins(

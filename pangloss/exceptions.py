@@ -16,3 +16,7 @@ class PanglossCLIError(Exception):
 
 class PanglossUserError(Exception):
     pass
+
+
+class PanglossDatabaseError(Exception):
+    pass

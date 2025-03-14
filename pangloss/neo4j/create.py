@@ -1,31 +1,29 @@
 import typing
-import uuid
 
 import jsonpatch
-from uuid_extensions import uuid7
+from ulid import ULID
 
-
-from pangloss.cypher.utils import (
-    Identifier,
+from pangloss.neo4j.utils import (
     CreateQuery,
+    Identifier,
     QuerySubstring,
-    get_properties_as_writeable_dict,
     convert_dict_for_writing,
+    get_properties_as_writeable_dict,
     join_labels,
 )
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
-        RelationFieldDefinition,
         EmbeddedFieldDefinition,
+        RelationFieldDefinition,
     )
     from pangloss.model_config.models_base import (
-        RootNode,
-        ReifiedRelation,
-        ReferenceSetBase,
         EmbeddedCreateBase,
+        ReferenceSetBase,
+        ReifiedRelation,
+        RootNode,
     )
-from pangloss.cypher.utils import UpdateQuery
+from pangloss.neo4j.utils import UpdateQuery
 
 
 def build_create_relationship(
@@ -114,7 +112,7 @@ def build_create_node_query_object(
     extra_labels: list[str] | None = None,
     head_node: bool = False,
     username: str | None = "DefaultUser",
-) -> tuple[CreateQuery | UpdateQuery, Identifier, uuid.UUID]:
+) -> tuple[CreateQuery | UpdateQuery, Identifier, ULID]:
     if not username:
         username = "DefaultUser"
 
@@ -130,15 +128,14 @@ def build_create_node_query_object(
     node_identifier = Identifier()
     node_data_identifier = Identifier()
 
-    instance_uuid = typing.cast(uuid.UUID, uuid7())
+    instance_id = ULID()
 
     if head_node:
-        query.uuid = instance_uuid
         query.head_type = instance.type
 
-    extra_node_data = {"uuid": instance_uuid, "is_deleted": False}
+    extra_node_data = {"id": instance_uuid, "is_deleted": False}
     if not head_node:
-        extra_node_data["head_uuid"] = query.uuid
+        extra_node_data["head_id"] = query.id
         extra_node_data["head_type"] = query.head_type
 
     query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
@@ -201,3 +198,11 @@ def build_create_node_query_object(
             )
 
     return query, node_identifier, instance_uuid
+
+
+def build_create_query_object(instance, username) -> CreateQuery:
+    """Builds a Create query for a Model.Create instance"""
+    query_object, _, _ = build_create_node_query_object(
+        instance, head_node=True, username=username
+    )
+    return typing.cast(CreateQuery, query_object)

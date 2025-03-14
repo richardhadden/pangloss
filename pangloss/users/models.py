@@ -1,8 +1,8 @@
 from neo4j.exceptions import ConstraintError
 from pydantic import BaseModel, EmailStr, Field
 
-from pangloss.database import Transaction, read_transaction, write_transaction
 from pangloss.exceptions import PanglossUserError
+from pangloss.neo4j.database import Transaction, read_transaction, write_transaction
 
 
 class User(BaseModel):

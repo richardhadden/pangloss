@@ -147,6 +147,11 @@ type annotation_types = (
 )
 
 
+class SubclassedRelationNames(typing.NamedTuple):
+    name: str
+    reverse_name: str
+
+
 @dataclasses.dataclass
 class RelationFieldDefinition(FieldDefinition):
     field_annotation: annotation_types
@@ -172,6 +177,9 @@ class RelationFieldDefinition(FieldDefinition):
     field_metatype: typing.ClassVar[typing.Literal["RelationField"]] = "RelationField"
     relation_labels: set[str] = dataclasses.field(default_factory=set)
     reverse_relation_labels: set[str] = dataclasses.field(default_factory=set)
+    subclassed_relations: set[SubclassedRelationNames] = dataclasses.field(
+        default_factory=set
+    )
     default_reified_type: typing.Optional[str] = None
 
     @property

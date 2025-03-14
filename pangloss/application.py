@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from pangloss.auth import security
-from pangloss.database import initialise_database_driver
+from pangloss.neo4j.database import initialise_database_driver
 from pangloss.settings import BaseSettings
 from pangloss.users.routes import setup_user_routes
 

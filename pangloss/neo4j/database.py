@@ -79,6 +79,7 @@ def write_transaction[ModelType, ReturnType, **Params](
         cls: ModelType, *args: Params.args, **kwargs: Params.kwargs
     ) -> ReturnType:
         # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
+
         async with DRIVER.session(database=database) as session:
             bound_func = functools.partial(func, cls)
             records = await session.execute_write(bound_func, *args, **kwargs)
@@ -118,6 +119,7 @@ class Database:
     @classmethod
     @write_transaction
     async def dangerously_clear_database(cls, tx: Transaction) -> None:
+        print("creatingdefaultuser")
         result = await tx.run("""MATCH (n) DETACH DELETE n
                               MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})
 

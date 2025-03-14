@@ -10,7 +10,7 @@ def gen_ulid() -> pydantic_extra_types.ulid.ULID:
 
     Uses some type coercion to persuade typecheckers that it works
     with Pydantic models"""
-    return typing.cast(pydantic_extra_types.ulid.ULID, ULID().bytes)
+    return typing.cast(pydantic_extra_types.ulid.ULID, ULID())
 
 
 def url(url: str) -> AnyHttpUrl:

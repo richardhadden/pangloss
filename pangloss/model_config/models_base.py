@@ -167,8 +167,11 @@ class CreateBase(
     post_validator: typing.ClassVar[typing.Callable]
 
     type: str
-    id: ULID | AnyHttpUrl | None = None
+    id: ULID | AnyHttpUrl | list[AnyHttpUrl] | None = None
     label: str
+
+    async def save(self, username: str | None = None):
+        return await self.__pg_base_class__.create_method(self, username)  # type: ignore
 
 
 class ViewBase(

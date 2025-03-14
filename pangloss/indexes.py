@@ -3,8 +3,8 @@ import typing
 
 from rich import print
 
-from pangloss.database import Database
 from pangloss.model_config.model_manager import ModelManager
+from pangloss.neo4j.database import Database
 
 if typing.TYPE_CHECKING:
     from pangloss.models import BaseNode
@@ -56,9 +56,10 @@ def get_string_fields(model: type["BaseNode"]) -> list[str]:
 
 def create_index_queries():
     queries = [
-        "CREATE INDEX HeadNodeID FOR (n:BaseNode) ON (n.head_node)",
-        "CREATE INDEX HeadNodeType FOR (n:BaseNode) ON (n.head_node)",
+        "CREATE INDEX HeadNodeID IF NOT EXISTS FOR (n:BaseNode) ON (n.head_node)",
+        "CREATE INDEX HeadNodeType IF NOT EXISTS FOR (n:BaseNode) ON (n.head_node_type)",
         "CREATE CONSTRAINT BaseNodeIdUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.id IS UNIQUE",
+        "CREATE CONSTRAINT URLNodeURLUnique IF NOT EXISTS FOR (n:PGUrl) REQUIRE n.url IS UNIQUE",
         """CREATE CONSTRAINT PGUserNameIndex IF NOT EXISTS FOR (n:PGUser) REQUIRE n.username IS UNIQUE""",
         """CREATE FULLTEXT INDEX BaseNodeFullTextIndex 
                 IF NOT EXISTS FOR (n:BaseNode) ON EACH [n.label]

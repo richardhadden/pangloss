@@ -2,7 +2,10 @@ import types
 import typing
 
 from pangloss.exceptions import PanglossConfigError
-from pangloss.model_config.field_definitions import RelationFieldDefinition
+from pangloss.model_config.field_definitions import (
+    RelationFieldDefinition,
+    SubclassedRelationNames,
+)
 from pangloss.model_config.model_setup_functions.utils import (
     get_concrete_model_types,
 )
@@ -110,6 +113,22 @@ def initialise_subclassed_relations(model: type[RootNode]):
                         RelationFieldDefinition,
                         model._meta.fields[subclassed_relation_name],
                     ).reverse_relation_labels
+                )
+
+                relation_definition.subclassed_relations.update(
+                    (
+                        SubclassedRelationNames(f, r)
+                        for f, r in zip(
+                            typing.cast(
+                                RelationFieldDefinition,
+                                model._meta.fields[subclassed_relation_name],
+                            ).relation_labels,
+                            typing.cast(
+                                RelationFieldDefinition,
+                                model._meta.fields[subclassed_relation_name],
+                            ).reverse_relation_labels,
+                        )
+                    )
                 )
 
                 del model._meta.fields[subclassed_relation_name]

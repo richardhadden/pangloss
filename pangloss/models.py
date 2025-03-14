@@ -8,6 +8,7 @@ from pangloss.model_config.models_base import (
     RelationConfig,
     RootNode,
 )
+from pangloss.neo4j.database_mixins import DatabaseQueryMixin
 
 reexported = (
     ReifiedRelation,
@@ -20,6 +21,6 @@ reexported = (
 )
 
 
-class BaseNode(RootNode):
+class BaseNode(RootNode, DatabaseQueryMixin):
     type: str
     label: str

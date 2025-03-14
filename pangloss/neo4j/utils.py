@@ -3,6 +3,7 @@ import typing
 import uuid
 
 import pydantic
+from ulid import ULID
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
@@ -24,25 +25,28 @@ class QuerySubstring(str):
         return super().__new__(cls, query_string)
 
 
-class QueryParams(dict[Identifier, dict[str, typing.Any]]):
-    pass
+class QueryParams(dict[Identifier, dict[str, typing.Any] | str]):
+    def add(self, item: dict[str, typing.Any] | str) -> Identifier:
+        identifier = Identifier()
+        self.__setitem__(identifier, item)
+        return identifier
 
 
 class CreateQuery:
     match_query_strings: list[str]
     create_query_strings: list[str]
     set_query_strings: list[str]
-    query_params: dict[str, typing.Any]
+    params: QueryParams
     return_identifier: str
-    return_uuid: uuid.UUID
+    return_uuid: ULID
     head_type: str | None
 
     def __init__(self):
         self.match_query_strings = []
         self.create_query_strings = []
         self.set_query_strings = []
-        self.query_params = {}
-        self.uuid = uuid.uuid4()
+        self.params = QueryParams()
+        self.id = ULID()
         self.head_type = None
 
     def to_query_string(self):
@@ -99,7 +103,7 @@ class UpdateQuery:
 
 def join_labels(labels: set[str], extra_labels: typing.Iterable[str]):
     all_labels = [*labels, *extra_labels]
-    return f"{":".join(all_labels)}"
+    return f"{':'.join(all_labels)}"
 
 
 def convert_type_for_writing(value):
@@ -125,7 +129,7 @@ def get_properties_as_writeable_dict(
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
-    for property_definition in instance.field_definitions.property_fields:
+    for property_definition in instance._meta.fields.property_fields:
         if property_definition.field_metatype == "MultiKeyField":
             for key, value in dict(
                 getattr(instance, property_definition.field_name)

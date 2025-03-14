@@ -19,6 +19,7 @@ dependencies = [
     "rich>=13.9.4",
     "javascripthon>=0.13",
     "dill>=0.3.9",
+    "jsonpatch>=1.33",
 ]
 
 [build-system]
@@ -32,7 +33,13 @@ dev-dependencies = [
     "mypy>=1.15.0",
     "pytest-cov>=6.0.0",
     "pytest-sugar>=1.0.0",
+    "pytest-asyncio>=0.25.3",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.scripts]
 pangloss = 'pangloss.cli.main:cli'
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+

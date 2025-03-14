@@ -14,8 +14,8 @@ from typing import (
 
 import typer
 
-from pangloss.database import initialise_database_driver
 from pangloss.exceptions import PanglossInitialisationError
+from pangloss.neo4j.database import initialise_database_driver
 
 
 def import_project_file_of_name(folder_name: str, file_name: str):
