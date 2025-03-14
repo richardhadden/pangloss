@@ -49,7 +49,6 @@ async def test_create_with_relation():
             Person,
             RelationConfig(
                 reverse_name="is_subthing_of_person",
-                create_inline=True,
                 subclasses_relation=["is_person_of_thing"],
             ),
         ]
@@ -59,7 +58,6 @@ async def test_create_with_relation():
             Person,
             RelationConfig(
                 reverse_name="is_person_of_subsubthing",
-                create_inline=True,
                 subclasses_relation=["is_person_of_subthing"],
             ),
         ]
@@ -69,11 +67,10 @@ async def test_create_with_relation():
     person = await Person(label="John Smith").save()
 
     await SubSubThing(
-        id="http://something.com/thing",
         label="Thing",
         type="SubSubThing",
         name="A Thing",
-        is_person_of_subsubthing=[{"type": "Person", "label": "A Person"}],
+        is_person_of_subsubthing=[{"type": "Person", "id": person.id}],
     ).save()
 
     assert False

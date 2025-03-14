@@ -6,6 +6,7 @@ import jsonpatch
 
 from pydantic import AnyHttpUrl, AnyUrl
 from ulid import ULID
+from pydantic_extra_types.ulid import ULID as PdULID
 
 from pangloss.model_config.models_base import (
     CreateBase,
@@ -260,9 +261,10 @@ def add_create_inline_relation(
         primary_relation_edge_properties
     )
 
-    extra_labels = ["ReadInline", "CreateInline", "DetachDelete"]
+    extra_labels = ["ReadInline", "CreateInline"]
     if relation_definition.edit_inline:
         extra_labels.append("EditInline")
+        extra_labels.append("DetachDelete")
 
     new_node_identifier, new_node_id = add_node_to_create_query_object(
         instance=target_instance,
@@ -278,25 +280,25 @@ def add_create_inline_relation(
             SET {relation_identifier} = ${primary_edge_properties_identifier}
         """
     )
-    add_deferred_create_relation(
+    add_deferred_extra_relation(
         query_object=query_object,
         relation_definition=relation_definition,
-        new_node_identifier=new_node_identifier,
-        new_node_id=new_node_id,
+        target_node_identifier=new_node_identifier,
+        target_node_id=new_node_id,
         source_node_id=source_node_id,
         primary_relation_edge_properties=primary_relation_edge_properties,
     )
 
 
-def add_deferred_create_relation(
+def add_deferred_extra_relation(
     query_object: CreateQuery,
     relation_definition: RelationFieldDefinition,
-    new_node_identifier: Identifier,
-    new_node_id: ULID,
+    target_node_identifier: Identifier,
+    target_node_id: AnyHttpUrl | PdULID | ULID,
     source_node_id: ULID,
     primary_relation_edge_properties: dict[str, str | list | typing.Any],
 ):
-    new_node_identifier = Identifier()
+    target_node_identifier = Identifier()
     deferred_source_node_identifier = Identifier()
     reverse_relation_identifier = Identifier()
 
@@ -304,26 +306,46 @@ def add_deferred_create_relation(
         {**primary_relation_edge_properties, "_pg_primary_rel": False}
     )
 
+    source_node_id_identifier = query_object.deferred_query.params.add(
+        str(source_node_id)
+    )
+    target_node_id_identifier = query_object.deferred_query.params.add(
+        str(target_node_id)
+    )
+    if isinstance(target_node_id, AnyHttpUrl):
+        query_object.deferred_query.match_query_strings.append(
+            f"""
+                MATCH (:PGUrl {{url: ${target_node_id_identifier}}})<-[:PG_HAS_URL]-({target_node_identifier}:BaseNode)  
+            """
+        )
+    else:
+        query_object.deferred_query.match_query_strings.append(
+            f"""
+                // HERE
+                MATCH ({target_node_identifier}:BaseNode {{id: ${target_node_id_identifier}}})        
+            """
+        )
+
     query_object.deferred_query.match_query_strings.append(
         f"""
-            MATCH({deferred_source_node_identifier}:BaseNode {{id: "{source_node_id}"}})
-            MATCH({new_node_identifier}:BaseNode {{id: "{new_node_id}"}})
+            // Match source
+            MATCH({deferred_source_node_identifier}:BaseNode {{id: ${source_node_id_identifier}}})
         """
     )
     query_object.deferred_query.create_query_strings.append(
         f"""
-            CREATE ({deferred_source_node_identifier})<-[{reverse_relation_identifier}:{relation_definition.reverse_name.upper()}]-({new_node_identifier})
+            CREATE ({deferred_source_node_identifier})<-[{reverse_relation_identifier}:{relation_definition.reverse_name.upper()}]-({target_node_identifier})
             SET {reverse_relation_identifier} = ${reverse_primary_edge_properties_identifier}
            
         """
     )
     forward_sub_edge_properties_identifier = query_object.deferred_query.params.add(
-        {"_pg_primary_rel": False, "_pg_subclasses": relation_definition.field_name}
+        {"_pg_primary_rel": False, "_pg_superclass_of": relation_definition.field_name}
     )
     reverse_sub_edge_properties_identifier = query_object.deferred_query.params.add(
         {
             "_pg_primary_rel": False,
-            "_pg_subclasses": relation_definition.reverse_name,
+            "_pg_superclass_of": relation_definition.reverse_name,
         }
     )
     for (
@@ -334,11 +356,67 @@ def add_deferred_create_relation(
         reverse_sub_relation_identifier = Identifier()
 
         query_object.deferred_query.create_query_strings.append(f"""
-            CREATE ({deferred_source_node_identifier})-[{forward_sub_relation_identifier}:{forward_rel_name.upper()}]->({new_node_identifier})
-            CREATE ({deferred_source_node_identifier})<-[{reverse_sub_relation_identifier}:{reverse_rel_name.upper()}]-({new_node_identifier})
+            CREATE ({deferred_source_node_identifier})-[{forward_sub_relation_identifier}:{forward_rel_name.upper()}]->({target_node_identifier})
+            CREATE ({deferred_source_node_identifier})<-[{reverse_sub_relation_identifier}:{reverse_rel_name.upper()}]-({target_node_identifier})
             SET {forward_sub_relation_identifier} = ${forward_sub_edge_properties_identifier}
             SET {reverse_sub_relation_identifier} = ${reverse_sub_edge_properties_identifier}
         """)
+
+
+def add_reference_set_relation(
+    target_instance: ReferenceSetBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    use_defer: bool = False,
+) -> None:
+    target_node_identifier = Identifier()
+    target_node_id_identifier = query_object.params.add(str(target_instance.id))
+
+    if isinstance(target_instance.id, AnyHttpUrl):
+        query_object.match_query_strings.append(
+            f"""
+                MATCH (:PGUrl {{url: ${target_node_id_identifier}}})<-[:PG_HAS_URL]-({target_node_identifier}:BaseNode)  
+            """
+        )
+    else:
+        query_object.match_query_strings.append(
+            f"""
+                MATCH ({target_node_identifier}:BaseNode {{id: ${target_node_id_identifier}}})        
+            """
+        )
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    primary_relation_identifier = Identifier()
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{primary_relation_identifier}:{relation_definition.field_name.upper()}]->({target_node_identifier})
+            SET {primary_relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        target_node_identifier=target_node_identifier,
+        target_node_id=target_instance.id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
+    )
 
 
 def add_create_relation(
@@ -352,7 +430,7 @@ def add_create_relation(
     query_object: CreateQuery,
     source_node_id: ULID,
     use_defer: bool = False,
-):
+) -> None:
     if isinstance(relation_definition, EmbeddedFieldDefinition):
         assert isinstance(target_instance, EmbeddedCreateBase)
         extra_labels = ["Embedded", "ReadInline", "DetachDelete"]
@@ -375,6 +453,16 @@ def add_create_relation(
 
     elif isinstance(target_instance, CreateBase) and relation_definition.create_inline:
         add_create_inline_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            use_defer=use_defer,
+            source_node_id=source_node_id,
+        )
+
+    elif isinstance(target_instance, ReferenceSetBase):
+        add_reference_set_relation(
             target_instance=target_instance,
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
