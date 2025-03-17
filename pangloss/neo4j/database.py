@@ -60,6 +60,10 @@ def read_transaction[ModelType, ReturnType, **Params](
     async def wrapper(
         cls: ModelType, *args: Params.args, **kwargs: Params.kwargs
     ) -> ReturnType:
+        if DRIVER._closed:
+            from pangloss.settings import SETTINGS
+
+            initialise_database_driver(SETTINGS)
         # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
         async with DRIVER.session(database=database) as session:
             bound_func = functools.partial(func, cls)
@@ -79,6 +83,10 @@ def write_transaction[ModelType, ReturnType, **Params](
         cls: ModelType, *args: Params.args, **kwargs: Params.kwargs
     ) -> ReturnType:
         # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
+        if DRIVER._closed:
+            from pangloss.settings import SETTINGS
+
+            initialise_database_driver(SETTINGS)
 
         async with DRIVER.session(database=database) as session:
             bound_func = functools.partial(func, cls)

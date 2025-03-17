@@ -17,7 +17,9 @@ if typing.TYPE_CHECKING:
 def time_query(label: str = "Query time"):
     start_time = time.perf_counter()
     yield
-    print(f"{label}:", time.perf_counter() - start_time)
+    elapsed_time = time.perf_counter() - start_time
+    print(f"{label}:", elapsed_time)
+    return elapsed_time
 
 
 class DatabaseQueryMixin:

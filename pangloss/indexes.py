@@ -56,19 +56,20 @@ def get_string_fields(model: type["BaseNode"]) -> list[str]:
 
 def create_index_queries():
     queries = [
-        "CREATE INDEX HeadNodeID IF NOT EXISTS FOR (n:BaseNode) ON (n.head_node)",
-        "CREATE INDEX HeadNodeType IF NOT EXISTS FOR (n:BaseNode) ON (n.head_node_type)",
+        "CREATE INDEX HeadNodeID IF NOT EXISTS FOR (n:PGIndexableNode) ON (n.head_id)",
+        "CREATE INDEX HeadNodeType IF NOT EXISTS FOR (n:PGIndexableNode) ON (n.head_node_type)",
+        "CREATE CONSTRAINT NodeIdUnique IF NOT EXISTS FOR (n:PGIndexableNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT BaseNodeIdUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT URLNodeURLUnique IF NOT EXISTS FOR (n:PGUrl) REQUIRE n.url IS UNIQUE",
         """CREATE CONSTRAINT PGUserNameIndex IF NOT EXISTS FOR (n:PGUser) REQUIRE n.username IS UNIQUE""",
-        """CREATE FULLTEXT INDEX BaseNodeFullTextIndex 
-                IF NOT EXISTS FOR (n:BaseNode) ON EACH [n.label]
-                OPTIONS {
-                    indexConfig: {
-                        `fulltext.analyzer`: 'standard-no-stop-words',
-                        `fulltext.eventually_consistent`: true
-                    }
-                }""",
+        # """CREATE FULLTEXT INDEX BaseNodeFullTextIndex
+        #        IF NOT EXISTS FOR (n:BaseNode) ON EACH [n.label]
+        #        OPTIONS {
+        #            indexConfig: {
+        #                `fulltext.analyzer`: 'standard-no-stop-words',
+        #                `fulltext.eventually_consistent`: true
+        #            }
+        #        }""",
     ]
     print(
         "Creating Constraint: [green bold]PGUser[/green bold].[blue bold]username[/blue bold] must be unique",
@@ -96,9 +97,9 @@ def create_index_queries():
                 """,
             ]
         )
-        print(
-            f"Creating Full Text Index for [green bold]{model.__name__}[/green bold] on fields {', '.join(f'[blue bold]{f}[/blue bold]' for f in string_fields)}"
-        )
+        # print(
+        #    f"Creating Full Text Index for [green bold]{model.__name__}[/green bold] on fields {', '.join(f'[blue bold]{f}[/blue bold]' for f in string_fields)}"
+        # )
     return queries
 
 

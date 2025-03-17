@@ -302,6 +302,10 @@ class ReifiedMeta:
     def fields(self) -> ModelFieldDefinitions:
         return self.base_model.__pg_get_fields__()
 
+    @property
+    def type_labels(self) -> list[str]:
+        return [self.base_model.__name__]
+
 
 class ReifiedBase(BaseModel, _OwnsMethods):
     model_config = {"arbitrary_types_allowed": True}

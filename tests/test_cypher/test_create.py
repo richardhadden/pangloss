@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 from pangloss import initialise_models
-from pangloss.models import BaseNode, RelationConfig
+from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
 from pangloss.neo4j.database import Database
 
 
@@ -72,5 +72,58 @@ async def test_create_with_relation():
         name="A Thing",
         is_person_of_subsubthing=[{"type": "Person", "id": person.id}],
     ).save()
+
+
+@pytest.mark.asyncio
+async def test_creation_with_reified_relations():
+    class IntermediateA[T](ReifiedRelation[T]):
+        pass
+
+    class IntermediateB[T](ReifiedRelation[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class Thing(BaseNode):
+        is_person_of_thing: Annotated[
+            IntermediateA[IntermediateB[Person]] | IntermediateA[Person],
+            RelationConfig(reverse_name="is_thing_of_person", create_inline=True),
+        ]
+
+    initialise_models()
+
+    person = await Person(label="John Smith").save()
+
+    thing = Thing(
+        type="Thing",
+        label="A Thing",
+        is_person_of_thing=[
+            {
+                "type": "IntermediateA",
+                "target": [
+                    {
+                        "type": "IntermediateB",
+                        "target": [{"type": "Person", "id": person.id}],
+                    }
+                ],
+            }
+        ],
+    )
+
+    await thing.save()
+
+    thing2 = Thing(
+        type="Thing",
+        label="A Thing",
+        is_person_of_thing=[
+            {
+                "type": "IntermediateA",
+                "target": [{"type": "Person", "id": person.id}],
+            }
+        ],
+    )
+
+    await thing2.save()
 
     assert False

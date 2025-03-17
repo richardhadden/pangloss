@@ -30,7 +30,6 @@ initialise_database_driver(settings)
 
 @pytest_asyncio.fixture(loop_scope="module", autouse=True)
 def database_setup(event_loop):
-    print("running")
     from pangloss.indexes import _install_index_and_constraints_from_text
     from pangloss.neo4j.database import (
         DRIVER,
@@ -45,5 +44,5 @@ def database_setup(event_loop):
     event_loop.run_until_complete(Database.dangerously_clear_database())
     event_loop.run_until_complete(_install_index_and_constraints_from_text())
     event_loop.run_until_complete(Database.create_default_user())
-    yield
+    yield event_loop
     event_loop.run_until_complete(close_database_connection())
