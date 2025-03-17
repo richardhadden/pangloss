@@ -41,7 +41,7 @@ class Database:
         self._initialise_driver()
 
         # Because @read_transaction and @write_transaction are decorators,
-        # "self" is bound before initialisation of the db;
+        # "self" is bound with non-functioning instance before initialisation of the db;
         # So we store each instance of this class, and use this
         # to look up the instance
         self.__class__._instances[instance_identifier or id(self)] = self
@@ -89,6 +89,18 @@ class Database:
         Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]
         | Callable[Concatenate[Params], Awaitable[ReturnType]]
     ):
+        """Decorator to run a database read transaction
+
+        Wraps an asynchronous function taking a pangloss.neo4j.database.Transaction
+        object as its first argument.
+
+        ```
+        @read_transaction
+        def get_a_thing(tx: Transaction):
+            await tx.run(<QUERY>, <PARAMS>)
+        ```
+        """
+
         async def wrapper(
             instance: ModelType, *args: Params.args, **kwargs: Params.kwargs
         ) -> ReturnType:
@@ -136,12 +148,23 @@ class Database:
         Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]
         | Callable[Concatenate[Params], Awaitable[ReturnType]]
     ):
+        """Decorator to run a database read transaction
+
+        Wraps an asynchronous function taking a pangloss.neo4j.database.Transaction
+        object as its first argument.
+
+        ```
+        @read_transaction
+        def get_a_thing(tx: Transaction):
+            await tx.run(<QUERY>, <PARAMS>)
+        ```
+        """
+
         async def wrapper(
             instance: ModelType | None = None,
             *args: Params.args,
             **kwargs: Params.kwargs,
         ) -> ReturnType:
-            # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
             this: "Database" = self.__class__._instances[id(self)]
             this._check_driver()
 
@@ -161,6 +184,9 @@ class Database:
     def with_database[ReturnType, **Params](
         self, func: Callable[["Database"], Awaitable[ReturnType]]
     ) -> Callable[Concatenate[Params], Awaitable[ReturnType]]:
+        """Decorator to allow access to the database instance inside a function,
+        taking a `database` argument as its first argument"""
+
         async def wrapper(*args, **kwargs) -> ReturnType:
             this: "Database" = self.__class__._instances[id(self)]
             result = await func(this, *args, **kwargs)
@@ -181,6 +207,7 @@ class Database:
 # Fake-initialise a Database object so that the typechecker does
 # not complain all the time that it hasn't been initialised ahead of time
 database: Database = Database(settings=None)  # type: ignore
+"""The Pangloss default neo4j database"""
 
 
 class DatabaseUtils:

@@ -250,7 +250,6 @@ def add_create_inline_relation(
 def add_deferred_extra_relation(
     query_object: CreateQuery,
     relation_definition: RelationFieldDefinition,
-    # target_node_identifier: Identifier,
     target_node_id: AnyHttpUrl | PdULID | ULID,
     source_node_id: ULID,
     primary_relation_edge_properties: dict[str, str | list | typing.Any],

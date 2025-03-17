@@ -4,7 +4,7 @@ import typing
 from rich import print
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.neo4j.database import Database, DatabaseUtils
+from pangloss.neo4j.database import DatabaseUtils, PanglossNeo4jDb
 
 if typing.TYPE_CHECKING:
     from pangloss.models import BaseNode
@@ -118,7 +118,7 @@ def install_indexes_and_constraints():
     async def _run(queries):
         async def _run_query(query):
             try:
-                await Database._cypher_write(query, {})
+                await PanglossNeo4jDb._cypher_write(query, {})
             except Exception as e:
                 print(e)
 

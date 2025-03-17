@@ -27,9 +27,9 @@ settings = Settings()
 @pytest_asyncio.fixture(loop_scope="module", autouse=True)
 def database_setup(event_loop):
     from pangloss.indexes import _install_index_and_constraints_from_text
-    from pangloss.neo4j.database import Database, DatabaseUtils, database
+    from pangloss.neo4j.database import DatabaseUtils, PanglossNeo4jDb, database
 
-    Database.initialise_default_database(settings)
+    PanglossNeo4jDb.initialise_default_database(settings)
 
     event_loop.run_until_complete(DatabaseUtils.dangerously_clear_database())
     event_loop.run_until_complete(_install_index_and_constraints_from_text())
