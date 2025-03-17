@@ -4,7 +4,7 @@ import typing
 from rich import print
 
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.neo4j.database import DatabaseUtils, PanglossNeo4jDb
+from pangloss.neo4j.database import DatabaseUtils
 
 if typing.TYPE_CHECKING:
     from pangloss.models import BaseNode
