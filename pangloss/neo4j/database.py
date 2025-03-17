@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import typing
 import uuid
 from typing import (
     Awaitable,
@@ -11,97 +12,192 @@ from typing import (
 import neo4j
 from rich import print
 
-from pangloss.background_tasks import background_task_close
+if typing.TYPE_CHECKING:
+    from pangloss.settings import BaseSettings
+
 
 # Define a transaction type, for short
 Transaction = neo4j.AsyncManagedTransaction
 
 
-DRIVER: neo4j.AsyncDriver
-
 uri: str
 auth: tuple[str, str]
-database: str
-
-
-def initialise_database_driver(SETTINGS):
-    global DRIVER, uri, auth, database
-    # from pangloss_core.settings import SETTINGS
-
-    uri = SETTINGS.DB_URL  # "bolt://localhost:7687"
-    auth = (SETTINGS.DB_USER, SETTINGS.DB_PASSWORD)
-    # auth = ("neo4j", "password")
-    database = SETTINGS.DB_DATABASE_NAME
-    # database = "neo4j"
-    DRIVER = neo4j.AsyncGraphDatabase.driver(
-        SETTINGS.DB_URL,
-        auth=(SETTINGS.DB_USER, SETTINGS.DB_PASSWORD),
-        keep_alive=True,
-    )
-
-
-@background_task_close
-async def close_database_connection():
-    print("[yellow bold]Closing Database connection...[/yellow bold]")
-    try:
-        await DRIVER.close()
-    except Exception as e:
-        print("[red bold]Error closing database:[/red bold]", e)
-    else:
-        print("[green bold]Database connection closed[/green bold]")
-
-
-def read_transaction[ModelType, ReturnType, **Params](
-    func: Callable[
-        Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
-        Awaitable[ReturnType],
-    ],
-) -> Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]:
-    async def wrapper(
-        cls: ModelType, *args: Params.args, **kwargs: Params.kwargs
-    ) -> ReturnType:
-        if DRIVER._closed:
-            from pangloss.settings import SETTINGS
-
-            initialise_database_driver(SETTINGS)
-        # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
-        async with DRIVER.session(database=database) as session:
-            bound_func = functools.partial(func, cls)
-            records = await session.execute_read(bound_func, *args, **kwargs)
-            return records
-
-    return wrapper
-
-
-def write_transaction[ModelType, ReturnType, **Params](
-    func: Callable[
-        Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
-        Awaitable[ReturnType],
-    ],
-) -> Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]:
-    async def wrapper(
-        cls: ModelType, *args: Params.args, **kwargs: Params.kwargs
-    ) -> ReturnType:
-        # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
-        if DRIVER._closed:
-            from pangloss.settings import SETTINGS
-
-            initialise_database_driver(SETTINGS)
-
-        async with DRIVER.session(database=database) as session:
-            bound_func = functools.partial(func, cls)
-            records = await session.execute_write(bound_func, *args, **kwargs)
-
-            return records
-
-    return wrapper
 
 
 class Database:
-    @classmethod
-    @read_transaction
+    settings: "BaseSettings"
+    driver: neo4j.AsyncDriver
+
+    _instances: dict[int, "Database"] = {}
+    _initialised: bool = False
+
+    def __init__(
+        self, settings: "BaseSettings", instance_identifier: int | None = None
+    ):
+        if settings is None:
+            return
+
+        self.settings = settings
+        self._initialise_driver()
+
+        # Because @read_transaction and @write_transaction are decorators,
+        # "self" is bound before initialisation of the db;
+        # So we store each instance of this class, and use this
+        # to look up the instance
+        self.__class__._instances[instance_identifier or id(self)] = self
+
+    def _initialise_driver(self):
+        self.driver = neo4j.AsyncGraphDatabase.driver(
+            self.settings.DB_URL,
+            auth=(self.settings.DB_USER, self.settings.DB_PASSWORD),
+            keep_alive=True,
+        )
+
+    def _check_driver(self):
+        if self.driver._closed:
+            self._initialise_driver()
+
+    @typing.overload
+    def read_transaction[ModelType, ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]: ...
+
+    @typing.overload
+    def read_transaction[ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> Callable[Concatenate[Params], Awaitable[ReturnType]]: ...
+
+    def read_transaction[ModelType, ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ]
+        | Callable[
+            Concatenate[neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> (
+        Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]
+        | Callable[Concatenate[Params], Awaitable[ReturnType]]
+    ):
+        async def wrapper(
+            instance: ModelType, *args: Params.args, **kwargs: Params.kwargs
+        ) -> ReturnType:
+            this: "Database" = self.__class__._instances[id(self)]
+            this._check_driver()
+            # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
+            async with this.driver.session(
+                database=this.settings.DB_DATABASE_NAME
+            ) as session:
+                bound_func = functools.partial(func, instance)
+                records = await session.execute_read(bound_func, *args, **kwargs)
+                return records
+
+        return wrapper
+
+    @typing.overload
+    def write_transaction[ModelType, ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]: ...
+
+    @typing.overload
+    def write_transaction[ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> Callable[Concatenate[Params], Awaitable[ReturnType]]: ...
+
+    def write_transaction[ModelType, ReturnType, **Params](
+        self,
+        func: Callable[
+            Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ]
+        | Callable[
+            Concatenate[neo4j.AsyncManagedTransaction, Params],
+            Awaitable[ReturnType],
+        ],
+    ) -> (
+        Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]
+        | Callable[Concatenate[Params], Awaitable[ReturnType]]
+    ):
+        async def wrapper(
+            instance: ModelType | None = None,
+            *args: Params.args,
+            **kwargs: Params.kwargs,
+        ) -> ReturnType:
+            # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
+            this: "Database" = self.__class__._instances[id(self)]
+            this._check_driver()
+
+            async with this.driver.session(
+                database=this.settings.DB_DATABASE_NAME
+            ) as session:
+                if instance:
+                    bound_func = functools.partial(func, instance)
+                else:
+                    bound_func = func
+                records = await session.execute_write(bound_func, **kwargs)  # type: ignore
+
+                return records
+
+        return wrapper
+
+    def with_database[ReturnType, **Params](
+        self, func: Callable[["Database"], Awaitable[ReturnType]]
+    ) -> Callable[Concatenate[Params], Awaitable[ReturnType]]:
+        async def wrapper(*args, **kwargs) -> ReturnType:
+            this: "Database" = self.__class__._instances[id(self)]
+            result = await func(this, *args, **kwargs)
+            return result
+
+        return wrapper
+
+    @staticmethod
+    def initialise_default_database(settings: "BaseSettings") -> "Database":
+        global database
+        database = Database(settings=settings, instance_identifier=id(database))
+        return database
+
+    async def close(self):
+        await DatabaseUtils.close_database_connection()
+
+
+# Fake-initialise a Database object so that the typechecker does
+# not complain all the time that it hasn't been initialised ahead of time
+database: Database = Database(settings=None)  # type: ignore
+
+
+class DatabaseUtils:
+    @database.with_database
+    @staticmethod
+    async def close_database_connection(db: Database):
+        print("[yellow bold]Closing Database connection...[/yellow bold]")
+        try:
+            await db.driver.close()
+        except Exception as e:
+            print("[red bold]Error closing database:[/red bold]", e)
+        else:
+            print("[green bold]Database connection closed[/green bold]")
+
+    @database.read_transaction
+    @staticmethod
     async def get_item(
-        cls,
         tx: Transaction,
         uid: uuid.UUID,
     ) -> neo4j.Record | None:
@@ -112,9 +208,18 @@ class Database:
         print(summary)
         return item
 
-    @classmethod
-    @write_transaction
-    async def write_indexes(cls, tx: Transaction) -> None:
+    @database.write_transaction
+    @staticmethod
+    async def dangerously_clear_database(tx: Transaction) -> None:
+        result = await tx.run("""MATCH (n) DETACH DELETE n
+                                MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})
+
+                                """)
+        await result.consume()
+
+    @database.write_transaction
+    @staticmethod
+    async def write_indexes(tx: Transaction) -> None:
         result = await tx.run(
             """CREATE CONSTRAINT BaseNodeUidUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.uuid IS UNIQUE"""
         )
@@ -124,27 +229,17 @@ class Database:
         )
         await result.consume()
 
-    @classmethod
-    @write_transaction
-    async def dangerously_clear_database(cls, tx: Transaction) -> None:
-        print("creatingdefaultuser")
-        result = await tx.run("""MATCH (n) DETACH DELETE n
-                              MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})
-
-                              """)
-        await result.consume()
-
-    @classmethod
-    @write_transaction
-    async def create_default_user(cls, tx: Transaction) -> None:
+    @database.write_transaction
+    @staticmethod
+    async def create_default_user(tx: Transaction) -> None:
         result = await tx.run(
             """MERGE (:PGInternal:PGCore:PGUser {username: "DefaultUser"})"""
         )
         await result.consume()
 
-    @classmethod
-    @write_transaction
-    async def _cypher_write(cls, tx: Transaction, query: str, params: dict = {}):
+    @database.write_transaction
+    @staticmethod
+    async def _cypher_write(tx: Transaction, query: str, params: dict = {}):
         result = await tx.run(
             query,  # type: ignore
             **params,

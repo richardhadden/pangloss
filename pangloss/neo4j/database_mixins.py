@@ -3,7 +3,7 @@ import typing
 from contextlib import contextmanager
 
 from pangloss.neo4j.create_new import build_create_query_object
-from pangloss.neo4j.database import Transaction, write_transaction
+from pangloss.neo4j.database import Transaction, database
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
@@ -23,7 +23,7 @@ def time_query(label: str = "Query time"):
 
 
 class DatabaseQueryMixin:
-    @write_transaction
+    @database.write_transaction
     async def create_method(
         self,
         tx: Transaction,

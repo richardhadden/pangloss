@@ -1,7 +1,6 @@
 import pytest_asyncio
 from pydantic import AnyHttpUrl
 
-from pangloss.neo4j.database import initialise_database_driver
 from pangloss.settings import BaseSettings
 
 
@@ -25,24 +24,15 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-initialise_database_driver(settings)
-
-
 @pytest_asyncio.fixture(loop_scope="module", autouse=True)
 def database_setup(event_loop):
     from pangloss.indexes import _install_index_and_constraints_from_text
-    from pangloss.neo4j.database import (
-        DRIVER,
-        Database,
-        close_database_connection,
-        initialise_database_driver,
-    )
+    from pangloss.neo4j.database import Database, DatabaseUtils, database
 
-    if not DRIVER:
-        initialise_database_driver(settings)
+    Database.initialise_default_database(settings)
 
-    event_loop.run_until_complete(Database.dangerously_clear_database())
+    event_loop.run_until_complete(DatabaseUtils.dangerously_clear_database())
     event_loop.run_until_complete(_install_index_and_constraints_from_text())
-    event_loop.run_until_complete(Database.create_default_user())
+    event_loop.run_until_complete(DatabaseUtils.create_default_user())
     yield event_loop
-    event_loop.run_until_complete(close_database_connection())
+    event_loop.run_until_complete(database.close())

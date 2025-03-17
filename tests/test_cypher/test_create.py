@@ -5,12 +5,12 @@ import pytest_asyncio
 
 from pangloss import initialise_models
 from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
-from pangloss.neo4j.database import Database
+from pangloss.neo4j.database import DatabaseUtils
 
 
 @pytest_asyncio.fixture
 async def reset_db():
-    await Database.dangerously_clear_database()
+    await DatabaseUtils.dangerously_clear_database()
     yield
 
 
@@ -125,5 +125,3 @@ async def test_creation_with_reified_relations():
     )
 
     await thing2.save()
-
-    assert False
