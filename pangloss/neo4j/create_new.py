@@ -146,26 +146,26 @@ class CreateQuery:
         """
 
 
-def add_url_nodes_query(
-    instance_urls: list[AnyHttpUrl],
+def add_uri_nodes_query(
+    instance_uris: list[AnyHttpUrl],
     node_identifier: Identifier,
     query_object: CreateQuery,
 ):
-    """Adds PGUrl nodes for HeadNode"""
+    """Adds PGUri nodes for HeadNode"""
 
-    for instance_url in instance_urls:
-        url_identifier = Identifier()
-        url_value_identifier = query_object.params.add(str(instance_url))
+    for instance_uri in instance_uris:
+        uri_identifier = Identifier()
+        uri_value_identifier = query_object.params.add(str(instance_uri))
         query_object.merge_query_strings.append(
             f"""
-                MERGE ({url_identifier}:PGCore:PGInternal:PGUrl {{url: ${url_value_identifier}}})
-                MERGE ({node_identifier})-[:PG_HAS_URL]->({url_identifier})
+                CREATE ({uri_identifier}:PGCore:PGInternal:PGUri {{uri: ${uri_value_identifier}}})
+                CREATE ({node_identifier})-[:PG_HAS_URI]->({uri_identifier})
             """
         )
 
 
 def add_creation_data_node_query(
-    instance: CreateBase,
+    instance: CreateBase | ReferenceCreateBase,
     node_identifier: Identifier,
     query_object: CreateQuery,
     username: str,
@@ -276,7 +276,7 @@ def add_deferred_extra_relation(
     if isinstance(target_node_id, AnyHttpUrl):
         query_object.deferred_query.match_query_strings.append(
             f"""
-                MATCH (:PGUrl {{url: ${target_node_id_identifier}}})<-[:PG_HAS_URL]-({target_node_identifier}:BaseNode)  
+                MATCH (:PGUri {{uri: ${target_node_id_identifier}}})<-[:PG_HAS_URI]-({target_node_identifier}:BaseNode)  
             """
         )
     else:
@@ -337,7 +337,7 @@ def add_reference_set_relation(
     if isinstance(target_instance.id, AnyHttpUrl):
         query_object.match_query_strings.append(
             f"""
-                MATCH (:PGUrl {{url: ${target_node_id_identifier}}})<-[:PG_HAS_URL]-({target_node_identifier}:BaseNode)  
+                MATCH (:PGUri {{uri: ${target_node_id_identifier}}})<-[:PG_HAS_URI]-({target_node_identifier}:BaseNode)  
             """
         )
     else:
@@ -385,7 +385,7 @@ def add_reference_create_relation(
     relation_definition: RelationFieldDefinition,
     query_object: CreateQuery,
     source_node_id: ULID,
-    use_defer: bool = False,
+    username: str,
 ):
     target_node_identifier = Identifier()
 
@@ -394,7 +394,7 @@ def add_reference_create_relation(
     )
 
     if isinstance(target_instance.id, AnyHttpUrl):
-        url_identifier = query_object.params.add(target_instance.id)
+        uri_identifier = query_object.params.add(target_instance.id)
         extra_node_data = {
             "id": str(ULID()),
             "is_deleted": False,
@@ -404,9 +404,9 @@ def add_reference_create_relation(
             get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
         )
         query_object.create_query_strings.append(
-            f"""MERGE ({target_node_identifier}:{node_labels_string})-[:PG_HAS_URL]->(u:PGUrl WHERE u.url = ${url_identifier})
+            f"""MERGE ({target_node_identifier}:{node_labels_string})-[:PG_HAS_URI]->(u:PGCore:PGInternal:PGUri WHERE u.uri = ${uri_identifier})
                 ON CREATE 
-                    SET ${target_node_identifier} = {node_data_identifier}
+                    SET {target_node_identifier} = ${node_data_identifier}
                 """
         )
     else:
@@ -418,11 +418,28 @@ def add_reference_create_relation(
         node_data_identifier = query_object.params.add(
             get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
         )
+        new_uri_identifier = query_object.params.add(
+            str(
+                urljoin(
+                    str(SETTINGS.ENTITY_BASE_URL),
+                    f"{target_instance.type}/{str(target_instance.id)}",
+                )
+            )
+        )
+
         query_object.create_query_strings.append(
             f"""MERGE ({target_node_identifier}:{node_labels_string})
                 ON CREATE
-                    SET ${target_node_identifier} = {node_data_identifier}
+                    SET {target_node_identifier} = ${node_data_identifier}
+                    
+                CREATE ({target_node_identifier})-[:PG_HAS_URI]->(:PGCore:PGInternal:PGUri {{uri: ${new_uri_identifier}}})
             """
+        )
+        add_creation_data_node_query(
+            instance=target_instance,
+            node_identifier=target_node_identifier,
+            query_object=query_object,
+            username=username,
         )
 
     edge_properties = getattr(target_instance, "edge_properties", {})
@@ -445,6 +462,15 @@ def add_reference_create_relation(
             CREATE ({source_node_identifier})-[{primary_relation_identifier}:{relation_definition.field_name.upper()}]->({target_node_identifier})
             SET {primary_relation_identifier} = ${primary_edge_properties_identifier}
         """
+    )
+
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        # target_node_identifier=target_node_identifier,
+        target_node_id=target_instance.id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
     )
 
 
@@ -583,8 +609,9 @@ def add_create_relation_query(
     source_node_identifier: Identifier,
     query_object: CreateQuery,
     source_node_id: ULID,
-    use_defer: bool = False,
+    username: str,
 ) -> None:
+    print(type(target_instance))
     if isinstance(relation_definition, EmbeddedFieldDefinition):
         assert isinstance(target_instance, EmbeddedCreateBase)
         extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
@@ -611,8 +638,17 @@ def add_create_relation_query(
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
             query_object=query_object,
-            use_defer=use_defer,
             source_node_id=source_node_id,
+        )
+
+    elif isinstance(target_instance, ReferenceCreateBase):
+        add_reference_create_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
+            username=username,
         )
 
     elif isinstance(target_instance, ReferenceSetBase):
@@ -621,7 +657,6 @@ def add_create_relation_query(
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
             query_object=query_object,
-            use_defer=use_defer,
             source_node_id=source_node_id,
         )
 
@@ -632,7 +667,6 @@ def add_create_relation_query(
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
             query_object=query_object,
-            use_defer=use_defer,
             source_node_id=source_node_id,
         )
 
@@ -651,13 +685,13 @@ def add_node_to_create_query_object(
     node_identifier: Identifier = Identifier()
 
     instance_id: ULID
-    instance_urls: list[AnyHttpUrl] = []
+    instance_uris: list[AnyHttpUrl] = []
 
     if isinstance(instance, CreateBase):
         if isinstance(instance.id, list):
-            instance_urls.extend(instance.id)
+            instance_uris.extend(instance.id)
         elif isinstance(instance.id, AnyHttpUrl):
-            instance_urls.append(instance.id)
+            instance_uris.append(instance.id)
         elif isinstance(instance.id, ULID):
             instance_id = instance.id
 
@@ -678,7 +712,7 @@ def add_node_to_create_query_object(
         query_object.head_type = instance.type
         query_object.return_identifier = node_identifier
 
-        instance_urls.append(
+        instance_uris.append(
             AnyHttpUrl(
                 urljoin(str(SETTINGS.ENTITY_BASE_URL), f"{instance.type}/{instance_id}")
             )
@@ -712,8 +746,8 @@ def add_node_to_create_query_object(
             username=username,
         )
 
-    if instance_urls:
-        add_url_nodes_query(instance_urls, node_identifier, query_object)
+    if instance_uris:
+        add_uri_nodes_query(instance_uris, node_identifier, query_object)
 
     for relation_definition in instance._meta.fields.relation_fields:
         for related_instance in getattr(instance, relation_definition.field_name, []):
@@ -723,8 +757,8 @@ def add_node_to_create_query_object(
                 relation_definition=relation_definition,
                 source_node_identifier=node_identifier,
                 query_object=query_object,
-                use_defer=use_defer,
                 source_node_id=instance_id,
+                username=username,
             )
 
     return node_identifier, instance_id

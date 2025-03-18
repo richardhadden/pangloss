@@ -2,7 +2,7 @@ from neo4j.exceptions import ConstraintError
 from pydantic import BaseModel, EmailStr, Field
 
 from pangloss.exceptions import PanglossUserError
-from pangloss.neo4j.database import Transaction, read_transaction, write_transaction
+from pangloss.neo4j.database import Transaction, database
 
 
 class User(BaseModel):
@@ -26,7 +26,7 @@ class UserCreate(User):
 class UserInDB(User):
     hashed_password: str
 
-    @write_transaction
+    @database.write_transaction
     async def write_user(self, tx: Transaction):
         query = """
         CREATE (user:PGUser:PGInternal:PGCore)
@@ -42,7 +42,7 @@ class UserInDB(User):
             raise PanglossUserError("Username already exists")
 
     @classmethod
-    @read_transaction
+    @database.read_transaction
     async def get(cls, tx: Transaction, username: str) -> "UserInDB | None":
         query = """
         MATCH (user:PGUser)

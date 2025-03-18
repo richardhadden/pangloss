@@ -267,6 +267,8 @@ class DatabaseUtils:
     @database.write_transaction
     @staticmethod
     async def _cypher_write(tx: Transaction, query: str, params: dict = {}):
+        print("---")
+        print(tx, query)
         result = await tx.run(
             query,  # type: ignore
             **params,

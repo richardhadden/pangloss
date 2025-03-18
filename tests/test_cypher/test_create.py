@@ -4,8 +4,10 @@ import pytest
 import pytest_asyncio
 
 from pangloss import initialise_models
+from pangloss.model_config.models_base import BaseMeta
 from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
 from pangloss.neo4j.database import DatabaseUtils
+from pangloss.utils import gen_ulid
 
 
 @pytest_asyncio.fixture
@@ -26,7 +28,7 @@ async def test_save_method_works_on_create_model():
     ).save()
 
     await Thing(
-        id="http://something.com/thing",
+        id="http://something.com/otherthing",
         label="Other Thing",
         type="Thing",
         name="A Thing",
@@ -88,7 +90,7 @@ async def test_creation_with_reified_relations():
     class Thing(BaseNode):
         is_person_of_thing: Annotated[
             IntermediateA[IntermediateB[Person]] | IntermediateA[Person],
-            RelationConfig(reverse_name="is_thing_of_person", create_inline=True),
+            RelationConfig(reverse_name="is_thing_of_person"),
         ]
 
     initialise_models()
@@ -125,3 +127,26 @@ async def test_creation_with_reified_relations():
     )
 
     await thing2.save()
+
+
+@pytest.mark.asyncio
+async def test_reference_create():
+    class Person(BaseNode):
+        class Meta(BaseMeta):
+            create_by_reference = True
+
+    class Thing(BaseNode):
+        is_person_of_thing: Annotated[
+            Person,
+            RelationConfig(reverse_name="is_thing_of_person"),
+        ]
+
+    initialise_models()
+
+    print(Thing.Create.model_fields["is_person_of_thing"])
+
+    thing = await Thing(
+        type="Thing",
+        label="A Thing",
+        is_person_of_thing=[{"type": "Person", "id": gen_ulid(), "label": "A Person"}],
+    ).save()

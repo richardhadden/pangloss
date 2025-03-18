@@ -15,7 +15,7 @@ from typing import (
 import typer
 
 from pangloss.exceptions import PanglossInitialisationError
-from pangloss.neo4j.database import initialise_database_driver
+from pangloss.neo4j.database import Database
 
 
 def import_project_file_of_name(folder_name: str, file_name: str):
@@ -55,7 +55,7 @@ def get_app_clis(app_name: str) -> list[typer.Typer]:
 
 
 def initialise_pangloss_application(settings):
-    initialise_database_driver(settings)
+    Database.initialise_default_database(settings)
 
 
 class InitialisationTaskRegistryItem(TypedDict):

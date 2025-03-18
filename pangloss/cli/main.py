@@ -18,7 +18,7 @@ from pangloss.exceptions import PanglossInitialisationError
 # from pangloss.translation import translation_cli
 from pangloss.indexes import install_indexes_and_constraints
 from pangloss.initialisation import get_project_settings
-from pangloss.neo4j.database import initialise_database_driver
+from pangloss.neo4j.database import Database
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 
@@ -159,7 +159,7 @@ try:
 except PanglossInitialisationError:
     print("Cannot find settings")
 try:
-    initialise_database_driver(settings)
+    Database.initialise_default_database(settings)
     for app in settings.INSTALLED_APPS:
         __import__(f"{app}.models")
         try:
