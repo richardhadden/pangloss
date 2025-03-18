@@ -275,7 +275,7 @@ class ReferenceCreateBase(
     """Base model for setting a Reference to an entity"""
 
     type: str
-    id: ULID | AnyHttpUrl | list[AnyHttpUrl]
+    id: ULID | AnyHttpUrl
     label: str
 
 

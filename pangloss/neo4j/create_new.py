@@ -63,7 +63,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase",
+    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase",
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -152,13 +152,14 @@ def add_url_nodes_query(
     query_object: CreateQuery,
 ):
     """Adds PGUrl nodes for HeadNode"""
+
     for instance_url in instance_urls:
         url_identifier = Identifier()
         url_value_identifier = query_object.params.add(str(instance_url))
         query_object.merge_query_strings.append(
             f"""
                 MERGE ({url_identifier}:PGCore:PGInternal:PGUrl {{url: ${url_value_identifier}}})
-                CREATE ({node_identifier})-[:PG_HAS_URL]->({url_identifier})
+                MERGE ({node_identifier})-[:PG_HAS_URL]->({url_identifier})
             """
         )
 
@@ -170,6 +171,7 @@ def add_creation_data_node_query(
     username: str,
 ):
     """Adds a PGCreation node attached to the HeadNode and a PGUser"""
+
     user_identifier = query_object.params.add(username)
     creation_node_identifier = Identifier()
 
@@ -202,6 +204,7 @@ def add_create_inline_relation(
     use_defer: bool = False,
 ):
     """Adds a query for a CreateInline node"""
+
     assert isinstance(target_instance, CreateBase)
 
     edge_properties = getattr(target_instance, "edge_properties", {})
@@ -373,6 +376,75 @@ def add_reference_set_relation(
         target_node_id=target_instance.id,
         source_node_id=source_node_id,
         primary_relation_edge_properties=primary_relation_edge_properties,
+    )
+
+
+def add_reference_create_relation(
+    target_instance: ReferenceCreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    use_defer: bool = False,
+):
+    target_node_identifier = Identifier()
+
+    node_labels_string = join_labels(
+        target_instance._meta.type_labels, ["HeadNode", "PGIndexableNode"]
+    )
+
+    if isinstance(target_instance.id, AnyHttpUrl):
+        url_identifier = query_object.params.add(target_instance.id)
+        extra_node_data = {
+            "id": str(ULID()),
+            "is_deleted": False,
+            "marked_for_delete": False,
+        }
+        node_data_identifier = query_object.params.add(
+            get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
+        )
+        query_object.create_query_strings.append(
+            f"""MERGE ({target_node_identifier}:{node_labels_string})-[:PG_HAS_URL]->(u:PGUrl WHERE u.url = ${url_identifier})
+                ON CREATE 
+                    SET ${target_node_identifier} = {node_data_identifier}
+                """
+        )
+    else:
+        extra_node_data = {
+            "id": str(target_instance.id),
+            "is_deleted": False,
+            "marked_for_delete": False,
+        }
+        node_data_identifier = query_object.params.add(
+            get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
+        )
+        query_object.create_query_strings.append(
+            f"""MERGE ({target_node_identifier}:{node_labels_string})
+                ON CREATE
+                    SET ${target_node_identifier} = {node_data_identifier}
+            """
+        )
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    primary_relation_identifier = Identifier()
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{primary_relation_identifier}:{relation_definition.field_name.upper()}]->({target_node_identifier})
+            SET {primary_relation_identifier} = ${primary_edge_properties_identifier}
+        """
     )
 
 

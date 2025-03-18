@@ -302,14 +302,16 @@ This repo contains the third modelling/database layer rewrite of Pangloss. It us
 - Subclassing relations must be a subtype of the subclassed relations
 - Can use the superclass name for a field instead of the subclassed one (might be useful)
 - `type` field of ReifiedRelation with generic is the generic type, not the non-generic, i.e. `Identification` not `Identification[Person]`
-- View/EditView models are distinguished from `HeadView`/`HeadEditView` models — the `Head` variety is for the top node, others for contained nodes
+- View/EditView models are distinguished from `HeadView`/`HeadEditView` models — the `Head` variety is for the top node (i.e. the one requested by the API), others for contained nodes
 - All contained nodes carry a reference to the `HeadNode` (better for indexing, and direct lookup of context)
 - Some really sneaky methods for allowing lookups of specialised models (e.g. with relation via `EdgeModel`): `Person.View.via.Certainty`
 - Authentication is using AuthX, not the FastAPI homespun example
-- When allowed via `Meta` configuration, a new instance of a model can be created via a reference (really only useful for 'empty' — i.e. only a label — models), with a user-provided ULID or external URI (in latter case, _Pangloss_ generates a new ULID and stores the URI)
+- When allowed via `Meta` configuration, a new instance of a model can be created via a reference (really only useful for 'empty' — i.e. only a label — models), with a user-provided ULID or external URI or list of URIs (in latter case, _Pangloss_ generates a new ULID and stores the URI)
 - `id` for search can also take a URI
 - URIs are stored in separate nodes (and can be edited)
 - Periodic background tasks can be registered using `@background_task` decorator
+- Subclassed relation types also create supertype of the relation (e.g. if `Person.is_friends_with` is a subtype of `Person.knows`, creating the former will also create an edge for the latter); these additional edges are marked with `_pg_shortcut": True,` as a property.
+- Deferred database writes: writing additional shortcut edges is slow, and is only useful for later querying; therefore, the primary write/update queries can be run and result returned to the user, and the inferred shortcuts written afterwards as a background task
 
 # TODO:
 - DB layer
