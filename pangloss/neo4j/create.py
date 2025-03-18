@@ -1,208 +1,778 @@
 import typing
+import uuid
+from urllib.parse import urljoin
 
 import jsonpatch
-from ulid import ULID
 
-from pangloss.neo4j.utils import (
-    CreateQuery,
-    Identifier,
-    QuerySubstring,
-    convert_dict_for_writing,
-    get_properties_as_writeable_dict,
-    join_labels,
+from pydantic import AnyHttpUrl, AnyUrl
+from ulid import ULID
+from pydantic_extra_types.ulid import ULID as PdULID
+
+from pangloss.model_config.models_base import (
+    CreateBase,
+    EmbeddedCreateBase,
+    ReifiedCreateBase,
+    ReferenceCreateBase,
+    ReferenceSetBase,
+)
+from pangloss.settings import SETTINGS
+from pangloss.model_config.field_definitions import (
+    RelationFieldDefinition,
+    EmbeddedFieldDefinition,
 )
 
-if typing.TYPE_CHECKING:
-    from pangloss.model_config.field_definitions import (
-        EmbeddedFieldDefinition,
-        RelationFieldDefinition,
-    )
-    from pangloss.model_config.models_base import (
-        EmbeddedCreateBase,
-        ReferenceSetBase,
-        ReifiedRelation,
-        RootNode,
-    )
-from pangloss.neo4j.utils import UpdateQuery
+
+class Identifier(str):
+    def __new__(cls):
+        return super().__new__(cls, "x" + uuid.uuid4().hex[:6].lower())
 
 
-def build_create_relationship(
-    relation_to_target: "ReferenceSetBase | RootNode",
-    relation_definition: "RelationFieldDefinition | EmbeddedFieldDefinition",
-    source_node_identifier: str,
-    query: CreateQuery | UpdateQuery,
+class QuerySubstring(str):
+    def __new__(cls, query_string: str):
+        return super().__new__(cls, query_string)
+
+
+class QueryParams(dict[Identifier, dict[str, typing.Any] | typing.Any]):
+    def add(self, item: dict[str, typing.Any] | typing.Any) -> Identifier:
+        identifier = Identifier()
+        self.__setitem__(identifier, item)
+        return identifier
+
+
+def join_labels(labels: list[str], extra_labels: typing.Iterable[str]):
+    all_labels = [*labels, *extra_labels]
+    return f"{':'.join(all_labels)}"
+
+
+def convert_type_for_writing(value):
+    match value:
+        case ULID():
+            return str(value)
+        case AnyUrl():
+            return str(value)
+        case set():
+            return list(value)
+        case tuple():
+            return list(value)
+        case _:
+            return value
+
+
+def convert_dict_for_writing(data: dict[str, typing.Any]):
+    return {key: convert_type_for_writing(value) for key, value in data.items()}
+
+
+def get_properties_as_writeable_dict(
+    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase",
+    extras: dict[str, typing.Any] | None = None,
+) -> dict[str, typing.Any]:
+    data = {}
+    for property_definition in instance._meta.fields.property_fields:
+        if property_definition.field_metatype == "MultiKeyField":
+            for key, value in dict(
+                getattr(instance, property_definition.field_name)
+            ).items():
+                data[f"{property_definition.field_name}____{key}"] = (
+                    convert_type_for_writing(value)
+                )
+
+        else:
+            if value := getattr(instance, property_definition.field_name, None):
+                data[property_definition.field_name] = convert_type_for_writing(value)
+    if extras:
+        for key, value in extras.items():
+            data[key] = convert_type_for_writing(value)
+
+    return data
+
+
+class DeferredCreateQuery:
+    match_query_strings: list[str]
+    create_query_strings: list[str]
+    merge_query_strings: list[str]
+    set_query_strings: list[str]
+    params: QueryParams
+    return_identifier: Identifier
+    head_id: ULID
+    head_type: str | None
+
+    def __init__(self):
+        self.match_query_strings = []
+        self.create_query_strings = []
+        self.merge_query_strings = []
+        self.set_query_strings = []
+        self.params = QueryParams()
+        self.head_type = None
+
+    def to_query_string(self):
+        return f"""
+            {"\n".join(self.match_query_strings)}
+            {"\n".join(self.create_query_strings)}
+            {"\n".join(self.set_query_strings)}
+            {"\n".join(self.merge_query_strings)}
+            RETURN true
+        """
+
+
+class CreateQuery:
+    match_query_strings: list[str]
+    create_query_strings: list[str]
+    merge_query_strings: list[str]
+    set_query_strings: list[str]
+    params: QueryParams
+    return_identifier: Identifier
+    head_id: ULID
+    head_type: str | None
+    deferred_query: "DeferredCreateQuery"
+
+    def __init__(self):
+        self.match_query_strings = []
+        self.create_query_strings = []
+        self.merge_query_strings = []
+        self.set_query_strings = []
+        self.params = QueryParams()
+        self.head_type = None
+        self.deferred_query = DeferredCreateQuery()
+
+    def to_query_string(self):
+        if not self.return_identifier:
+            raise Exception("CreateQuery.to_query_string called on non-top-level node")
+        return f"""
+            {"\n".join(self.match_query_strings)}
+            {"\n".join(self.create_query_strings)}
+            {"\n".join(self.set_query_strings)}
+            {"\n".join(self.merge_query_strings)}
+            RETURN {self.return_identifier}
+        """
+
+
+def add_uri_nodes_query(
+    instance_uris: list[AnyHttpUrl],
+    node_identifier: Identifier,
+    query_object: CreateQuery,
 ):
-    from pangloss.model_config.models_base import ReifiedRelation
+    """Adds PGUri nodes for HeadNode"""
 
-    matched_node_identifier = Identifier()
+    for instance_uri in instance_uris:
+        uri_identifier = Identifier()
+        uri_value_identifier = query_object.params.add(str(instance_uri))
+        query_object.merge_query_strings.append(
+            f"""
+                CREATE ({uri_identifier}:PGCore:PGInternal:PGUri {{uri: ${uri_value_identifier}}})
+                CREATE ({node_identifier})-[:PG_HAS_URI]->({uri_identifier})
+            """
+        )
+
+
+def add_creation_data_node_query(
+    instance: CreateBase | ReferenceCreateBase,
+    node_identifier: Identifier,
+    query_object: CreateQuery,
+    username: str,
+):
+    """Adds a PGCreation node attached to the HeadNode and a PGUser"""
+
+    user_identifier = query_object.params.add(username)
+    creation_node_identifier = Identifier()
+
+    # Need to create a json patch from an empty object
+    # to allow winding forward from nothing
+    diff_from_empty = jsonpatch.JsonPatch.from_diff(
+        {},
+        instance.model_dump(round_trip=True, mode="json", warnings=False),
+    ).to_string()
+    creation_node_data_identifier = query_object.params.add(diff_from_empty)
+
+    query_object.match_query_strings.append(
+        f"""MATCH ({user_identifier}:PGUser {{username: ${user_identifier}}})"""
+    )
+
+    query_object.create_query_strings.append(
+        f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->({creation_node_identifier}:PGInternal:PGCore:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
+    )
+    query_object.set_query_strings.append(
+        f"""SET {creation_node_identifier}.creation = ${creation_node_data_identifier}"""
+    )
+
+
+def add_create_inline_relation(
+    target_instance: CreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    use_defer: bool = False,
+):
+    """Adds a query for a CreateInline node"""
+
+    assert isinstance(target_instance, CreateBase)
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    extra_labels = ["ReadInline", "CreateInline", "PGIndexableNode"]
+    if relation_definition.edit_inline:
+        extra_labels.append("EditInline")
+        extra_labels.append("DetachDelete")
+
+    new_node_identifier, new_node_id = add_node_to_create_query_object(
+        instance=target_instance,
+        query_object=query_object,
+        extra_labels=extra_labels,
+    )
+
     relation_identifier = Identifier()
 
-    edge_properties = {}
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            SET {relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        # target_node_identifier=new_node_identifier,
+        target_node_id=new_node_id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
+    )
 
-    if relation_definition.field_metatype == "Relation":
-        edge_properties.update(
+
+def add_deferred_extra_relation(
+    query_object: CreateQuery,
+    relation_definition: RelationFieldDefinition,
+    target_node_id: AnyHttpUrl | PdULID | ULID,
+    source_node_id: ULID,
+    primary_relation_edge_properties: dict[str, str | list | typing.Any],
+) -> None:
+    """Adds a deferred query to create inferred relations"""
+
+    target_node_identifier = Identifier()
+    deferred_source_node_identifier = Identifier()
+    reverse_relation_identifier = Identifier()
+
+    reverse_primary_edge_properties_identifier = query_object.deferred_query.params.add(
+        {**primary_relation_edge_properties, "_pg_primary_rel": False}
+    )
+
+    source_node_id_identifier = query_object.deferred_query.params.add(
+        str(source_node_id)
+    )
+    target_node_id_identifier = query_object.deferred_query.params.add(
+        str(target_node_id)
+    )
+    if isinstance(target_node_id, AnyHttpUrl):
+        query_object.deferred_query.match_query_strings.append(
+            f"""
+                MATCH (:PGUri {{uri: ${target_node_id_identifier}}})<-[:PG_HAS_URI]-({target_node_identifier}:BaseNode)  
+            """
+        )
+    else:
+        query_object.deferred_query.match_query_strings.append(
+            f"""// Matching target {target_node_id}
+                MATCH ({target_node_identifier}:PGIndexableNode {{id: ${target_node_id_identifier}}})        
+            """
+        )
+
+    query_object.deferred_query.match_query_strings.append(
+        f"""// Matching source {source_node_id}
+            MATCH({deferred_source_node_identifier}:PGIndexableNode {{id: ${source_node_id_identifier}}})
+        """
+    )
+    query_object.deferred_query.create_query_strings.append(
+        f"""
+            CREATE ({deferred_source_node_identifier})<-[{reverse_relation_identifier}:{relation_definition.reverse_name.upper()}]-({target_node_identifier})
+            SET {reverse_relation_identifier} = ${reverse_primary_edge_properties_identifier}
+           
+        """
+    )
+    forward_sub_edge_properties_identifier = query_object.deferred_query.params.add(
+        {"_pg_primary_rel": False, "_pg_superclass_of": relation_definition.field_name}
+    )
+    reverse_sub_edge_properties_identifier = query_object.deferred_query.params.add(
+        {
+            "_pg_primary_rel": False,
+            "_pg_superclass_of": relation_definition.reverse_name,
+        }
+    )
+    for (
+        forward_rel_name,
+        reverse_rel_name,
+    ) in relation_definition.subclassed_relations:
+        forward_sub_relation_identifier = Identifier()
+        reverse_sub_relation_identifier = Identifier()
+
+        query_object.deferred_query.create_query_strings.append(f"""
+            CREATE ({deferred_source_node_identifier})-[{forward_sub_relation_identifier}:{forward_rel_name.upper()}]->({target_node_identifier})
+            CREATE ({deferred_source_node_identifier})<-[{reverse_sub_relation_identifier}:{reverse_rel_name.upper()}]-({target_node_identifier})
+            SET {forward_sub_relation_identifier} = ${forward_sub_edge_properties_identifier}
+            SET {reverse_sub_relation_identifier} = ${reverse_sub_edge_properties_identifier}
+        """)
+
+
+def add_reference_set_relation(
+    target_instance: ReferenceSetBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    use_defer: bool = False,
+) -> None:
+    """Add relation to existing node"""
+    target_node_identifier = Identifier()
+    target_node_id_identifier = query_object.params.add(str(target_instance.id))
+
+    if isinstance(target_instance.id, AnyHttpUrl):
+        query_object.match_query_strings.append(
+            f"""
+                MATCH (:PGUri {{uri: ${target_node_id_identifier}}})<-[:PG_HAS_URI]-({target_node_identifier}:BaseNode)  
+            """
+        )
+    else:
+        query_object.match_query_strings.append(
+            f"""
+                MATCH ({target_node_identifier}:BaseNode {{id: ${target_node_id_identifier}}})        
+            """
+        )
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    primary_relation_identifier = Identifier()
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{primary_relation_identifier}:{relation_definition.field_name.upper()}]->({target_node_identifier})
+            SET {primary_relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        # target_node_identifier=target_node_identifier,
+        target_node_id=target_instance.id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
+    )
+
+
+def add_reference_create_relation(
+    target_instance: ReferenceCreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    username: str,
+):
+    target_node_identifier = Identifier()
+
+    node_labels_string = join_labels(
+        target_instance._meta.type_labels, ["HeadNode", "PGIndexableNode"]
+    )
+
+    if isinstance(target_instance.id, AnyHttpUrl):
+        uri_identifier = query_object.params.add(target_instance.id)
+        extra_node_data = {
+            "id": str(ULID()),
+            "is_deleted": False,
+            "marked_for_delete": False,
+        }
+        node_data_identifier = query_object.params.add(
+            get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
+        )
+        query_object.create_query_strings.append(
+            f"""MERGE ({target_node_identifier}:{node_labels_string})-[:PG_HAS_URI]->(u:PGCore:PGInternal:PGUri WHERE u.uri = ${uri_identifier})
+                ON CREATE 
+                    SET {target_node_identifier} = ${node_data_identifier}
+                """
+        )
+    else:
+        extra_node_data = {
+            "id": str(target_instance.id),
+            "is_deleted": False,
+            "marked_for_delete": False,
+        }
+        node_data_identifier = query_object.params.add(
+            get_properties_as_writeable_dict(target_instance, extras=extra_node_data)
+        )
+        new_uri_identifier = query_object.params.add(
+            str(
+                urljoin(
+                    str(SETTINGS.ENTITY_BASE_URL),
+                    f"{target_instance.type}/{str(target_instance.id)}",
+                )
+            )
+        )
+
+        query_object.create_query_strings.append(
+            f"""MERGE ({target_node_identifier}:{node_labels_string})
+                ON CREATE
+                    SET {target_node_identifier} = ${node_data_identifier}
+                    
+                CREATE ({target_node_identifier})-[:PG_HAS_URI]->(:PGCore:PGInternal:PGUri {{uri: ${new_uri_identifier}}})
+            """
+        )
+        add_creation_data_node_query(
+            instance=target_instance,
+            node_identifier=target_node_identifier,
+            query_object=query_object,
+            username=username,
+        )
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    primary_relation_identifier = Identifier()
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{primary_relation_identifier}:{relation_definition.field_name.upper()}]->({target_node_identifier})
+            SET {primary_relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        # target_node_identifier=target_node_identifier,
+        target_node_id=target_instance.id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
+    )
+
+
+def add_create_reified_relation_node_query(
+    target_instance: ReifiedCreateBase,
+    source_instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    use_defer: bool = False,
+) -> None:
+    """Adds a query to a ReifiedRelation"""
+
+    assert isinstance(target_instance, ReifiedCreateBase)
+
+    edge_properties = getattr(target_instance, "edge_properties", {})
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    extra_labels = [
+        "ReadInline",
+        "CreateInline",
+        "ReifiedRelation",
+        "EditInline",
+        "DetachDelete",
+        "PGIndexableNode",
+    ]
+
+    new_node_identifier, new_node_id = add_node_to_create_query_object(
+        instance=target_instance,
+        query_object=query_object,
+        extra_labels=extra_labels,
+    )
+
+    relation_identifier = Identifier()
+
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            SET {relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+
+    # Check whether the source instance is a ReifiedCreateBase;
+    # if so, it is part of a chain of Reifieds; otherwise (this is the case
+    # we are interested in), we need to add a deferred query to map
+    # the node in question to the eventual target
+
+    if isinstance(source_instance, ReifiedCreateBase):
+        return
+
+    source_node_id_identifier = query_object.deferred_query.params.add(
+        str(source_node_id)
+    )
+    shortcut_source_node_identifier = Identifier()
+    shortcut_target_node_identifier = Identifier()
+    shortcut_primary_forward_relation_identifier = Identifier()
+    shortcut_primary_reverse_relation_identifier = Identifier()
+
+    shortcut_primary_edge_properties_identifier = (
+        query_object.deferred_query.params.add(
             {
-                "reverse_name": relation_definition.reverse_name,
-                "relation_labels": relation_definition.relation_labels,
-                "reverse_relation_labels": relation_definition.reverse_relation_labels,
+                **primary_relation_edge_properties,
+                "_pg_primary_rel": False,
+                "_pg_shortcut": True,
+                "head_id": str(source_node_id),
             }
         )
+    )
 
-    if hasattr(relation_to_target, "edge_properties"):
-        edge_properties.update(relation_to_target.edge_properties)  # type: ignore
+    query_object.deferred_query.match_query_strings.append(
+        f"""MATCH ({shortcut_source_node_identifier}:BaseNode {{id: ${source_node_id_identifier}}})-[:{relation_definition.field_name.upper()}]->(:ReifiedRelation)(()-[:TARGET]->()){{0,}}({shortcut_target_node_identifier}:BaseNode)"""
+    )
 
-    edge_properties = convert_dict_for_writing(edge_properties)
+    query_object.deferred_query.create_query_strings.append(
+        f"""
+            CREATE ({shortcut_source_node_identifier})-[{shortcut_primary_forward_relation_identifier}:{relation_definition.field_name.upper()}]->({shortcut_target_node_identifier})
+            SET {shortcut_primary_forward_relation_identifier} = ${shortcut_primary_edge_properties_identifier}
+            CREATE ({shortcut_source_node_identifier})<-[{shortcut_primary_reverse_relation_identifier}:{relation_definition.reverse_name.upper()}]-({shortcut_target_node_identifier})
+            SET {shortcut_primary_reverse_relation_identifier} = ${shortcut_primary_edge_properties_identifier}
+           
+        """
+    )
 
-    edge_properties_identifier = Identifier()
+    forward_sub_edge_properties_identifier = query_object.deferred_query.params.add(
+        {
+            "_pg_primary_rel": False,
+            "_pg_superclass_of": relation_definition.field_name,
+            "_pg_shortcut": True,
+            "head_id": str(source_node_id),
+        }
+    )
+    reverse_sub_edge_properties_identifier = query_object.deferred_query.params.add(
+        {
+            "_pg_primary_rel": False,
+            "_pg_superclass_of": relation_definition.reverse_name,
+            "_pg_shortcut": True,
+            "head_id": str(source_node_id),
+        }
+    )
 
-    query.query_params[edge_properties_identifier] = edge_properties
+    for (
+        forward_rel_name,
+        reverse_rel_name,
+    ) in relation_definition.subclassed_relations:
+        forward_sub_relation_identifier = Identifier()
+        reverse_sub_relation_identifier = Identifier()
 
-    if relation_definition.field_metatype == "Embedded":
-        extra_labels = ["Embedded", "DetachDelete"]
-        create_node_query, new_node_identifier, _ = build_create_node_query_object(
-            typing.cast("RootNode", relation_to_target),
-            query=query,
+        query_object.deferred_query.create_query_strings.append(f"""
+            CREATE ({shortcut_source_node_identifier})-[{forward_sub_relation_identifier}:{forward_rel_name.upper()}]->({shortcut_target_node_identifier})
+            CREATE ({shortcut_source_node_identifier})<-[{reverse_sub_relation_identifier}:{reverse_rel_name.upper()}]-({shortcut_target_node_identifier})
+            SET {forward_sub_relation_identifier} = ${forward_sub_edge_properties_identifier}
+            SET {reverse_sub_relation_identifier} = ${reverse_sub_edge_properties_identifier}
+        """)
+
+
+def add_create_relation_query(
+    target_instance: ReferenceSetBase
+    | ReferenceCreateBase
+    | CreateBase
+    | ReifiedCreateBase
+    | EmbeddedCreateBase,
+    relation_definition: RelationFieldDefinition | EmbeddedFieldDefinition,
+    source_instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    source_node_identifier: Identifier,
+    query_object: CreateQuery,
+    source_node_id: ULID,
+    username: str,
+) -> None:
+    print(type(target_instance))
+    if isinstance(relation_definition, EmbeddedFieldDefinition):
+        assert isinstance(target_instance, EmbeddedCreateBase)
+        extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
+        relation_identifier = Identifier()
+        new_node_identifier = add_node_to_create_query_object(
+            instance=target_instance,
+            query_object=query_object,
             extra_labels=extra_labels,
         )
 
-        query.create_query_strings.append(
-            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-            SET {relation_identifier} = ${edge_properties_identifier}"""
+        embedded_properties_identifier = query_object.params.add(
+            {"_pg_embedded": True, "_pg_primary_rel": True}
         )
-
-    elif relation_definition.create_inline:
-        extra_labels = ["ReadInline", "CreateInline", "DetachDelete"]
-        if relation_definition.edit_inline:
-            extra_labels.append("EditInline")
-        create_node_query, new_node_identifier, _ = build_create_node_query_object(
-            typing.cast("RootNode", relation_to_target),
-            query=query,
-            extra_labels=extra_labels,
-        )
-
-        query.create_query_strings.append(
-            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-            SET {relation_identifier} = ${edge_properties_identifier}"""
-        )
-    elif isinstance(relation_to_target, ReifiedRelation):
-        _, new_node_identifier, _ = build_create_node_query_object(
-            typing.cast("RootNode", relation_to_target),
-            query=query,
-            extra_labels=["DetachDelete"],
-        )
-        query.create_query_strings.append(
-            f"""CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-            SET {relation_identifier} = ${edge_properties_identifier}"""
-        )
-
-    else:
-        query.match_query_strings.append(
-            f"""MATCH ({matched_node_identifier} {{uuid: "{typing.cast("ReferenceSetBase", relation_to_target).uuid}"}})"""
-        )
-        query.create_query_strings.append(
+        query_object.create_query_strings.append(
             f"""
-            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({matched_node_identifier})
-            SET {relation_identifier} = ${edge_properties_identifier}"""
+                CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+                SET {relation_identifier} = ${embedded_properties_identifier}
+            """
+        )
+
+    elif isinstance(target_instance, CreateBase) and relation_definition.create_inline:
+        add_create_inline_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
+        )
+
+    elif isinstance(target_instance, ReferenceCreateBase):
+        add_reference_create_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
+            username=username,
+        )
+
+    elif isinstance(target_instance, ReferenceSetBase):
+        add_reference_set_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
+        )
+
+    elif isinstance(target_instance, ReifiedCreateBase):
+        add_create_reified_relation_node_query(
+            target_instance=target_instance,
+            source_instance=source_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
         )
 
 
-def build_create_node_query_object(
-    instance: "RootNode | ReifiedRelation | EmbeddedCreateBase",
-    query: CreateQuery | UpdateQuery | None = None,
+def add_node_to_create_query_object(
+    instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    query_object: CreateQuery,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
-    username: str | None = "DefaultUser",
-) -> tuple[CreateQuery | UpdateQuery, Identifier, ULID]:
-    if not username:
-        username = "DefaultUser"
-
-    if not query:
-        query = CreateQuery()
-
+    username: str = "DefaultUser",
+    use_defer: bool = False,
+) -> tuple[Identifier, ULID]:
     if not extra_labels:
         extra_labels = []
 
+    node_identifier: Identifier = Identifier()
+
+    instance_id: ULID
+    instance_uris: list[AnyHttpUrl] = []
+
+    if isinstance(instance, CreateBase):
+        if isinstance(instance.id, list):
+            instance_uris.extend(instance.id)
+        elif isinstance(instance.id, AnyHttpUrl):
+            instance_uris.append(instance.id)
+        elif isinstance(instance.id, ULID):
+            instance_id = instance.id
+
+    if not isinstance(getattr(instance, "id", None), ULID):
+        instance_id = ULID()
+
+    extra_node_data = {
+        "id": instance_id,
+        "is_deleted": False,
+        "marked_for_delete": False,
+    }
+
     if head_node:
-        extra_labels.append("HeadNode")
+        assert isinstance(instance, CreateBase)
 
-    node_identifier = Identifier()
-    node_data_identifier = Identifier()
+        extra_labels.extend(["HeadNode", "PGIndexableNode"])
+        query_object.head_id = instance_id
+        query_object.head_type = instance.type
+        query_object.return_identifier = node_identifier
 
-    instance_id = ULID()
+        instance_uris.append(
+            AnyHttpUrl(
+                urljoin(str(SETTINGS.ENTITY_BASE_URL), f"{instance.type}/{instance_id}")
+            )
+        )
 
-    if head_node:
-        query.head_type = instance.type
+    else:
+        extra_node_data["head_id"] = query_object.head_id
+        extra_node_data["head_type"] = query_object.head_type
 
-    extra_node_data = {"id": instance_uuid, "is_deleted": False}
-    if not head_node:
-        extra_node_data["head_id"] = query.id
-        extra_node_data["head_type"] = query.head_type
+    if isinstance(instance, CreateBase):
+        extra_node_data["label"] = instance.label
 
-    query.query_params[node_data_identifier] = get_properties_as_writeable_dict(
-        instance, extras=extra_node_data
+    node_data_identifier = query_object.params.add(
+        get_properties_as_writeable_dict(instance, extras=extra_node_data)
     )
 
-    node_labels_string = join_labels(instance.labels, extra_labels)
+    node_labels_string = join_labels(instance._meta.type_labels, extra_labels)
 
-    query.create_query_strings.append(
-        QuerySubstring(
-            f"""//this |>
+    query_object.create_query_strings.append(
+        f"""
             CREATE ({node_identifier}:{node_labels_string})
-            SET {node_identifier} += ${node_data_identifier}"""
-        )
+            SET {node_identifier} += ${node_data_identifier}
+        """
     )
 
     if head_node:
-        user_identifier = Identifier()
-        query.query_params[user_identifier] = username
-
-        creation_node_identifier = Identifier()
-        creation_data_identifier = Identifier()
-
-        diff_from_empty = jsonpatch.JsonPatch.from_diff(
-            {},
-            instance.model_dump(round_trip=True, mode="json", warnings=False),
-        ).to_string()
-
-        query.query_params[creation_data_identifier] = diff_from_empty
-        query.match_query_strings.append(
-            f"""MATCH ({user_identifier}:PGUser {{username: ${user_identifier}}})"""
+        add_creation_data_node_query(
+            instance=typing.cast(CreateBase, instance),
+            node_identifier=node_identifier,
+            query_object=query_object,
+            username=username,
         )
 
-        query.create_query_strings.append(
-            f"""CREATE ({node_identifier})-[:PG_CREATED_IN]->({creation_node_identifier}:PGInternal:PGCore:PGCreation {{created_when: datetime.realtime('+00:00')}})-[:PG_CREATED_BY]->({user_identifier})"""
-        )
-        query.set_query_strings.append(
-            f"""SET {creation_node_identifier}.creation = ${creation_data_identifier}"""
-        )
+    if instance_uris:
+        add_uri_nodes_query(instance_uris, node_identifier, query_object)
 
-    if head_node:
-        query.return_identifier = node_identifier
-
-    for relation_definition in instance.field_definitions.relation_fields:
+    for relation_definition in instance._meta.fields.relation_fields:
         for related_instance in getattr(instance, relation_definition.field_name, []):
-            build_create_relationship(
-                relation_to_target=related_instance,
+            add_create_relation_query(
+                target_instance=related_instance,
+                source_instance=instance,
                 relation_definition=relation_definition,
                 source_node_identifier=node_identifier,
-                query=query,
+                query_object=query_object,
+                source_node_id=instance_id,
+                username=username,
             )
 
-    for embedded_definition in instance.field_definitions.embedded_fields:
-        for embedded_instance in getattr(instance, embedded_definition.field_name, []):
-            build_create_relationship(
-                relation_to_target=embedded_instance,
-                relation_definition=embedded_definition,
-                source_node_identifier=node_identifier,
-                query=query,
-            )
-
-    return query, node_identifier, instance_uuid
+    return node_identifier, instance_id
 
 
-def build_create_query_object(instance, username) -> CreateQuery:
-    """Builds a Create query for a Model.Create instance"""
-    query_object, _, _ = build_create_node_query_object(
-        instance, head_node=True, username=username
+def build_create_query_object(
+    instance: CreateBase, current_username: str | None = None, use_defer: bool = False
+) -> CreateQuery:
+    query_object = CreateQuery()
+    add_node_to_create_query_object(
+        instance=instance,
+        query_object=query_object,
+        head_node=True,
+        username=current_username or "DefaultUser",
+        use_defer=use_defer,
     )
-    return typing.cast(CreateQuery, query_object)
+    return query_object

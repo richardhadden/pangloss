@@ -2,7 +2,7 @@ import time
 import typing
 from contextlib import contextmanager
 
-from pangloss.neo4j.create_new import build_create_query_object
+from pangloss.neo4j.create import build_create_query_object
 from pangloss.neo4j.database import Transaction, database
 
 if typing.TYPE_CHECKING:
