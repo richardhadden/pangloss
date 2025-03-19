@@ -1,4 +1,3 @@
-import json
 import time
 import typing
 from contextlib import contextmanager
@@ -122,8 +121,6 @@ class DatabaseQueryMixin:
             )
             record = await result.value()
             if record:
-                with open(f"HeadView_for_{cls.__name__}.json", "w") as f:
-                    f.write(json.dumps(record[0], default=str))
                 result = cls.HeadView(**record[0])
 
             else:
