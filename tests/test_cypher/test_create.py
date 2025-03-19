@@ -1,3 +1,4 @@
+import datetime
 from typing import Annotated, no_type_check
 
 import pytest
@@ -6,8 +7,13 @@ from pydantic import AnyHttpUrl
 from ulid import ULID
 
 from pangloss import initialise_models
-from pangloss.model_config.models_base import BaseMeta
-from pangloss.models import BaseNode, ReifiedRelation, RelationConfig
+from pangloss.model_config.models_base import (
+    BaseMeta,
+    BoundField,
+    EdgeModel,
+    ReifiedRelationNode,
+)
+from pangloss.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 from pangloss.neo4j.database import DatabaseUtils
 from pangloss.utils import gen_ulid
 
@@ -84,6 +90,7 @@ async def test_create_with_relation():
     ).create()
 
 
+@no_type_check
 @pytest.mark.asyncio
 async def test_creation_with_reified_relations():
     class IntermediateA[T](ReifiedRelation[T]):
@@ -103,11 +110,12 @@ async def test_creation_with_reified_relations():
 
     initialise_models()
 
-    person = await Person(label="John Smith").create()
+    person = await Person(label="John Smith").create_and_get()
 
-    thing = Thing(
+    thing = await Thing(
         type="Thing",
         label="A Thing",
+        uris=["http://things.com/1"],
         is_person_of_thing=[
             {
                 "type": "IntermediateA",
@@ -119,11 +127,16 @@ async def test_creation_with_reified_relations():
                 ],
             }
         ],
-    )
+    ).create_and_get()
 
-    await thing.create()
+    assert isinstance(thing, Thing.EditHeadView)
+    assert thing.label == "A Thing"
+    assert thing.is_person_of_thing[0].type == "IntermediateA"
+    assert thing.is_person_of_thing[0].target[0].type == "IntermediateB"
+    assert thing.is_person_of_thing[0].target[0].target[0].type == "Person"
+    assert thing.is_person_of_thing[0].target[0].target[0].id == person.id
 
-    thing2 = Thing(
+    thing2 = await Thing(
         type="Thing",
         label="A Thing",
         is_person_of_thing=[
@@ -132,11 +145,26 @@ async def test_creation_with_reified_relations():
                 "target": [{"type": "Person", "id": person.id}],
             }
         ],
+    ).create()
+
+    assert isinstance(thing2, Thing.ReferenceView)
+    assert thing2.type == "Thing"
+    assert isinstance(thing2.id, ULID)
+
+    thing_view = await Thing.get_view(id=thing.id)
+
+    assert thing_view.created_when < datetime.datetime.now(datetime.timezone.utc)
+    assert thing_view.created_by == "DefaultUser"
+
+    assert set(thing_view.uris) == set(
+        [
+            AnyHttpUrl(f"http://pangloss_test.com/Thing/{thing.id}"),
+            AnyHttpUrl("http://things.com/1"),
+        ]
     )
 
-    await thing2.create()
 
-
+@no_type_check
 @pytest.mark.asyncio
 async def test_reference_create():
     class Person(BaseNode):
@@ -151,10 +179,107 @@ async def test_reference_create():
 
     initialise_models()
 
-    print(Thing.Create.model_fields["is_person_of_thing"])
-
+    person_id = gen_ulid()
     thing = await Thing(
         type="Thing",
         label="A Thing",
-        is_person_of_thing=[{"type": "Person", "id": gen_ulid(), "label": "A Person"}],
-    ).create()
+        is_person_of_thing=[{"type": "Person", "id": person_id, "label": "A Person"}],
+    ).create_and_get()
+
+    assert thing.label == "A Thing"
+    assert isinstance(thing.is_person_of_thing[0], Person.ReferenceView)
+    assert thing.is_person_of_thing[0].id == person_id
+    assert thing.is_person_of_thing[0].label == "A Person"
+
+    person = await Person.get_view(id=person_id)
+
+    assert isinstance(person.is_thing_of_person[0], Thing.ReferenceView)
+    assert person.is_thing_of_person[0].id == thing.id
+    assert person.is_thing_of_person[0].label == "A Thing"
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_write_complex_object():
+    class Certainty(EdgeModel):
+        certainty: float
+
+    class Identification[T](ReifiedRelation[T]):
+        target: Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+        ]
+
+    class WithProxy[T](ReifiedRelationNode[T]):
+        proxy: Annotated[
+            T,
+            RelationConfig(reverse_name="acts_as_proxy_in"),
+        ]
+
+    class Reference(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        source: Annotated[
+            Reference,
+            RelationConfig(reverse_name="is_source_of"),
+        ]
+        page: int
+
+    class Entity(BaseNode):
+        class Meta(BaseMeta):
+            abstract = True
+            create_by_reference = True
+
+    class Person(Entity):
+        pass
+
+    class Object(Entity):
+        pass
+
+    class Statement(BaseNode):
+        class Meta(BaseMeta):
+            abstract = True
+
+    class CreationOfObject(Statement):
+        person_creating_object: Annotated[
+            WithProxy[Identification[Person]],
+            RelationConfig(reverse_name="creator_in_object_creation"),
+        ]
+        object_created: Annotated[Object, RelationConfig(reverse_name="was_created_in")]
+
+    class Order(Statement):
+        person_giving_order: Annotated[
+            WithProxy[Identification[Person]],
+            RelationConfig(reverse_name="gave_order"),
+        ]
+        person_receiving_order: Annotated[
+            Identification[Person],
+            RelationConfig(
+                reverse_name="received_order",
+            ),
+        ]
+        thing_ordered: Annotated[
+            CreationOfObject,
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                edit_inline=True,
+                bind_fields_to_related=[
+                    BoundField(
+                        parent_field_name="person_receiving_order",
+                        bound_field_name="person_creating_object",
+                    )
+                ],
+            ),
+        ]
+
+    class Factoid(BaseNode):
+        Embedded[Citation]
+        has_statements: Annotated[
+            Statement,
+            RelationConfig(
+                reverse_name="is_statement_in", create_inline=True, edit_inline=True
+            ),
+        ]
+
+    initialise_models()

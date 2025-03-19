@@ -767,6 +767,7 @@ def test_build_pg_annotations_for_specialising_abstract_classes():
         "type",
         "id",
         "label",
+        "uris",
     ]
 
     assert list(

@@ -315,3 +315,88 @@ This repo contains the third modelling/database layer rewrite of Pangloss. It us
 
 # TODO:
 - DB layer
+
+
+# Full model example for Factoid model using most features
+
+```python
+class Certainty(EdgeModel):
+    certainty: float
+
+class Identification[T](ReifiedRelation[T]):
+    target: Annotated[
+        T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+    ]
+
+class WithProxy[T](ReifiedRelationNode):
+    proxy: Annotated[
+        T,
+        RelationConfig(reverse_name="acts_as_proxy_in"),
+    ]
+
+class Reference(BaseNode):
+    pass
+
+class Citation(BaseNode):
+    source: Annotated[
+        Reference,
+        RelationConfig(reverse_name="is_source_of"),
+    ]
+    page: int
+
+class Factoid(BaseNode):
+    Embedded[Citation]
+    has_statements: Annotated[
+        Statement,
+        RelationConfig(
+            reverse_name="is_statement_in", create_inline=True, edit_inline=True
+        ),
+    ]
+
+class Entity(BaseNode):
+    class Meta(BaseMeta):
+        abstract = True
+        create_by_reference = True
+
+class Person(Entity):
+    pass
+
+class Object(Entity):
+    pass
+
+class Statement(BaseNode):
+    class Meta(BaseMeta):
+        abstract = True
+
+class Order(Statement):
+    person_giving_order: Annotated[
+        WithProxy[Identification[Person]],
+        RelationConfig(reverse_name="gave_order"),
+    ]
+    person_receiving_order: Annotated[
+        Identification[Person],
+        RelationConfig(
+            reverse_name="received_order",
+        ),
+    ]
+    thing_ordered: Annotated[
+        CreationOfObject,
+        RelationConfig(
+            reverse_name="was_ordered_in",
+            bind_fields_to_related=[
+                BoundField(
+                    parent_field_name="person_receiving_order",
+                    bound_field_name="person_creating_object",
+                )
+            ],
+        ),
+    ]
+
+class CreationOfObject(Statement):
+    person_creating_object: Annotated[
+        WithProxy[Identification[Person]],
+        RelationConfig(reverse_name="creator_in_object_creation"),
+    ]
+    object_created: Annotated[Object, RelationConfig(reverse_name="was_created_in")]
+
+```

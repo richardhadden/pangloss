@@ -171,13 +171,16 @@ class CreateBase(
     type: str
     id: ULID | AnyHttpUrl | list[AnyHttpUrl] | None = None
     label: str
+    uris: list[AnyHttpUrl] = Field(default_factory=list)
 
-    async def create_and_get(self, username: str | None = None):
+    async def create_and_get(self, username: str | None = None) -> EditHeadSetBase:
+        """Create this instance in the database and return the created object"""
         return await self.__pg_base_class__.create_method(  # type: ignore
             self, username, return_edit_view=True
         )
 
-    async def create(self, username: str | None = None):
+    async def create(self, username: str | None = None) -> ReferenceViewBase:
+        """Create this instance in the database and return a Reference object"""
         return await self.__pg_base_class__.create_method(  # type: ignore
             self, username, return_edit_view=False
         )
@@ -289,7 +292,7 @@ class ReferenceViewBase(
     label: str
     head_node: ULID | None = None
     head_type: str | None = None
-    uris: list[AnyHttpUrl] = Field(default_factory=list)
+    uris: list[AnyHttpUrl] | None = Field(default_factory=list)
 
 
 class ReferenceCreateBase(

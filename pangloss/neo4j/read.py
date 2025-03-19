@@ -18,7 +18,7 @@ def build_view_read_query(
         MATCH (headnode:HeadNode)
         WHERE node = headnode OR headnode.id = node.id
         
-        OPTIONAL MATCH (node)-[:PG_HAS_URI]->(uris:PGUri)
+        OPTIONAL MATCH (node)-[:URIS]->(uris:PGUri)
         
         CALL (headnode, node) {{
             OPTIONAL MATCH (headnode)-[:PG_CREATED_IN]->(c:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
@@ -43,22 +43,22 @@ def build_view_read_query(
         // Collect outgoing node patterns
         CALL (node) {{
             {
-        "OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)"
+        "OPTIONAL MATCH path_to_direct_nodes = (node)-[{_pg_primary_rel: true}]->(:BaseNode)"
         if has_relation_fields
         else ""
     }
             {
-        "OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)"
+        "OPTIONAL MATCH path_to_related_through_embedded = (node)-[{_pg_primary_rel: true}]->(:Embedded)((:Embedded)-[{_pg_primary_rel: true}]->(:Embedded)){ 0, }(:Embedded)-[{_pg_primary_rel: true}]->{0,}(:BaseNode)"
         if has_embedded_fields
         else ""
     }
             {
-        "OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)"
+        "OPTIONAL MATCH path_through_read_nodes = (node)-[{_pg_primary_rel: true}]->(:ReadInline)((:ReadInline)-[{_pg_primary_rel: true}]->(:ReadInline)){0,}(:ReadInline)-[{_pg_primary_rel: true}]->{0,}(:BaseNode)"
         if has_relation_fields
         else ""
     }
             {
-        '''OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){0,}(base_node:BaseNode)
+        '''OPTIONAL MATCH path_to_reified = (node)-[{_pg_primary_rel: true}]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[{_pg_primary_rel: true}]->(x WHERE x:BaseNode or x:ReifiedRelation)){0,}(base_node:BaseNode)
             ORDER BY first_reified.id, base_node.id'''
         if has_relation_fields
         else ""
@@ -79,9 +79,9 @@ def build_view_read_query(
         {
         ''' 
             CALL (node) { // Gets full context from incoming reified chain
-                OPTIONAL MATCH  paths = (node)<-[to_node]-(x WHERE (x:ReifiedRelation))(()<--()){1, }()<-[reverse_relation]-(related_nodes:BaseNode)
+                OPTIONAL MATCH  paths = (node)<-[to_node]-(x WHERE (x:ReifiedRelation))(()<--()){1, }()<-[reverse_relation {_pg_primary_rel: true}]-(related_nodes:BaseNode)
                 WITH [x in relationships(paths) WHERE type(x) <> "TARGET" | x][0].reverse_name as reverse_bind, reverse_relation, paths, related_nodes, to_node
-                OPTIONAL MATCH path_down = (related_nodes)-[rr WHERE type(rr) = type(reverse_relation)]->()(()-[]->()){0,}(other_node1:BaseNode)
+                OPTIONAL MATCH path_down = (related_nodes)-[rr WHERE type(rr) = type(reverse_relation)]->()(()-[{_pg_primary_rel: true}]->()){0,}(other_node1:BaseNode)
                 WITH collect(path_down) as paths_down, paths, reverse_bind, to_node
                 CALL apoc.paths.toJsonTree(paths_down) YIELD value
                 WITH collect(apoc.map.mergeList([value, {edge_properties: to_node}, { __bind: reverse_bind}])) as items
@@ -89,7 +89,7 @@ def build_view_read_query(
             }
             CALL {
                 WITH node
-                OPTIONAL MATCH (node)<-[reverse_relation]-(x WHERE (x:Embedded))(()<--()){ 0, }()<--(related_node)
+                OPTIONAL MATCH (node)<-[reverse_relation {_pg_primary_rel: true}]-(x WHERE (x:Embedded))(()<-[{_pg_primary_rel: true}]-()){ 0, }()<-[{_pg_primary_rel: true}]-(related_node)
                 WHERE NOT related_node:Embedded AND NOT related_node:ReifiedRelation
                 WITH reverse_relation.reverse_name AS reverse_relation_type, collect(related_node) AS related_node_data
                 WITH collect({ t: reverse_relation_type, related_node_data: related_node_data }) AS via_embedded
@@ -98,7 +98,7 @@ def build_view_read_query(
             }
              CALL (node) { // Gets basic reverse relation from incoming
                 WITH node
-                OPTIONAL MATCH (node)<-[reverse_relation]-(related_node:BaseNode)
+                OPTIONAL MATCH (node)<-[reverse_relation {_pg_primary_rel: true}]-(related_node:BaseNode)
                 WHERE NOT related_node:Embedded AND NOT related_node:ReifiedRelation
                 WITH reverse_relation.reverse_name AS reverse_relation_type, collect(related_node) AS related_node_data
                 WITH collect({ t: reverse_relation_type, related_node_data: related_node_data }) AS direct_incoming
@@ -110,7 +110,7 @@ def build_view_read_query(
         else ""
     }
         WITH node, collect(uris.uri) as all_uris, outgoing, modification, creation{
-        ", via_embedded, reverse_relations, through_reified_chain, "
+        ", via_embedded, reverse_relations, through_reified_chain "
         if model._meta.fields.reverse_relations
         else ""
     }
@@ -133,7 +133,7 @@ def build_edit_view_query(
         MATCH (headnode:HeadNode)
         WHERE node = headnode OR headnode.id = node.id
         
-        OPTIONAL MATCH (node)-[:PG_HAS_URI]->(uris:PGUri)
+        OPTIONAL MATCH (node)-[:URIS]->(uris:PGUri)
         
         CALL (headnode) {{
             OPTIONAL MATCH (headnode)-[:PG_CREATED_IN]->(c:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
@@ -157,10 +157,10 @@ def build_edit_view_query(
      
         // Collect outgoing node patterns
         CALL (node) {{
-            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model._meta.fields.relation_fields else ""}
-            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if model._meta.fields.embedded_fields else ""}
-            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if model._meta.fields.relation_fields else ""}
-            OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
+            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[{_pg_primary_rel: true}]->(:BaseNode)" if model._meta.fields.relation_fields else ""}
+            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[{_pg_primary_rel: true}]->(:Embedded)((:Embedded)-[{_pg_primary_rel: true}]->(:Embedded)){ 0, }(:Embedded)-[{_pg_primary_rel: true}]->{0,}(:BaseNode)" if model._meta.fields.embedded_fields else ""}
+            {"OPTIONAL MATCH path_through_read_nodes = (node)-[{_pg_primary_rel: true}]->(:ReadInline)((:ReadInline)-[{_pg_primary_rel: true}]->(:ReadInline)){0,}(:ReadInline)-[{_pg_primary_rel: true}]->{0,}(:BaseNode)" if model._meta.fields.relation_fields else ""}
+            OPTIONAL MATCH path_to_reified = (node)-[{{_pg_primary_rel: true}}]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[{{_pg_primary_rel: true}}]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
             WITH apoc.coll.flatten([
                 collect(path_to_reified),
                 {"collect(path_through_read_nodes)," if model._meta.fields.relation_fields else ""}

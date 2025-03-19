@@ -41,7 +41,7 @@ class DatabaseQueryMixin:
 
         self = typing.cast("CreateBase", self)
 
-        with time_query(f"Building query time for {self.type}"):
+        with time_query(f"Building create query time for {self.type}"):
             query_object = build_create_query_object(
                 instance=self, current_username=current_username
             )
@@ -82,7 +82,7 @@ class DatabaseQueryMixin:
 
         if not return_edit_view:
             return response
-
+        print("=============")
         with time_query(f"Building read query time for {self.type}"):
             query, query_params = build_edit_view_query(
                 model=self.__pg_base_class__, id=str(response.id)
@@ -106,6 +106,8 @@ class DatabaseQueryMixin:
     @classmethod
     @database.read_transaction
     async def get_view(cls, tx: Transaction, id: ULID | str) -> "HeadViewBase":
+        print("=============")
+
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building read query time for {cls.type}"):
             query, query_params = build_view_read_query(model=cls, id=str(id))
@@ -120,6 +122,7 @@ class DatabaseQueryMixin:
             record = await result.value()
             if record:
                 result = cls.HeadView(**record[0])
+
             else:
                 raise PanglossNotFoundError(f"Object <{cls.type} id='{id}'> not found")
 
@@ -128,6 +131,7 @@ class DatabaseQueryMixin:
     @classmethod
     @database.read_transaction
     async def get_edit_view(cls, tx: Transaction, id: ULID | str) -> "EditHeadViewBase":
+        print("=============")
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building read query time for {cls.type}"):
             query, query_params = build_edit_view_query(model=cls, id=str(id))

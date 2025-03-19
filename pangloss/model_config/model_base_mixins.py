@@ -109,6 +109,20 @@ class _BaseClassProxy(_OwnsMethods):
 
     _meta: typing.ClassVar["BaseMeta"] = typing.cast("BaseMeta", _MetaDescriptor())
 
+    def __init__(self, *args, **kwargs):
+        """
+        When initialising, any dot-separated property of a neo4j representation of
+        a relation property, ie. relation_name.relation_field_name; these need to be
+        splint and added as "relation_properties" before initialising the instance
+        """
+        if "edge_properties" not in kwargs:
+            kwargs["edge_properties"] = {}
+
+        for key, value in kwargs.items():
+            if "." in key:
+                kwargs["edge_properties"][key.split(".")[1]] = value
+        super().__init__(*args, **kwargs)
+
 
 RelationViaEdgeType = typing.TypeVar(
     "RelationViaEdgeType", bound="type[ReferenceSetBase | ReifiedCreateBase]"

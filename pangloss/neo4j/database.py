@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 import typing
 import uuid
 from typing import (
@@ -19,6 +20,8 @@ if typing.TYPE_CHECKING:
 # Define a transaction type, for short
 Transaction = neo4j.AsyncManagedTransaction
 
+# Make sure neo4j doesn't spout annoying warnings all over the place
+logging.getLogger("neo4j").setLevel(logging.ERROR)
 
 uri: str
 auth: tuple[str, str]
