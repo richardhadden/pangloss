@@ -51,7 +51,7 @@ def test_build_edit_head_view_model():
         "type",
         "id",
         "label",
-        "urls",
+        "uris",
         "created_by",
         "created_when",
         "modified_by",
@@ -70,7 +70,7 @@ def test_build_edit_head_view_model():
         type="Factoid",
         id=gen_ulid(),
         label="A Factoid",
-        urls=[],
+        uris=[],
         created_by="Smith",
         created_when=datetime.datetime.now(),
         modified_by="Smith",
@@ -96,7 +96,7 @@ def test_build_edit_head_view_model():
     assert f.type == "Factoid"
     assert f.id is not None
     assert f.label == "A Factoid"
-    assert f.urls == []
+    assert f.uris == []
     assert f.created_by == "Smith"
     assert f.modified_by == "Smith"
     assert f.has_statements[0].type == "Statement"
@@ -133,7 +133,7 @@ def test_edit_head_view_with_relation_to_reified():
         type="Event",
         id=gen_ulid(),
         label="An Event",
-        urls=[],
+        uris=[],
         created_by="Smith",
         created_when=datetime.datetime.now(),
         modified_by="Smith",
@@ -162,7 +162,7 @@ def test_edit_head_view_with_relation_to_reified():
     assert e.type == "Event"
     assert e.id is not None
     assert e.label == "An Event"
-    assert e.urls == []
+    assert e.uris == []
     assert e.created_by == "Smith"
     assert e.modified_by == "Smith"
     assert e.involves_person[0].type == "Person"
@@ -202,7 +202,7 @@ def test_edit_head_view_model_with_embedded_node():
         type="Event",
         id=gen_ulid(),
         label="An Event",
-        urls=[],
+        uris=[],
         created_by="Smith",
         created_when=datetime.datetime.now(),
         modified_by="Smith",
@@ -226,7 +226,7 @@ def test_edit_head_view_model_with_embedded_node():
     assert e.type == "Event"
     assert e.id is not None
     assert e.label == "An Event"
-    assert e.urls == []
+    assert e.uris == []
     assert e.created_by == "Smith"
     assert e.modified_by == "Smith"
     assert e.citation[0].type == "Citation"
@@ -270,7 +270,7 @@ def test_edit_head_view_model_with_double_reified():
         type="Person",
         id=gen_ulid(),
         label="A Person",
-        urls=[],
+        uris=[],
         created_by="Smith",
         created_when=datetime.datetime.now(),
         modified_by="Smith",
@@ -314,7 +314,7 @@ def test_edit_head_view_model_with_double_reified():
     assert p.type == "Person"
     assert p.id is not None
     assert p.label == "A Person"
-    assert p.urls == []
+    assert p.uris == []
     assert p.created_by == "Smith"
     assert p.modified_by == "Smith"
     assert p.owns_cat[0].type == "Intermediate"

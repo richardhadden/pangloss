@@ -103,7 +103,7 @@ async def test_creation_with_reified_relations():
 
     initialise_models()
 
-    person = await Person(label="John Smith").save()
+    person = await Person(label="John Smith").create()
 
     thing = Thing(
         type="Thing",
@@ -121,7 +121,7 @@ async def test_creation_with_reified_relations():
         ],
     )
 
-    await thing.save()
+    await thing.create()
 
     thing2 = Thing(
         type="Thing",
@@ -134,7 +134,7 @@ async def test_creation_with_reified_relations():
         ],
     )
 
-    await thing2.save()
+    await thing2.create()
 
 
 @pytest.mark.asyncio
@@ -157,4 +157,4 @@ async def test_reference_create():
         type="Thing",
         label="A Thing",
         is_person_of_thing=[{"type": "Person", "id": gen_ulid(), "label": "A Person"}],
-    ).save()
+    ).create()

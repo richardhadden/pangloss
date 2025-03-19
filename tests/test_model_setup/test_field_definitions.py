@@ -775,7 +775,7 @@ def test_build_pg_annotations_for_specialising_abstract_classes():
         "type",
         "id",
         "label",
-        "urls",
+        "uris",
         "created_by",
         "created_when",
         "modified_by",
