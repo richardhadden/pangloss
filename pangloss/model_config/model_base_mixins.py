@@ -117,13 +117,13 @@ class _BaseClassProxy(_OwnsMethods):
         a relation property, ie. relation_name.relation_field_name; these need to be
         splint and added as "relation_properties" before initialising the instance
         """
+        if isinstance(data, dict):
+            if "edge_properties" not in data:
+                data["edge_properties"] = {}
 
-        if "edge_properties" not in data:
-            data["edge_properties"] = {}
-
-        for key, value in data.items():
-            if "." in key:
-                data["edge_properties"][key.split(".")[1]] = value
+            for key, value in data.items():
+                if "." in key:
+                    data["edge_properties"][key.split(".")[1]] = value
         return data
 
 
