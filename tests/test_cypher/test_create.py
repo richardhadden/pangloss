@@ -1,7 +1,9 @@
-from typing import Annotated
+from typing import Annotated, no_type_check
 
 import pytest
 import pytest_asyncio
+from pydantic import AnyHttpUrl
+from ulid import ULID
 
 from pangloss import initialise_models
 from pangloss.model_config.models_base import BaseMeta
@@ -16,6 +18,7 @@ async def reset_db():
     yield
 
 
+@no_type_check
 @pytest.mark.asyncio
 async def test_save_method_works_on_create_model():
     class Thing(BaseNode):
@@ -23,16 +26,21 @@ async def test_save_method_works_on_create_model():
 
     initialise_models()
 
-    await Thing(
+    thing = await Thing(
         id="http://something.com/thing", label="Thing", type="Thing", name="A Thing"
-    ).save()
+    ).create_and_get()
 
-    await Thing(
-        id="http://something.com/otherthing",
-        label="Other Thing",
-        type="Thing",
-        name="A Thing",
-    ).save()
+    assert isinstance(thing.id, ULID)
+    assert set(thing.uris) == set(
+        [
+            AnyHttpUrl(f"http://pangloss_test.com/Thing/{thing.id}"),
+            AnyHttpUrl("http://something.com/thing"),
+        ]
+    )
+
+    assert thing.label == "Thing"
+    assert thing.type == "Thing"
+    assert thing.name == "A Thing"
 
 
 @pytest.mark.asyncio
@@ -66,14 +74,14 @@ async def test_create_with_relation():
 
     initialise_models()
 
-    person = await Person(label="John Smith").save()
+    person = await Person(label="John Smith").create()
 
     await SubSubThing(
         label="Thing",
         type="SubSubThing",
         name="A Thing",
         is_person_of_subsubthing=[{"type": "Person", "id": person.id}],
-    ).save()
+    ).create()
 
 
 @pytest.mark.asyncio

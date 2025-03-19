@@ -34,5 +34,6 @@ def database_setup(event_loop):
     event_loop.run_until_complete(DatabaseUtils.dangerously_clear_database())
     event_loop.run_until_complete(_install_index_and_constraints_from_text())
     event_loop.run_until_complete(DatabaseUtils.create_default_user())
+
     yield event_loop
     event_loop.run_until_complete(database.close())

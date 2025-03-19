@@ -1,21 +1,24 @@
 import typing
-import uuid
+
+from ulid import ULID
 
 if typing.TYPE_CHECKING:
-    from pangloss.models import BaseNode
+    from pangloss.models import RootNode
 
 
 def build_view_read_query(
-    model: type["BaseNode"], uuid: uuid.UUID | str
+    model: type["RootNode"], id: ULID | str
 ) -> tuple[typing.LiteralString, dict[str, str]]:
-    has_relation_fields = bool(model.field_definitions.relation_fields)
-    has_embedded_fields = bool(model.field_definitions.embedded_fields)
+    has_relation_fields = bool(model._meta.fields.relation_fields)
+    has_embedded_fields = bool(model._meta.fields.embedded_fields)
 
     query = f"""
-        MATCH path_to_node = (node:BaseNode {{uuid: $uuid}})
+        MATCH path_to_node = (node:BaseNode {{id: $id}})
         
         MATCH (headnode:HeadNode)
-        WHERE node = headnode OR headnode.uuid = node.head_uuid
+        WHERE node = headnode OR headnode.id = node.id
+        
+        OPTIONAL MATCH (node)-[:PG_HAS_URI]->(uris:PGUri)
         
         CALL (headnode, node) {{
             OPTIONAL MATCH (headnode)-[:PG_CREATED_IN]->(c:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
@@ -39,15 +42,33 @@ def build_view_read_query(
      
         // Collect outgoing node patterns
         CALL (node) {{
-            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if has_relation_fields else ""}
-            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if has_embedded_fields else ""}
-            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if has_relation_fields else ""}
-            {"""OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){0,}(base_node:BaseNode)
-            ORDER BY first_reified.uuid, base_node.uuid""" if has_relation_fields else ""}
+            {
+        "OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)"
+        if has_relation_fields
+        else ""
+    }
+            {
+        "OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)"
+        if has_embedded_fields
+        else ""
+    }
+            {
+        "OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)"
+        if has_relation_fields
+        else ""
+    }
+            {
+        '''OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){0,}(base_node:BaseNode)
+            ORDER BY first_reified.id, base_node.id'''
+        if has_relation_fields
+        else ""
+    }
             WITH apoc.coll.flatten([
                 {"collect(path_to_reified)," if has_relation_fields else ""}
                 {"collect(path_through_read_nodes)," if has_relation_fields else ""}
-                {"collect(path_to_related_through_embedded)," if has_embedded_fields else ""}
+                {
+        "collect(path_to_related_through_embedded)," if has_embedded_fields else ""
+    }
                 {"collect(path_to_direct_nodes)," if has_relation_fields else ""}
                 []
             ]) AS paths, node
@@ -55,7 +76,8 @@ def build_view_read_query(
                 YIELD value
                 RETURN value as outgoing 
         }}
-        {""" 
+        {
+        ''' 
             CALL (node) { // Gets full context from incoming reified chain
                 OPTIONAL MATCH  paths = (node)<-[to_node]-(x WHERE (x:ReifiedRelation))(()<--()){1, }()<-[reverse_relation]-(related_nodes:BaseNode)
                 WITH [x in relationships(paths) WHERE type(x) <> "TARGET" | x][0].reverse_name as reverse_bind, reverse_relation, paths, related_nodes, to_node
@@ -83,22 +105,36 @@ def build_view_read_query(
                 RETURN REDUCE(s = { }, item IN apoc.coll.flatten([direct_incoming]) | apoc.map.setEntry(s, item.t, item.related_node_data)) AS reverse_relations
             }
             
-        """ if model.incoming_relation_definitions else ""}
-        WITH node, outgoing, modification, creation{", via_embedded, reverse_relations, through_reified_chain" if model.incoming_relation_definitions else ""}
+        '''
+        if model._meta.fields.reverse_relations
+        else ""
+    }
+        WITH node, collect(uris.uri) as all_uris, outgoing, modification, creation{
+        ", via_embedded, reverse_relations, through_reified_chain, "
+        if model._meta.fields.reverse_relations
+        else ""
+    }
 
-        RETURN apoc.map.mergeList([node, creation, outgoing, modification{", via_embedded, reverse_relations, through_reified_chain" if model.incoming_relation_definitions else ""}])
+        RETURN apoc.map.mergeList([node, {{uris: all_uris}}, creation, outgoing, modification{
+        ", via_embedded, reverse_relations, through_reified_chain"
+        if model._meta.fields.reverse_relations
+        else ""
+    }])
     """
-    return typing.cast(typing.LiteralString, query), {"uuid": str(uuid)}
+    return typing.cast(typing.LiteralString, query), {"id": str(id)}
 
 
 def build_edit_view_query(
-    model: type["BaseNode"], uuid: uuid.UUID | str
+    model: type["RootNode"], id: ULID | str
 ) -> tuple[typing.LiteralString, dict[str, str]]:
     query = f"""
-        MATCH path_to_node = (node:BaseNode {{uuid: $uuid}})
+        MATCH path_to_node = (node:BaseNode {{id: $id}})
         
         MATCH (headnode:HeadNode)
-        WHERE node = headnode OR headnode.uuid = node._head_uuid
+        WHERE node = headnode OR headnode.id = node.id
+        
+        OPTIONAL MATCH (node)-[:PG_HAS_URI]->(uris:PGUri)
+        
         CALL (headnode) {{
             OPTIONAL MATCH (headnode)-[:PG_CREATED_IN]->(c:PGCreation)-[:PG_CREATED_BY]->(user:PGUser)
             RETURN 
@@ -121,15 +157,15 @@ def build_edit_view_query(
      
         // Collect outgoing node patterns
         CALL (node) {{
-            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model.field_definitions.relation_fields else ""}
-            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if model.field_definitions.embedded_fields else ""}
-            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if model.field_definitions.relation_fields else ""}
+            {"OPTIONAL MATCH path_to_direct_nodes = (node)-[]->(:BaseNode)" if model._meta.fields.relation_fields else ""}
+            {"OPTIONAL MATCH path_to_related_through_embedded = (node)-[]->(:Embedded)((:Embedded)-[]->(:Embedded)){ 0, }(:Embedded)-[]->{0,}(:BaseNode)" if model._meta.fields.embedded_fields else ""}
+            {"OPTIONAL MATCH path_through_read_nodes = (node)-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){0,}(:ReadInline)-[]->{0,}(:BaseNode)" if model._meta.fields.relation_fields else ""}
             OPTIONAL MATCH path_to_reified = (node)-[]->(first_reified:ReifiedRelation)((:ReifiedRelation)-[]->(x WHERE x:BaseNode or x:ReifiedRelation)){{0,}}(:BaseNode)
             WITH apoc.coll.flatten([
                 collect(path_to_reified),
-                {"collect(path_through_read_nodes)," if model.field_definitions.relation_fields else ""}
-                {"collect(path_to_related_through_embedded)," if model.field_definitions.embedded_fields else ""}
-                {"collect(path_to_direct_nodes)," if model.field_definitions.relation_fields else ""}
+                {"collect(path_through_read_nodes)," if model._meta.fields.relation_fields else ""}
+                {"collect(path_to_related_through_embedded)," if model._meta.fields.embedded_fields else ""}
+                {"collect(path_to_direct_nodes)," if model._meta.fields.relation_fields else ""}
                 []
             ]) AS paths, node
             CALL apoc.paths.toJsonTree(paths)
@@ -137,8 +173,8 @@ def build_edit_view_query(
                 RETURN value as outgoing 
         }}
        
-        WITH node, outgoing, modification, creation
+        WITH node, outgoing, modification, creation, {{uris: collect(uris.uri)}} as all_uris
 
-        RETURN apoc.map.mergeList([node, creation, outgoing, modification])
+        RETURN apoc.map.mergeList([node, all_uris, creation, outgoing, modification])
     """
-    return typing.cast(typing.LiteralString, query), {"uuid": str(uuid)}
+    return typing.cast(typing.LiteralString, query), {"id": str(id)}

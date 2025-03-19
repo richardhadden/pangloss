@@ -2,12 +2,18 @@ import time
 import typing
 from contextlib import contextmanager
 
+from ulid import ULID
+
+from pangloss.exceptions import PanglossNotFoundError
 from pangloss.neo4j.create import build_create_query_object
 from pangloss.neo4j.database import Transaction, database
+from pangloss.neo4j.read import build_edit_view_query, build_view_read_query
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
         CreateBase,
+        EditHeadViewBase,
+        HeadViewBase,
         ReferenceViewBase,
         RootNode,
     )
@@ -29,6 +35,7 @@ class DatabaseQueryMixin:
         tx: Transaction,
         current_username: str | None = None,
         use_deferred_query: bool = False,
+        return_edit_view: bool = True,
     ) -> "ReferenceViewBase":
         print("=============")
 
@@ -69,6 +76,73 @@ class DatabaseQueryMixin:
                     ),
                 )
 
-        return typing.cast("RootNode", self.__pg_base_class__).ReferenceView(
+        response = typing.cast("RootNode", self.__pg_base_class__).ReferenceView(
             **record[0]
         )
+
+        if not return_edit_view:
+            return response
+
+        with time_query(f"Building read query time for {self.type}"):
+            query, query_params = build_edit_view_query(
+                model=self.__pg_base_class__, id=str(response.id)
+            )
+
+        with open("get_edit_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(query_params)}")
+
+        with time_query(f"Read query time for {self.type}"):
+            result = await tx.run(
+                query, typing.cast(dict[str, typing.Any], query_params)
+            )
+            record = await result.value()
+            if record:
+                result = self.__pg_base_class__.EditHeadView(**record[0])
+            else:
+                raise PanglossNotFoundError(f"Object <{self.type} id='{id}'> not found")
+
+        return result
+
+    @classmethod
+    @database.read_transaction
+    async def get_view(cls, tx: Transaction, id: ULID | str) -> "HeadViewBase":
+        cls = typing.cast(type["RootNode"], cls)
+        with time_query(f"Building read query time for {cls.type}"):
+            query, query_params = build_view_read_query(model=cls, id=str(id))
+
+        with open("get_view_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(query_params)}")
+
+        with time_query(f"View read query time for {cls.type}"):
+            result = await tx.run(
+                query, typing.cast(dict[str, typing.Any], query_params)
+            )
+            record = await result.value()
+            if record:
+                result = cls.HeadView(**record[0])
+            else:
+                raise PanglossNotFoundError(f"Object <{cls.type} id='{id}'> not found")
+
+        return result
+
+    @classmethod
+    @database.read_transaction
+    async def get_edit_view(cls, tx: Transaction, id: ULID | str) -> "EditHeadViewBase":
+        cls = typing.cast(type["RootNode"], cls)
+        with time_query(f"Building read query time for {cls.type}"):
+            query, query_params = build_edit_view_query(model=cls, id=str(id))
+
+        with open("get_edit_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(query_params)}")
+
+        with time_query(f"EditView read query time for {cls.type}"):
+            result = await tx.run(
+                query, typing.cast(dict[str, typing.Any], query_params)
+            )
+            record = await result.value()
+            if record:
+                result = cls.EditHeadView(**record[0])
+            else:
+                raise PanglossNotFoundError(f"Object <{cls.type} id='{id}'> not found")
+
+        return result

@@ -43,7 +43,7 @@ def test_head_view_model_with_collapsible_reified():
         type="Event",
         id=gen_ulid(),
         label="An Event",
-        urls=[],
+        uris=[],
         created_by="Smith",
         created_when=datetime.datetime.now(),
         modified_by="Smith",

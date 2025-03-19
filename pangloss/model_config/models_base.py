@@ -6,12 +6,14 @@ import typing
 from collections import ChainMap
 
 import annotated_types
+import neo4j.time
 from pydantic import (
     AnyHttpUrl,
     BaseModel,
     Field,
     PlainSerializer,
     computed_field,
+    field_validator,
 )
 from pydantic_extra_types.ulid import ULID as ExtraTypeULID
 
@@ -170,8 +172,15 @@ class CreateBase(
     id: ULID | AnyHttpUrl | list[AnyHttpUrl] | None = None
     label: str
 
-    async def save(self, username: str | None = None):
-        return await self.__pg_base_class__.create_method(self, username)  # type: ignore
+    async def create_and_get(self, username: str | None = None):
+        return await self.__pg_base_class__.create_method(  # type: ignore
+            self, username, return_edit_view=True
+        )
+
+    async def create(self, username: str | None = None):
+        return await self.__pg_base_class__.create_method(  # type: ignore
+            self, username, return_edit_view=False
+        )
 
 
 class ViewBase(
@@ -200,12 +209,19 @@ class HeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     type: str
     id: ULID
     label: str
-    urls: list[AnyHttpUrl] = Field(default_factory=list)
+    uris: list[AnyHttpUrl] = Field(default_factory=list)
 
     created_by: str
     created_when: datetime.datetime
     modified_by: str | None = None
     modified_when: datetime.datetime | None = None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def convert_neo4j_dates(cls, value: typing.Any, field) -> typing.Any:
+        if isinstance(value, (neo4j.time.DateTime, neo4j.time.Date)):
+            return value.to_native()
+        return value
 
 
 class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
@@ -216,12 +232,19 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     type: str
     id: ULID
     label: str
-    urls: list[AnyHttpUrl] = Field(default_factory=list)
+    uris: list[AnyHttpUrl] = Field(default_factory=list)
 
     created_by: str
     created_when: datetime.datetime
     modified_by: str | None = None
     modified_when: datetime.datetime | None = None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def convert_neo4j_dates(cls, value: typing.Any, field) -> typing.Any:
+        if isinstance(value, (neo4j.time.DateTime, neo4j.time.Date)):
+            return value.to_native()
+        return value
 
 
 class EditHeadSetBase(
@@ -238,7 +261,7 @@ class EditHeadSetBase(
     id: ULID
     type: str
     label: str
-    urls: list[AnyHttpUrl] = Field(default_factory=list)
+    uris: list[AnyHttpUrl] = Field(default_factory=list)
 
 
 class EditSetBase(
@@ -266,7 +289,7 @@ class ReferenceViewBase(
     label: str
     head_node: ULID | None = None
     head_type: str | None = None
-    urls: list[AnyHttpUrl] = Field(default_factory=list)
+    uris: list[AnyHttpUrl] = Field(default_factory=list)
 
 
 class ReferenceCreateBase(
