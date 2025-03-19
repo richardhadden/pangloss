@@ -207,7 +207,7 @@ def add_create_inline_relation(
 
     assert isinstance(target_instance, CreateBase)
 
-    edge_properties = getattr(target_instance, "edge_properties", {})
+    edge_properties = dict(getattr(target_instance, "edge_properties", {}))
     primary_relation_edge_properties = convert_dict_for_writing(
         {
             **edge_properties,
@@ -347,7 +347,7 @@ def add_reference_set_relation(
             """
         )
 
-    edge_properties = getattr(target_instance, "edge_properties", {})
+    edge_properties = dict(getattr(target_instance, "edge_properties", {}))
     primary_relation_edge_properties = convert_dict_for_writing(
         {
             **edge_properties,
@@ -618,7 +618,7 @@ def add_create_relation_query(
         assert isinstance(target_instance, EmbeddedCreateBase)
         extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
         relation_identifier = Identifier()
-        new_node_identifier = add_node_to_create_query_object(
+        new_node_identifier, new_node_id = add_node_to_create_query_object(
             instance=target_instance,
             query_object=query_object,
             extra_labels=extra_labels,
@@ -628,7 +628,7 @@ def add_create_relation_query(
             {"_pg_embedded": True, "_pg_primary_rel": True}
         )
         query_object.create_query_strings.append(
-            f"""
+            f""" 
                 CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
                 SET {relation_identifier} = ${embedded_properties_identifier}
             """
@@ -757,6 +757,18 @@ def add_node_to_create_query_object(
                 target_instance=related_instance,
                 source_instance=instance,
                 relation_definition=relation_definition,
+                source_node_identifier=node_identifier,
+                query_object=query_object,
+                source_node_id=instance_id,
+                username=username,
+            )
+
+    for embedded_definition in instance._meta.fields.embedded_fields:
+        for embedded_instance in getattr(instance, embedded_definition.field_name, []):
+            add_create_relation_query(
+                target_instance=embedded_instance,
+                source_instance=instance,
+                relation_definition=embedded_definition,
                 source_node_identifier=node_identifier,
                 query_object=query_object,
                 source_node_id=instance_id,

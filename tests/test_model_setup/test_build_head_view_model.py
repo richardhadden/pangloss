@@ -248,7 +248,6 @@ def test_reverse_relation_to_contextual_model():
         ]
 
     initialise_models()
-    # print(Event.View.in_context_of.Cat.is_involved_in_event)
 
     assert (
         Cat.HeadView.model_fields["is_involved_in_event"].annotation

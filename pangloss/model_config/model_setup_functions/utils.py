@@ -189,8 +189,9 @@ def get_concrete_model_types(
         for instantiated_trait in get_direct_instantiations_of_trait(
             classes, follow_trait_subclasses=follow_trait_subclasses
         ):
-            if not instantiated_trait.Meta.abstract or include_abstract:
+            if not instantiated_trait._meta.abstract or include_abstract:
                 concrete_model_types.append(instantiated_trait)
+
             if include_subclasses:
                 concrete_model_types.extend(
                     get_all_subclasses(
@@ -205,7 +206,7 @@ def get_concrete_model_types(
         for instantiated_trait in get_direct_instantiations_of_trait(
             classes, follow_trait_subclasses=follow_trait_subclasses
         ):
-            if not instantiated_trait.Meta.abstract or include_abstract:
+            if not instantiated_trait._meta.abstract or include_abstract:
                 concrete_model_types.append(instantiated_trait)
     elif inspect.isclass(classes) and issubclass(classes, ReifiedRelation):
         concrete_model_types.append(classes)
@@ -231,8 +232,10 @@ def get_base_models_for_relations_to_node(
             get_concrete_model_types(
                 field_type_definition.annotated_type,
                 include_subclasses=True,
+                follow_trait_subclasses=True,
             )
         )
+
     return related_node_base_type
 
 

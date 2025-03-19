@@ -9,8 +9,8 @@ from ulid import ULID
 from pangloss import initialise_models
 from pangloss.model_config.models_base import (
     BaseMeta,
-    BoundField,
     EdgeModel,
+    HeritableTrait,
     ReifiedRelationNode,
 )
 from pangloss.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
@@ -215,12 +215,12 @@ async def test_write_complex_object():
             RelationConfig(reverse_name="acts_as_proxy_in"),
         ]
 
-    class Reference(BaseNode):
+    class ReferenceableType(HeritableTrait):
         pass
 
     class Citation(BaseNode):
-        source: Annotated[
-            Reference,
+        reference: Annotated[
+            ReferenceableType,
             RelationConfig(reverse_name="is_source_of"),
         ]
         page: int
@@ -236,21 +236,26 @@ async def test_write_complex_object():
     class Object(Entity):
         pass
 
+    class Book(Object, ReferenceableType):
+        pass
+
     class Statement(BaseNode):
         class Meta(BaseMeta):
             abstract = True
 
     class CreationOfObject(Statement):
         person_creating_object: Annotated[
-            WithProxy[Identification[Person]],
+            Identification[Person],
             RelationConfig(reverse_name="creator_in_object_creation"),
         ]
         object_created: Annotated[Object, RelationConfig(reverse_name="was_created_in")]
 
     class Order(Statement):
         person_giving_order: Annotated[
-            WithProxy[Identification[Person]],
-            RelationConfig(reverse_name="gave_order"),
+            WithProxy[Identification[Person]] | Identification[Person],
+            RelationConfig(
+                reverse_name="gave_order", default_reified_type="Identification"
+            ),
         ]
         person_receiving_order: Annotated[
             Identification[Person],
@@ -264,17 +269,11 @@ async def test_write_complex_object():
                 reverse_name="was_ordered_in",
                 create_inline=True,
                 edit_inline=True,
-                bind_fields_to_related=[
-                    BoundField(
-                        parent_field_name="person_receiving_order",
-                        bound_field_name="person_creating_object",
-                    )
-                ],
             ),
         ]
 
     class Factoid(BaseNode):
-        Embedded[Citation]
+        citation: Embedded[Citation]
         has_statements: Annotated[
             Statement,
             RelationConfig(
@@ -283,3 +282,222 @@ async def test_write_complex_object():
         ]
 
     initialise_models()
+
+    book = await Book(label="On The Origins of the Thing").create()
+
+    assert book
+
+    john_smith = await Person(label="John Smith").create()
+
+    kaiser_maximilian = await Person(label="Kaiser Maximilian").create()
+
+    secretary = await Person(label="KM's Secretary").create()
+
+    an_object = await Object(label="An Object").create()
+
+    factoid = Factoid(
+        type="Factoid",
+        label="Kaiser Maximilian, through his secretary, orders John Smith to create an Object",
+        citation=[
+            dict(
+                type="Citation",
+                reference=[
+                    dict(type="Book", id=book.id),
+                ],
+                page=1,
+            )
+        ],
+        has_statements=[
+            dict(
+                type="Order",
+                label="Kaiser Maximilian, through his secretary, orders John Smith to create an Object",
+                person_giving_order=[
+                    dict(
+                        type="WithProxy",
+                        label="Maximilian's Secretary acts as proxy for Maximilian",
+                        target=[
+                            dict(
+                                type="Identification",
+                                target=[
+                                    dict(
+                                        type="Person",
+                                        id=kaiser_maximilian.id,
+                                        edge_properties=dict(certainty=1.0),
+                                    )
+                                ],
+                            ),
+                        ],
+                        proxy=[
+                            dict(
+                                type="Identification",
+                                target=[
+                                    dict(
+                                        type="Person",
+                                        id=secretary.id,
+                                        edge_properties=dict(certainty=1.0),
+                                    )
+                                ],
+                            ),
+                        ],
+                    )
+                ],
+                person_receiving_order=[
+                    dict(
+                        type="Identification",
+                        target=[
+                            dict(
+                                type="Person",
+                                id=john_smith.id,
+                                edge_properties=dict(certainty=1.0),
+                            )
+                        ],
+                    ),
+                ],
+                thing_ordered=[
+                    dict(
+                        type="CreationOfObject",
+                        label="John Smith creates an Object",
+                        object_created=[
+                            dict(type="Object", id=an_object.id),
+                        ],
+                        person_creating_object=[
+                            dict(
+                                type="Identification",
+                                target=[
+                                    dict(
+                                        type="Person",
+                                        id=john_smith.id,
+                                        edge_properties=dict(certainty=1.0),
+                                    )
+                                ],
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+    factoid = await factoid.create_and_get()
+
+    factoid_view = await Factoid.get_view(id=factoid.id)
+
+    assert factoid_view.citation[0].type == "Citation"
+    assert factoid_view.citation[0].id
+    assert factoid_view.citation[0].reference
+    assert factoid_view.citation[0].reference[0].type == "Book"
+    assert factoid_view.citation[0].reference[0].id == book.id
+    assert factoid_view.citation[0].reference[0].label == "On The Origins of the Thing"
+
+    assert factoid_view.has_statements
+    assert factoid_view.has_statements[0].type == "Order"
+    assert factoid_view.has_statements[0].person_giving_order
+    assert factoid_view.has_statements[0].person_giving_order[0].type == "WithProxy"
+    assert (
+        factoid_view.has_statements[0].person_giving_order[0].label
+        == "Maximilian's Secretary acts as proxy for Maximilian"
+    )
+    assert factoid.has_statements[0].person_giving_order[0].target
+    assert (
+        factoid.has_statements[0].person_giving_order[0].target[0].type
+        == "Identification"
+    )
+    assert factoid.has_statements[0].person_giving_order[0].target[0].target
+    assert (
+        factoid.has_statements[0].person_giving_order[0].target[0].target[0].type
+        == "Person"
+    )
+    assert (
+        factoid.has_statements[0].person_giving_order[0].target[0].target[0].label
+        == "Kaiser Maximilian"
+    )
+    assert (
+        factoid.has_statements[0].person_giving_order[0].target[0].target[0].id
+        == kaiser_maximilian.id
+    )
+    assert (
+        factoid.has_statements[0]
+        .person_giving_order[0]
+        .target[0]
+        .target[0]
+        .edge_properties.certainty
+        == 1
+    )
+
+    assert (
+        factoid.has_statements[0].person_giving_order[0].proxy[0].type
+        == "Identification"
+    )
+    assert factoid.has_statements[0].person_giving_order[0].proxy[0].target
+    assert (
+        factoid.has_statements[0].person_giving_order[0].proxy[0].target[0].type
+        == "Person"
+    )
+    assert (
+        factoid.has_statements[0].person_giving_order[0].proxy[0].target[0].label
+        == "KM's Secretary"
+    )
+
+    assert (
+        factoid.has_statements[0].person_giving_order[0].proxy[0].target[0].id
+        == secretary.id
+    )
+    assert (
+        factoid.has_statements[0]
+        .person_giving_order[0]
+        .proxy[0]
+        .target[0]
+        .edge_properties.certainty
+        == 1
+    )
+
+    assert factoid.has_statements[0].thing_ordered
+    assert factoid.has_statements[0].thing_ordered[0].type == "CreationOfObject"
+    assert factoid.has_statements[0].thing_ordered[0].id
+    assert factoid.has_statements[0].thing_ordered[0].object_created
+    assert factoid.has_statements[0].thing_ordered[0].object_created[0].type == "Object"
+    assert (
+        factoid.has_statements[0].thing_ordered[0].object_created[0].id == an_object.id
+    )
+    assert (
+        factoid.has_statements[0].thing_ordered[0].object_created[0].label
+        == "An Object"
+    )
+    assert factoid.has_statements[0].thing_ordered[0].person_creating_object
+    assert (
+        factoid.has_statements[0].thing_ordered[0].person_creating_object[0].type
+        == "Identification"
+    )
+    assert factoid.has_statements[0].thing_ordered[0].person_creating_object[0].target
+    assert (
+        factoid.has_statements[0]
+        .thing_ordered[0]
+        .person_creating_object[0]
+        .target[0]
+        .type
+        == "Person"
+    )
+    assert (
+        factoid.has_statements[0]
+        .thing_ordered[0]
+        .person_creating_object[0]
+        .target[0]
+        .id
+        == john_smith.id
+    )
+    assert (
+        factoid.has_statements[0]
+        .thing_ordered[0]
+        .person_creating_object[0]
+        .target[0]
+        .label
+        == "John Smith"
+    )
+    assert (
+        factoid.has_statements[0]
+        .thing_ordered[0]
+        .person_creating_object[0]
+        .target[0]
+        .edge_properties.certainty
+        == 1
+    )
