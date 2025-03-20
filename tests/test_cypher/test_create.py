@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import Annotated, no_type_check
 
@@ -7,6 +8,10 @@ from pydantic import AnyHttpUrl
 from ulid import ULID
 
 from pangloss import initialise_models
+from pangloss.indexes import (
+    _clear_full_text_indexes,
+    _install_index_and_constraints_from_text,
+)
 from pangloss.model_config.models_base import (
     BaseMeta,
     EdgeModel,
@@ -282,6 +287,7 @@ async def test_write_complex_object():
         ]
 
     initialise_models()
+    await _install_index_and_constraints_from_text()
 
     book = await Book(label="On The Origins of the Thing").create()
 
@@ -501,3 +507,20 @@ async def test_write_complex_object():
         .edge_properties.certainty
         == 1
     )
+
+    await asyncio.sleep(1)
+
+    search_results = await Factoid.get_list()
+    assert len(search_results.results) == 1
+
+    search_results = await Person.get_list(q="M")
+    assert len(search_results.results) == 3
+    assert set([r.label for r in search_results.results]) == set(
+        ["John Smith", "KM's Secretary", "Kaiser Maximilian"]
+    )
+
+    search_results = await Factoid.get_list(q="origins", deep_search=True)
+    assert search_results.results
+    assert search_results.results[0].id == factoid.id
+
+    await _clear_full_text_indexes()

@@ -2,11 +2,14 @@ import time
 import typing
 from contextlib import contextmanager
 
+from pydantic import BaseModel
 from ulid import ULID
 
 from pangloss.exceptions import PanglossNotFoundError
+from pangloss.model_config.model_base_mixins import _StandardModel
 from pangloss.neo4j.create import build_create_query_object
 from pangloss.neo4j.database import Transaction, database
+from pangloss.neo4j.list import build_get_list_query
 from pangloss.neo4j.read import build_edit_view_query, build_view_read_query
 
 if typing.TYPE_CHECKING:
@@ -26,6 +29,14 @@ def time_query(label: str = "Query time"):
     elapsed_time = time.perf_counter() - start_time
     print(f"{label}:", elapsed_time)
     return elapsed_time
+
+
+class SearchResultObject[T](BaseModel, _StandardModel):
+    count: int
+    page: int
+    total_pages: int
+    page_size: int
+    results: list[T]
 
 
 class DatabaseQueryMixin:
@@ -150,3 +161,31 @@ class DatabaseQueryMixin:
                 raise PanglossNotFoundError(f"Object <{cls.type} id='{id}'> not found")
 
         return result
+
+    @classmethod
+    @database.read_transaction
+    async def get_list(
+        cls,
+        tx: Transaction,
+        q: typing.Optional[str] = None,
+        page: int = 1,
+        page_size: int = 10,
+        deep_search: bool = False,
+    ) -> SearchResultObject["ReferenceViewBase"]:
+        print("=============")
+        cls = typing.cast(type["RootNode"], cls)
+        with time_query(f"Building search query time for {cls.type}"):
+            query, query_params = build_get_list_query(
+                model=cls, q=q, page=page, page_size=page_size, deep_search=deep_search
+            )
+        with open("get_list_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(query_params)}")
+
+        with time_query(f"List read query time for {cls.type} with query '{q}'"):
+            result = await tx.run(
+                query, typing.cast(dict[str, typing.Any], query_params)
+            )
+            records = await result.value()
+            return_object = SearchResultObject[cls.ReferenceView](**records[0])
+
+            return return_object

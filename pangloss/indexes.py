@@ -2,6 +2,7 @@ import typing
 
 from rich import print
 
+from pangloss.model_config.model_manager import ModelManager
 from pangloss.neo4j.database import Transaction, database
 
 if typing.TYPE_CHECKING:
@@ -59,40 +60,38 @@ def create_index_queries():
         "CREATE CONSTRAINT NodeIdUnique IF NOT EXISTS FOR (n:PGIndexableNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT BaseNodeIdUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT URLNodeURLUnique IF NOT EXISTS FOR (n:PGUri) REQUIRE n.uri IS UNIQUE",
-        """CREATE CONSTRAINT PGUserNameIndex IF NOT EXISTS FOR (n:PGUser) REQUIRE n.username IS UNIQUE""",
-        # """CREATE FULLTEXT INDEX BaseNodeFullTextIndex
-        #        IF NOT EXISTS FOR (n:BaseNode) ON EACH [n.label]
-        #        OPTIONS {
-        #            indexConfig: {
-        #                `fulltext.analyzer`: 'standard-no-stop-words',
-        #                `fulltext.eventually_consistent`: true
-        #            }
-        #        }""",
+        "CREATE CONSTRAINT PGUserNameIndex IF NOT EXISTS FOR (n:PGUser) REQUIRE n.username IS UNIQUE",
+        """CREATE FULLTEXT INDEX PgIndexableNodeFullTextIndex
+                IF NOT EXISTS FOR (n:PGIndexableNode) ON EACH [n.label]
+                OPTIONS {
+                    indexConfig: {
+                        `fulltext.analyzer`: 'standard-no-stop-words',
+                        `fulltext.eventually_consistent`: true
+                    }
+        }""",
     ]
 
-    '''for model in ModelManager.base_models.values():
-        string_fields = ["label"]  # get_string_fields(model)
-        string_fields_query = ", ".join(
-            f"n.{field_name}" for field_name in string_fields
-        )
-
-        queries.extend(
-            [
-                f"""CREATE FULLTEXT INDEX {model.__name__}FullTextIndex 
-                IF NOT EXISTS FOR (n:{model.__name__}) ON EACH [{string_fields_query}]
+    for model_name, model in ModelManager.base_models.items():
+        queries.append(f"""CREATE FULLTEXT INDEX {model_name}FullTextIndex
+                IF NOT EXISTS FOR (n:{model_name}) ON EACH [n.label]
                 OPTIONS {{
                     indexConfig: {{
                         `fulltext.analyzer`: 'standard-no-stop-words',
                         `fulltext.eventually_consistent`: true
                     }}
-                }}
-                """,
-            ]
-        )
-        # print(
-        #    f"Creating Full Text Index for [green bold]{model.__name__}[/green bold] on fields {', '.join(f'[blue bold]{f}[/blue bold]' for f in string_fields)}"
-        # )'''
+        }}""")
+
     return queries
+
+
+@database.write_transaction
+async def _clear_full_text_indexes(tx: Transaction):
+    queries = []
+    for model_name, model in ModelManager.base_models.items():
+        queries.append(f"DROP INDEX {model_name}FullTextIndex IF EXISTS\n")
+
+    for query in queries:
+        await tx.run(query, {})
 
 
 @database.write_transaction
