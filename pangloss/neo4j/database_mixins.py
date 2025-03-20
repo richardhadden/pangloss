@@ -38,6 +38,9 @@ class SearchResultObject[T](BaseModel, _StandardModel):
     page_size: int
     results: list[T]
 
+    def __len__(self):
+        return self.count
+
 
 class DatabaseQueryMixin:
     @database.write_transaction
@@ -173,8 +176,19 @@ class DatabaseQueryMixin:
         deep_search: bool = False,
     ) -> SearchResultObject["ReferenceViewBase"]:
         print("=============")
+
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building search query time for {cls.type}"):
+            from pangloss.model_config.model_setup_functions.utils import (
+                get_concrete_model_types,
+            )
+
+            list_base_types = get_concrete_model_types(
+                cls, include_self=True, include_subclasses=True
+            )
+            list_reference_types = [c.ReferenceView for c in list_base_types]
+            search_result_object_type = typing.Union[*list_reference_types]
+
             query, query_params = build_get_list_query(
                 model=cls, q=q, page=page, page_size=page_size, deep_search=deep_search
             )
@@ -186,6 +200,6 @@ class DatabaseQueryMixin:
                 query, typing.cast(dict[str, typing.Any], query_params)
             )
             records = await result.value()
-            return_object = SearchResultObject[cls.ReferenceView](**records[0])
+            return_object = SearchResultObject[search_result_object_type](**records[0])
 
             return return_object

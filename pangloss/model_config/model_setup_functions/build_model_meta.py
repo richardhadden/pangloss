@@ -52,6 +52,28 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
     ][0]
     parent_meta = parent_class.Meta
 
+    traits: list[type[Trait]] = [
+        c
+        for c in model.mro()
+        if (
+            model_is_trait(c)
+            and not issubclass(c, NonHeritableTrait)
+            and c is not HeritableTrait
+        )
+        or (
+            model_is_trait(c)
+            and c is not HeritableTrait
+            and model
+            in get_direct_instantiations_of_trait(c, follow_trait_subclasses=True)
+        )
+        and c is not HeritableTrait
+        and c is not NonHeritableTrait
+    ]
+
+    supertypes: list[type[RootNode]] = [
+        c for c in model.mro() if issubclass(c, BaseNode) and c not in [BaseNode, model]
+    ]
+
     if "Meta" not in model.__dict__:
         meta_settings = {}
         for field_name in BaseMeta.__dataclass_fields__:
@@ -60,7 +82,9 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
             meta_settings[field_name] = getattr(parent_meta, field_name)
         meta_settings["abstract"] = False
 
-        model._meta = model.Meta(base_model=model, **meta_settings)
+        model._meta = model.Meta(
+            base_model=model, supertypes=supertypes, traits=traits, **meta_settings
+        )
 
     else:
         meta_settings = {}
@@ -80,31 +104,9 @@ def initialise_model_meta_inheritance(model: type[RootNode]):
         ):
             meta_settings["abstract"] = True
 
-        traits: list[type[Trait]] = [
-            c
-            for c in model.mro()
-            if (
-                model_is_trait(c)
-                and not issubclass(c, NonHeritableTrait)
-                and c is not HeritableTrait
-            )
-            or (
-                model_is_trait(c)
-                and c is not HeritableTrait
-                and model
-                in get_direct_instantiations_of_trait(c, follow_trait_subclasses=True)
-            )
-            and c is not HeritableTrait
-            and c is not NonHeritableTrait
-        ]
-
         model._meta = model.Meta(
             base_model=model,
-            supertypes=[
-                c
-                for c in model.mro()
-                if issubclass(c, BaseNode) and c not in [BaseNode, model]
-            ],
+            supertypes=supertypes,
             traits=traits,
             **meta_settings,
         )

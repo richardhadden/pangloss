@@ -114,6 +114,24 @@ def test_can_get_reified_fields_through_meta():
     )
 
 
+def test_simple_supertypes():
+    class Text(BaseNode):
+        pass
+
+    class Book(Text):
+        pass
+
+    class NiceBook(Book):
+        pass
+
+    class Magazine(Text):
+        pass
+
+    ModelManager.initialise_models()
+
+    assert NiceBook._meta.type_labels == ["BaseNode", "NiceBook", "Book", "Text"]
+
+
 def test_supertypes():
     class HeritableA(HeritableTrait):
         pass

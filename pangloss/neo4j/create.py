@@ -142,7 +142,7 @@ class CreateQuery:
             {"\n".join(self.create_query_strings)}
             {"\n".join(self.set_query_strings)}
             {"\n".join(self.merge_query_strings)}
-            RETURN {self.return_identifier}
+            RETURN {self.return_identifier}{{.*, uris: null}}
         """
 
 

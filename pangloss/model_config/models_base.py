@@ -97,6 +97,7 @@ class BaseMeta:
 
     @property
     def type_labels(self) -> list[str]:
+        print(self.supertypes)
         return [
             "BaseNode",
             *[m.__name__ for m in [self.base_model, *self.supertypes, *self.traits]],
@@ -293,6 +294,9 @@ class ReferenceViewBase(
     head_node: ULID | None = None
     head_type: str | None = None
     uris: list[AnyHttpUrl] | None = Field(default_factory=list)
+
+    def __hash__(self):
+        return hash(str(self.id))
 
 
 class ReferenceCreateBase(

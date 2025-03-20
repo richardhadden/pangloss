@@ -524,3 +524,31 @@ async def test_write_complex_object():
     assert search_results.results[0].id == factoid.id
 
     await _clear_full_text_indexes()
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_list_with_multiple_types():
+    class Text(BaseNode):
+        pass
+
+    class Book(Text):
+        pass
+
+    class NiceBook(Book):
+        pass
+
+    class Magazine(Text):
+        pass
+
+    initialise_models()
+
+    await _install_index_and_constraints_from_text()
+
+    book = await Book(label="A Book").create()
+    magazine = await Magazine(label="A Magazine").create()
+
+    search_results = await Text.get_list()
+    assert len(search_results) == 2
+
+    assert set(search_results.results) == set([book, magazine])
