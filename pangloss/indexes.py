@@ -36,18 +36,14 @@ class OmitFromNodeFullTextIndex(IndexAnnotation):
 
 def get_string_fields(model: type["BaseNode"]) -> list[str]:
     string_fields = []
-    for field_name, field in model.model_fields.items():
+    for field in model._meta.fields.property_fields:
         try:
-            annotated_type, *annotations = typing.get_args(field.annotation)
-            annotated_string = annotated_type == str and not any(
-                isinstance(ann, OmitFromNodeFullTextIndex)
-                or ann is OmitFromNodeFullTextIndex
-                for ann in annotations
-            )
+            annotated_type = field.field_annotation
+            annotated_string = annotated_type is str
         except ValueError:
             pass
 
-        if field.annotation == str or annotated_string:
+        if field.annotation is str or annotated_string:
             string_fields.append(field_name)
 
     return string_fields

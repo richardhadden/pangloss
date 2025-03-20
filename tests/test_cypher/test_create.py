@@ -508,17 +508,21 @@ async def test_write_complex_object():
         == 1
     )
 
+    toby_jones = await Object(label="Toby Jones").create()
+
     await asyncio.sleep(1)
 
     search_results = await Factoid.get_list()
     assert len(search_results.results) == 1
 
+    # Persons should have "M" in the name, i.e. all below but not toby_jones
     search_results = await Person.get_list(q="M")
     assert len(search_results.results) == 3
     assert set([r.label for r in search_results.results]) == set(
         ["John Smith", "KM's Secretary", "Kaiser Maximilian"]
     )
 
+    # Should get the book name from being associated with this factoid
     search_results = await Factoid.get_list(q="origins", deep_search=True)
     assert search_results.results
     assert search_results.results[0].id == factoid.id
