@@ -176,13 +176,13 @@ class CreateBase(
 
     async def create_and_get(self, username: str | None = None) -> EditHeadSetBase:
         """Create this instance in the database and return the created object"""
-        return await self.__pg_base_class__.create_method(  # type: ignore
+        return await self.__pg_base_class__._create_method(  # type: ignore
             self, username, return_edit_view=True
         )
 
     async def create(self, username: str | None = None) -> ReferenceViewBase:
         """Create this instance in the database and return a Reference object"""
-        return await self.__pg_base_class__.create_method(  # type: ignore
+        return await self.__pg_base_class__._create_method(  # type: ignore
             self, username, return_edit_view=False
         )
 
@@ -250,6 +250,12 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
             return value.to_native()
         return value
 
+    async def update(self, username: str | None = None) -> ReferenceViewBase:
+        """Create this instance in the database and return a Reference object"""
+        return await self.__pg_base_class__._update_method(  # type: ignore
+            self, current_username=username or "DefaultUser"
+        )
+
 
 class EditHeadSetBase(
     BaseModel,
@@ -266,6 +272,12 @@ class EditHeadSetBase(
     type: str
     label: str
     uris: list[AnyHttpUrl] = Field(default_factory=list)
+
+    async def update(self, username: str | None = None) -> ReferenceViewBase:
+        """Create this instance in the database and return a Reference object"""
+        return await self.__pg_base_class__._update_method(  # type: ignore
+            self, current_username=username or "DefaultUser"
+        )
 
 
 class EditSetBase(

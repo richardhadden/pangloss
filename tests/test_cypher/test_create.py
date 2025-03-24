@@ -191,6 +191,7 @@ async def test_reference_create():
         is_person_of_thing=[{"type": "Person", "id": person_id, "label": "A Person"}],
     ).create_and_get()
 
+    assert isinstance(thing, Thing.EditHeadView)
     assert thing.label == "A Thing"
     assert isinstance(thing.is_person_of_thing[0], Person.ReferenceView)
     assert thing.is_person_of_thing[0].id == person_id
@@ -556,3 +557,45 @@ async def test_list_with_multiple_types():
     assert len(search_results) == 2
 
     assert set(search_results.results) == set([book, magazine])
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_basic_update():
+    class Person(BaseNode):
+        name: str
+
+    initialise_models()
+
+    person = await Person(label="John Smith", name="John Smith").create_and_get()
+
+    person.name = "John (The Updated) Smith"
+
+    await person.update()
+
+    person_from_db = await Person.get_view(id=person.id)
+    assert person_from_db.name == "John (The Updated) Smith"
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_update_direct_relation():
+    class Cat(BaseNode):
+        pass
+
+    class Person(BaseNode):
+        has_cat: Annotated[Cat, RelationConfig(reverse_name="is_cat_of")]
+
+    initialise_models()
+
+    cat1 = await Cat(label="Mister Fluffy").create()
+    cat2 = await Cat(label="Mister Cuddly").create()
+
+    person = await Person(
+        label="John Smith", has_cat=[{"type": "Cat", "id": cat1.id}]
+    ).create_and_get()
+
+    person.has_cat = [Cat.ReferenceSet(**{"type": "Cat", "id": cat2.id})]
+
+    person.model_dump(mode="json")
+    # await person.update()

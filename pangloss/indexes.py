@@ -49,10 +49,11 @@ def get_string_fields(model: type["BaseNode"]) -> list[str]:
     return string_fields
 
 
-def create_index_queries():
+def create_index_queries() -> list[typing.LiteralString]:
     queries = [
         "CREATE INDEX HeadNodeID IF NOT EXISTS FOR (n:PGIndexableNode) ON (n.head_id)",
         "CREATE INDEX HeadNodeType IF NOT EXISTS FOR (n:PGIndexableNode) ON (n.head_node_type)",
+        "CREATE INDEX HeadNodeTypeAndID IF NOT EXISTS FOR (n:PGIndexableNode) ON (n.head_node_type, n.head_id)",
         "CREATE CONSTRAINT NodeIdUnique IF NOT EXISTS FOR (n:PGIndexableNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT BaseNodeIdUnique IF NOT EXISTS FOR (n:BaseNode) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT URLNodeURLUnique IF NOT EXISTS FOR (n:PGUri) REQUIRE n.uri IS UNIQUE",
@@ -77,7 +78,7 @@ def create_index_queries():
                     }}
         }}""")
 
-    return queries
+    return typing.cast(list[typing.LiteralString], queries)
 
 
 @database.write_transaction

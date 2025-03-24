@@ -14,6 +14,8 @@ from pangloss.model_config.models_base import (
     ReifiedCreateBase,
     ReferenceCreateBase,
     ReferenceSetBase,
+    EditHeadSetBase,
+    EditSetBase,
 )
 from pangloss.settings import SETTINGS
 from pangloss.model_config.field_definitions import (
@@ -63,7 +65,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase",
+    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase",
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -86,7 +88,7 @@ def get_properties_as_writeable_dict(
     return data
 
 
-class DeferredCreateQuery:
+class DeferredQueryObject:
     match_query_strings: list[str]
     create_query_strings: list[str]
     merge_query_strings: list[str]
@@ -114,7 +116,7 @@ class DeferredCreateQuery:
         """
 
 
-class CreateQuery:
+class QueryObject:
     match_query_strings: list[str]
     create_query_strings: list[str]
     merge_query_strings: list[str]
@@ -123,7 +125,7 @@ class CreateQuery:
     return_identifier: Identifier
     head_id: ULID
     head_type: str | None
-    deferred_query: "DeferredCreateQuery"
+    deferred_query: "DeferredQueryObject"
 
     def __init__(self):
         self.match_query_strings = []
@@ -132,24 +134,27 @@ class CreateQuery:
         self.set_query_strings = []
         self.params = QueryParams()
         self.head_type = None
-        self.deferred_query = DeferredCreateQuery()
+        self.deferred_query = DeferredQueryObject()
 
-    def to_query_string(self):
+    def to_query_string(self) -> typing.LiteralString:
         if not self.return_identifier:
             raise Exception("CreateQuery.to_query_string called on non-top-level node")
-        return f"""
+        return typing.cast(
+            typing.LiteralString,
+            f"""
             {"\n".join(self.match_query_strings)}
             {"\n".join(self.create_query_strings)}
             {"\n".join(self.set_query_strings)}
             {"\n".join(self.merge_query_strings)}
             RETURN {self.return_identifier}{{.*, uris: null}}
-        """
+        """,
+        )
 
 
 def add_uri_nodes_query(
     instance_uris: list[AnyHttpUrl],
     node_identifier: Identifier,
-    query_object: CreateQuery,
+    query_object: QueryObject,
 ):
     """Adds PGUri nodes for HeadNode"""
 
@@ -158,8 +163,8 @@ def add_uri_nodes_query(
         uri_value_identifier = query_object.params.add(str(instance_uri))
         query_object.merge_query_strings.append(
             f"""
-                CREATE ({uri_identifier}:PGCore:PGInternal:PGUri {{uri: ${uri_value_identifier}}})
-                CREATE ({node_identifier})-[:URIS]->({uri_identifier})
+                MERGE ({uri_identifier}:PGCore:PGInternal:PGUri {{uri: ${uri_value_identifier}}})
+                MERGE ({node_identifier})-[:URIS]->({uri_identifier})
             """
         )
 
@@ -167,7 +172,7 @@ def add_uri_nodes_query(
 def add_creation_data_node_query(
     instance: CreateBase | ReferenceCreateBase,
     node_identifier: Identifier,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     username: str,
 ):
     """Adds a PGCreation node attached to the HeadNode and a PGUser"""
@@ -199,7 +204,7 @@ def add_create_inline_relation(
     target_instance: CreateBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     source_node_id: ULID,
     use_defer: bool = False,
 ):
@@ -251,7 +256,7 @@ def add_create_inline_relation(
 
 
 def add_deferred_extra_relation(
-    query_object: CreateQuery,
+    query_object: QueryObject,
     relation_definition: RelationFieldDefinition,
     target_node_id: AnyHttpUrl | PdULID | ULID,
     source_node_id: ULID,
@@ -326,7 +331,7 @@ def add_reference_set_relation(
     target_instance: ReferenceSetBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     source_node_id: ULID,
     use_defer: bool = False,
 ) -> None:
@@ -383,7 +388,7 @@ def add_reference_create_relation(
     target_instance: ReferenceCreateBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     source_node_id: ULID,
     username: str,
 ):
@@ -482,7 +487,7 @@ def add_create_reified_relation_node_query(
     source_instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     source_node_id: ULID,
     use_defer: bool = False,
 ) -> None:
@@ -606,11 +611,15 @@ def add_create_relation_query(
     | ReferenceCreateBase
     | CreateBase
     | ReifiedCreateBase
-    | EmbeddedCreateBase,
+    | EmbeddedCreateBase
+    | EditSetBase,
     relation_definition: RelationFieldDefinition | EmbeddedFieldDefinition,
-    source_instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    source_instance: CreateBase
+    | ReifiedCreateBase
+    | EmbeddedCreateBase
+    | EditHeadSetBase,
     source_node_identifier: Identifier,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     source_node_id: ULID,
     username: str,
 ) -> None:
@@ -675,7 +684,7 @@ def add_create_relation_query(
 
 def add_node_to_create_query_object(
     instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
-    query_object: CreateQuery,
+    query_object: QueryObject,
     extra_labels: list[str] | None = None,
     head_node: bool = False,
     username: str = "DefaultUser",
@@ -780,8 +789,8 @@ def add_node_to_create_query_object(
 
 def build_create_query_object(
     instance: CreateBase, current_username: str | None = None, use_defer: bool = False
-) -> CreateQuery:
-    query_object = CreateQuery()
+) -> QueryObject:
+    query_object = QueryObject()
     add_node_to_create_query_object(
         instance=instance,
         query_object=query_object,

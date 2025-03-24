@@ -11,10 +11,12 @@ from pangloss.neo4j.create import build_create_query_object
 from pangloss.neo4j.database import Transaction, database
 from pangloss.neo4j.list import build_get_list_query
 from pangloss.neo4j.read import build_edit_view_query, build_view_read_query
+from pangloss.neo4j.update import build_update_query
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
         CreateBase,
+        EditHeadSetBase,
         EditHeadViewBase,
         HeadViewBase,
         ReferenceViewBase,
@@ -44,7 +46,40 @@ class SearchResultObject[T](BaseModel, _StandardModel):
 
 class DatabaseQueryMixin:
     @database.write_transaction
-    async def create_method(
+    async def _update_method(
+        self,
+        tx: Transaction,
+        current_username: str | None = None,
+        use_deferred_query: bool = False,
+    ):
+        print("=============")
+        self = typing.cast("EditHeadSetBase", self)
+
+        with time_query(f"Building update query time for {self.type}"):
+            query_object = await build_update_query(
+                instance=self,
+                current_username=current_username,
+                use_defer=use_deferred_query,
+            )
+
+            # build_query_update returns None if diff of with previous value
+            # results in no changes
+            if query_object is None:
+                return self
+
+            query = query_object.to_query_string()
+
+        with open("update_query_dump.cypher", "w") as f:
+            f.write(f"{query}\n\n//{str(query_object.params)}")
+
+        with time_query(f"Update query time for {self.type}"):
+            result = await tx.run(
+                query, typing.cast(dict[str, typing.Any], query_object.params)
+            )
+            record = await result.value()
+
+    @database.write_transaction
+    async def _create_method(
         self,
         tx: Transaction,
         current_username: str | None = None,
