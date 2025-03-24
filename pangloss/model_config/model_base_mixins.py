@@ -1,8 +1,7 @@
 import typing
 
 import humps
-from pydantic import ConfigDict, field_serializer, model_validator
-from ulid import ULID
+from pydantic import ConfigDict, model_validator
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import ModelFieldDefinitions
@@ -110,16 +109,6 @@ class _BaseClassProxy(_OwnsMethods):
         return getattr(self.__pg_base_class__, "collapse_when", None)
 
     _meta: typing.ClassVar["BaseMeta"] = typing.cast("BaseMeta", _MetaDescriptor())
-
-    @field_serializer("id", check_fields=False, when_used="always", return_type=str)
-    def serialize_id(self, id: ULID):
-        from pydantic_extra_types.ulid import ULID as pULID
-
-        print(type(self), str(id))
-        if isinstance(id, pULID):
-            print("is pydantic ulid")
-
-        return str(id)
 
     @model_validator(mode="before")
     @classmethod
