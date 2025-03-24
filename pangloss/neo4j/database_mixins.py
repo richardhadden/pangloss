@@ -146,7 +146,7 @@ class DatabaseQueryMixin:
             )
             record = await result.value()
             if record:
-                result = self.__pg_base_class__.EditHeadView(**record[0])
+                result = self.__pg_base_class__.EditHeadSet(**record[0])
             else:
                 raise PanglossNotFoundError(f"Object <{self.type} id='{id}'> not found")
 

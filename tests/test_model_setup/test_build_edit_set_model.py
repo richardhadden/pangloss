@@ -146,7 +146,7 @@ def test_build_edit_head_set_model():
     assert f.has_statements[0].label == "A New Statement"
     assert not f.has_statements[0].id
     assert isinstance(f.has_statements[0].involves_person[0], Person.ReferenceSet)
-    assert not hasattr(f.has_statements[0].involves_person[0], "label")
+    assert hasattr(f.has_statements[0].involves_person[0], "label")
 
     assert f.has_statements[1].type == "Statement"
     assert f.has_statements[1].label == "Existing Statement"
@@ -216,7 +216,12 @@ def test_build_edit_set_model_with_complex_options():
                 "id": gen_ulid(),
                 "label": "A Statement",
                 "involves_being": [
-                    {"type": "Dude", "label": "A dude", "id": gen_ulid()},
+                    {
+                        "type": "Dude",
+                        "label": "A dude",
+                        "id": gen_ulid(),
+                        "create": True,
+                    },
                     {"type": "Dude", "id": gen_ulid()},
                     {"type": "Person", "label": "a person", "id": gen_ulid()},
                     {"type": "Cat", "label": "A Cat", "id": gen_ulid()},

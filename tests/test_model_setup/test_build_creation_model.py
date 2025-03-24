@@ -135,7 +135,7 @@ def test_create_model_with_relations():
         owns_cat=[
             {"type": "Cat", "id": gen_ulid()},
             {"type": "NiceCat", "id": gen_ulid()},
-            {"type": "NiceCat", "id": gen_ulid(), "label": "A New Cat"},
+            {"type": "NiceCat", "id": gen_ulid(), "label": "A New Cat", "create": True},
         ],
     )
 

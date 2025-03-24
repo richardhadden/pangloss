@@ -134,7 +134,7 @@ async def test_creation_with_reified_relations():
         ],
     ).create_and_get()
 
-    assert isinstance(thing, Thing.EditHeadView)
+    assert isinstance(thing, Thing.EditHeadSet)
     assert thing.label == "A Thing"
     assert thing.is_person_of_thing[0].type == "IntermediateA"
     assert thing.is_person_of_thing[0].target[0].type == "IntermediateB"
@@ -188,14 +188,15 @@ async def test_reference_create():
     thing = await Thing(
         type="Thing",
         label="A Thing",
-        is_person_of_thing=[{"type": "Person", "id": person_id, "label": "A Person"}],
+        is_person_of_thing=[
+            {"type": "Person", "id": person_id, "label": "A Person", "create": True}
+        ],
     ).create_and_get()
 
-    assert isinstance(thing, Thing.EditHeadView)
+    assert isinstance(thing, Thing.EditHeadSet)
     assert thing.label == "A Thing"
-    assert isinstance(thing.is_person_of_thing[0], Person.ReferenceView)
+    assert isinstance(thing.is_person_of_thing[0], Person.ReferenceSet)
     assert thing.is_person_of_thing[0].id == person_id
-    assert thing.is_person_of_thing[0].label == "A Person"
 
     person = await Person.get_view(id=person_id)
 

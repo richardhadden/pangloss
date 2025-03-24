@@ -319,6 +319,7 @@ class ReferenceCreateBase(
     type: str
     id: ULID | AnyHttpUrl
     label: str
+    create: bool
 
 
 class ReferenceSetBase(
@@ -328,6 +329,7 @@ class ReferenceSetBase(
 
     type: str
     id: ULID | AnyHttpUrl
+    label: str | None = None
 
 
 class ReifiedCreateBase(
