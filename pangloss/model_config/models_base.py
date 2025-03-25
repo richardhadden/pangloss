@@ -32,6 +32,7 @@ if typing.TYPE_CHECKING:
         IncomingRelationDefinition,
         ModelFieldDefinitions,
     )
+    from pangloss.models import BaseNode
 
 
 type ULID = typing.Annotated[ExtraTypeULID, PlainSerializer(lambda ulid: str(ulid))]
@@ -150,7 +151,7 @@ class RootNode(_OwnsMethods):
     def __init_subclass__(cls):
         from pangloss.model_config.model_manager import ModelManager
 
-        ModelManager.register_base_model(cls)
+        ModelManager.register_base_model(typing.cast("BaseNode", cls))
 
     def __new__(cls, *args, **kwargs):
         return cls.Create(*args, **kwargs)

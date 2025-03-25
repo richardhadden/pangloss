@@ -142,7 +142,6 @@ async def test_update_reified_relation():
     assert set(t.id for t in event_from_db2.involves_person[0].target[0].target) == set(
         [other_person.id, person.id]
     )
-    assert False
 
 
 @no_type_check
@@ -240,5 +239,3 @@ async def test_update_create_inline():
     )
     assert factoid_edit_updated.has_statements[0].label == "Order 1 (Updated)"
     assert factoid_edit_updated.has_statements[0].task_ordered[0].label == "Task 2"
-
-    assert False
