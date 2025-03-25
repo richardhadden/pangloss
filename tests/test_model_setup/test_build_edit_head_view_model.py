@@ -406,7 +406,6 @@ def test_build_edit_model_with_bound_container_value():
     assert order.thing_ordered[0].type == "DoingThing"
     assert order.thing_ordered[0].done_by[0].type == "Person"
 
-    print(type(order.thing_ordered[0]))
     assert isinstance(
         order.thing_ordered[0],
         DoingThing.EditSet.in_context_of.Order.thing_ordered,

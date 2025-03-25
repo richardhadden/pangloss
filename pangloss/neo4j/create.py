@@ -16,6 +16,8 @@ from pangloss.model_config.models_base import (
     ReferenceSetBase,
     EditHeadSetBase,
     EditSetBase,
+    ReifiedRelationEditSetBase,
+    EmbeddedSetBase,
 )
 from pangloss.settings import SETTINGS
 from pangloss.model_config.field_definitions import (
@@ -65,7 +67,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase",
+    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase | EditSetBase | ReifiedRelationEditSetBase | EmbeddedSetBase",
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -606,6 +608,31 @@ def add_create_reified_relation_node_query(
         """)
 
 
+def add_create_embedded_relation(
+    target_instance: EmbeddedCreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: EmbeddedFieldDefinition,
+    query_object: QueryObject,
+):
+    extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
+    relation_identifier = Identifier()
+    new_node_identifier, new_node_id = add_node_to_create_query_object(
+        instance=target_instance,
+        query_object=query_object,
+        extra_labels=extra_labels,
+    )
+
+    embedded_properties_identifier = query_object.params.add(
+        {"_pg_embedded": True, "_pg_primary_rel": True}
+    )
+    query_object.create_query_strings.append(
+        f""" 
+            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            SET {relation_identifier} = ${embedded_properties_identifier}
+        """
+    )
+
+
 def add_create_relation_query(
     target_instance: ReferenceSetBase
     | ReferenceCreateBase
@@ -623,24 +650,12 @@ def add_create_relation_query(
     source_node_id: ULID,
     username: str,
 ) -> None:
-    if isinstance(relation_definition, EmbeddedFieldDefinition):
-        assert isinstance(target_instance, EmbeddedCreateBase)
-        extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
-        relation_identifier = Identifier()
-        new_node_identifier, new_node_id = add_node_to_create_query_object(
-            instance=target_instance,
+    if isinstance(target_instance, EmbeddedCreateBase):
+        add_create_embedded_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
             query_object=query_object,
-            extra_labels=extra_labels,
-        )
-
-        embedded_properties_identifier = query_object.params.add(
-            {"_pg_embedded": True, "_pg_primary_rel": True}
-        )
-        query_object.create_query_strings.append(
-            f""" 
-                CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
-                SET {relation_identifier} = ${embedded_properties_identifier}
-            """
         )
 
     elif isinstance(target_instance, CreateBase) and relation_definition.create_inline:
@@ -744,8 +759,8 @@ def add_node_to_create_query_object(
 
     query_object.create_query_strings.append(
         f"""
-            CREATE ({node_identifier}:{node_labels_string})
-            SET {node_identifier} += ${node_data_identifier}
+            CREATE ({node_identifier}:{node_labels_string}) // Creating {instance.type}
+            SET {node_identifier} = ${node_data_identifier}
         """
     )
 

@@ -52,7 +52,7 @@ class DatabaseQueryMixin:
         current_username: str | None = None,
         use_deferred_query: bool = False,
     ):
-        print("=============")
+        print("============= UPDATE")
         self = typing.cast("EditHeadSetBase", self)
 
         with time_query(f"Building update query time for {self.type}"):
@@ -78,6 +78,26 @@ class DatabaseQueryMixin:
             )
             record = await result.value()
 
+        if use_deferred_query:
+            pass
+
+        if query_object.deferred_query.params:
+            deferred_query = typing.cast(
+                typing.LiteralString, query_object.deferred_query.to_query_string()
+            )
+            with open("deferred_update_query_dump.cypher", "w") as f:
+                f.write(
+                    f"{deferred_query}\n\n//{str(query_object.deferred_query.params)}"
+                )
+
+            with time_query(f"Deferred update query time for {self.type}"):
+                deferred_query = await tx.run(
+                    deferred_query,
+                    typing.cast(
+                        dict[str, typing.Any], query_object.deferred_query.params
+                    ),
+                )
+
     @database.write_transaction
     async def _create_method(
         self,
@@ -86,7 +106,7 @@ class DatabaseQueryMixin:
         use_deferred_query: bool = False,
         return_edit_view: bool = True,
     ) -> "ReferenceViewBase":
-        print("=============")
+        print("============= CREATE")
 
         self = typing.cast("CreateBase", self)
 
@@ -155,7 +175,7 @@ class DatabaseQueryMixin:
     @classmethod
     @database.read_transaction
     async def get_view(cls, tx: Transaction, id: ULID | str) -> "HeadViewBase":
-        print("=============")
+        print("============= GET VIEW")
 
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building read query time for {cls.type}"):
@@ -180,7 +200,7 @@ class DatabaseQueryMixin:
     @classmethod
     @database.read_transaction
     async def get_edit_view(cls, tx: Transaction, id: ULID | str) -> "EditHeadViewBase":
-        print("=============")
+        print("============= GET EDIT VIEW")
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building read query time for {cls.type}"):
             query, query_params = build_edit_view_query(model=cls, id=str(id))
