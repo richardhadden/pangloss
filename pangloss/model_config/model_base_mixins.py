@@ -101,7 +101,7 @@ class _BaseClassProxy(_OwnsMethods):
     __pg_specialist_type_fields_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @property
-    def __pg_field_definitions__(self):
+    def __pg_field_definitions__(self) -> "ModelFieldDefinitions":
         return self.__pg_base_class__.__pg_field_definitions__
 
     @property

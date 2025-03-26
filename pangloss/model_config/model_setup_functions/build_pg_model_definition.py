@@ -240,7 +240,7 @@ def build_field_definition(
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
-
+    annotation = resolve_forward_ref(annotation)
     if issubclass(model, (ReifiedBase, EdgeModel)):
         # ReifiedBase is already necessarily a pydantic.BaseModel, which interprets
         # the annotation as a string; so need to do the actual lookups of types on the model
@@ -588,6 +588,7 @@ def build_abstract_specialist_type_model_definitions(
 ):
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
+        print(annotation, type(annotation))
         if field_name in model.__class_vars__:
             continue
         field_definitions[field_name] = build_field_definition(
