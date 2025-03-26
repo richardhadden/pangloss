@@ -3,10 +3,14 @@ import typing
 from pangloss.exceptions import PanglossInitialisationError
 
 if typing.TYPE_CHECKING:
+    from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
+        BaseModelBaseClassProxy,
+    )
     from pangloss.model_config.models_base import (
         EdgeModel,
         MultiKeyField,
         ReifiedRelation,
+        Trait,
     )
     from pangloss.models import BaseNode
 
@@ -16,6 +20,7 @@ class ModelManager:
     reified_relation_models: dict[str, type["ReifiedRelation"]] = {}
     edge_models: dict[str, type["EdgeModel"]] = {}
     multikeyfields_models: dict[str, type["MultiKeyField"]] = {}
+    trait_models: dict[str, type["Trait"]] = {}
 
     def __init__(self):
         raise PanglossInitialisationError("ModelManager class cannot be initialised")
@@ -31,6 +36,12 @@ class ModelManager:
             return
 
         cls.base_models[base_model.__name__] = base_model
+
+    @classmethod
+    def register_trait_model(cls, trait_model: type["Trait"]):
+        if trait_model.__name__ in {"Trait", "HeritableTrait"}:
+            return
+        cls.trait_models[trait_model.__name__] = trait_model
 
     @classmethod
     def register_reified_relation_model(
@@ -97,6 +108,9 @@ class ModelManager:
         from pangloss.model_config.models_base import _BaseClassProxy
 
         for specialising_abstract_class in _BaseClassProxy.__subclasses__():
+            specialising_abstract_class = typing.cast(
+                type["BaseModelBaseClassProxy"], specialising_abstract_class
+            )
             specialising_abstract_class.__pg_annotations__ = (
                 specialising_abstract_class.__annotations__
             )

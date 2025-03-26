@@ -495,7 +495,12 @@ class EmbeddedSetBase(
 
 
 class Trait:
-    pass
+    def __init_subclass__(cls):
+        from pangloss.model_config.model_manager import ModelManager
+
+        cls.__parameters__ = cls.__type_params__
+
+        ModelManager.register_trait_model(cls)
 
 
 class HeritableTrait(Trait):

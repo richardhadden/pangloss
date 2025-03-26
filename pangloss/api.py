@@ -53,6 +53,7 @@ def build_list_handler(model: type[BaseNode]):
     ) -> ListResponse[allowed_types]:  # type: ignore
         # TODO add get_list method
         result = await model.get_list(q=q, page=page, page_size=pageSize)
+
         result["nextPage"] = page + 1 if page + 1 <= result["totalPages"] else None
         result["nextUrl"] = (
             str(request.url.replace_query_params(q=q, page=page + 1, pageSize=pageSize))
@@ -70,16 +71,16 @@ def build_list_handler(model: type[BaseNode]):
     return list
 
 
-def build_delete_handler(model):
+def build_delete_handler(model: type[BaseNode]):
     async def delete(id: ULID) -> None:
         raise HTTPException(status_code=501, detail="Not implemented yet")
 
     return delete
 
 
-def build_get_handler(model):
+def build_get_handler(model: type["BaseNode"]):
     async def get(
-        id: ULID,
+        id: ULID | AnyHttpUrl,
     ) -> model.HeadView:  # type: ignore
         try:
             result = await model.get_view(id=id)
@@ -90,12 +91,12 @@ def build_get_handler(model):
     return get
 
 
-def build_create_handler(Model: type[BaseNode]):
+def build_create_handler(model: type[BaseNode]):
     async def create(
         request: Request,
-        entity: Model.Create,  # type: ignore
+        entity: model.Create,
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
-    ) -> Model.ReferenceView:  # type: ignore
+    ) -> model.Create:  # type: ignore
         result = await entity.create(current_username=current_user.username)
         return result
 
@@ -103,7 +104,7 @@ def build_create_handler(Model: type[BaseNode]):
 
 
 def build_get_edit_handler(model: type[BaseNode]):
-    async def get_edit(id: ULID) -> model.EditHeadSet:  # type: ignore
+    async def get_edit(id: ULID) -> model.EditHeadView:  # type: ignore
         try:
             result = await model.get_edit_view(id=id)
         except PanglossNotFoundError:
@@ -150,12 +151,12 @@ def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
             operation_id=f"{model.__name__}Index",
         )
 
-        if not model.Meta.abstract:
+        if not model._meta.abstract and model._meta.view:
             router.add_api_route(
                 "/{id}",
                 endpoint=build_get_handler(model),
-                name=f"{model.__name__}.View",
-                operation_id=f"{model.__name__}View",
+                name=f"{model.__name__}.Get",
+                operation_id=f"{model.__name__}Get",
             )
 
             if model.Meta.create:

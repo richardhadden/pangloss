@@ -1,6 +1,7 @@
 import asyncio
 
 import typer
+from rich import print
 
 from pangloss.exceptions import PanglossUserError
 from pangloss.users.utils import create_user, get_email

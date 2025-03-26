@@ -1,3 +1,4 @@
+import asyncio
 import typing
 
 from rich import print
@@ -101,16 +102,17 @@ async def _install_index_and_constraints_from_text(tx: Transaction):
             print(e)
 
 
-""" def install_indexes_and_constraints():
+def install_indexes_and_constraints():
     queries = create_index_queries()
 
     async def _run(queries):
-        async def _run_query(query):
+        @database.write_transaction
+        async def _run_query(tx, query):
             try:
-                await _cypher_write(query, {})
+                await tx.run(query, {})
             except Exception as e:
                 print(e)
 
         await asyncio.gather(*[_run_query(query) for query in queries])
 
-    asyncio.run(_run(queries)) """
+    asyncio.run(_run(queries))

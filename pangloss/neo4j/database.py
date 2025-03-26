@@ -234,8 +234,7 @@ class DatabaseUtils:
         result = await tx.run("MATCH (n {uid: $uid}) RETURN n", uid=str(uid))
         item = await result.single()
         summary = await result.consume()
-        print(item)
-        print(summary)
+
         return item
 
     @database.write_transaction

@@ -461,3 +461,20 @@ def test_reverse_relation_through_multiple_embedded_and_reified():
             }
         ],
     )
+
+
+def test_head_view_model_has_right_type():
+    class Object(BaseNode):
+        pass
+
+    class Task(BaseNode):
+        involves_object: Annotated[
+            Object, RelationConfig(reverse_name="is_involved_in_task")
+        ]
+
+    initialise_models()
+
+    assert (
+        Task.HeadView.model_fields["involves_object"].annotation
+        == list[Object.ReferenceView]
+    )

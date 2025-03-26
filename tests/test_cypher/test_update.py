@@ -3,7 +3,7 @@ from typing import Annotated, no_type_check
 import pytest
 
 from pangloss import initialise_models
-from pangloss.model_config.models_base import ReifiedRelation
+from pangloss.model_config.models_base import EdgeModel, Embedded, ReifiedRelation
 from pangloss.models import BaseNode, RelationConfig
 
 
@@ -147,12 +147,16 @@ async def test_update_reified_relation():
 @no_type_check
 @pytest.mark.asyncio
 async def test_update_create_inline():
+    class Certainty(EdgeModel):
+        certainty: int
+
     class Person(BaseNode):
         pass
 
     class Task(BaseNode):
         carried_out_by_person: Annotated[
-            Person, RelationConfig(reverse_name="carries_out_task")
+            Person,
+            RelationConfig(reverse_name="carries_out_task", edge_model=Certainty),
         ]
 
     class Order(BaseNode):
@@ -195,7 +199,11 @@ async def test_update_create_inline():
                     {
                         "label": "Task 1",
                         "carried_out_by_person": [
-                            {"type": "Person", "id": person_carrying_out_task.id}
+                            {
+                                "type": "Person",
+                                "id": person_carrying_out_task.id,
+                                "edge_properties": {"certainty": 1},
+                            }
                         ],
                     }
                 ],
@@ -218,7 +226,11 @@ async def test_update_create_inline():
                     {
                         "label": "Task 2",
                         "carried_out_by_person": [
-                            {"type": "Person", "id": person_carrying_out_task.id}
+                            {
+                                "type": "Person",
+                                "id": person_carrying_out_task.id,
+                                "edge_properties": {"certainty": 2},
+                            }
                         ],
                     }
                 ],
@@ -239,3 +251,61 @@ async def test_update_create_inline():
     )
     assert factoid_edit_updated.has_statements[0].label == "Order 1 (Updated)"
     assert factoid_edit_updated.has_statements[0].task_ordered[0].label == "Task 2"
+    assert (
+        factoid_edit_updated.has_statements[0]
+        .task_ordered[0]
+        .carried_out_by_person[0]
+        .edge_properties.certainty
+        == 2
+    )
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_update_embedded_node():
+    class Book(BaseNode):
+        pass
+
+    class Citation(BaseNode):
+        source: Annotated[Book, RelationConfig(reverse_name="is_cited_in")]
+        page_number: int
+
+    class Factoid(BaseNode):
+        citation: Embedded[Citation]
+
+    initialise_models()
+
+    book = await Book(label="The Art of War").create()
+    book2 = await Book(label="The Art of Peace").create()
+
+    factoid = await Factoid(
+        label="A factoid",
+        citation=[
+            {
+                "type": "Citation",
+                "source": [{"type": "Book", "id": book.id}],
+                "page_number": 42,
+            }
+        ],
+    ).create_and_get()
+
+    factoid_edit = Factoid.EditHeadSet(
+        id=factoid.id,
+        label="A factoid (Updated)",
+        citation=[
+            {
+                "type": "Citation",
+                # "id": factoid.citation[0].id,
+                "source": [{"type": "Book", "id": book2.id}],
+                "page_number": 43,
+            }
+        ],
+    )
+
+    await factoid_edit.update()
+
+    factoid_edit_updated = await Factoid.get_edit_view(id=factoid.id)
+    assert factoid_edit_updated.label == "A factoid (Updated)"
+    assert factoid_edit_updated.citation[0].source[0].id == book2.id
+    assert factoid_edit_updated.citation[0].page_number == 43
+    assert factoid_edit_updated.citation[0].id != factoid.citation[0].id

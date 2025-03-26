@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from pangloss.auth import security
-from pangloss.neo4j.database import initialise_database_driver
+from pangloss.model_config.model_manager import ModelManager
+from pangloss.neo4j.database import Database
 from pangloss.settings import BaseSettings
 from pangloss.users.routes import setup_user_routes
 
@@ -25,7 +26,6 @@ def get_application(settings: BaseSettings):
         BackgroundTaskRegistry,
     )
     from pangloss.initialisation import InitalisationTaskRegistery
-    from pangloss.model_config.model_manager import ModelManager
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -52,8 +52,7 @@ def get_application(settings: BaseSettings):
 
     for installed_app in settings.INSTALLED_APPS:
         __import__(installed_app)
-
-        __import__(f"{installed_app}.models")
+        __import__(f"{installed_app}.models", locals=locals())
 
         try:
             __import__(f"{installed_app}.background_tasks")
@@ -66,7 +65,8 @@ def get_application(settings: BaseSettings):
             pass
 
     ModelManager.initialise_models()
-    initialise_database_driver(settings)
+
+    Database.initialise_default_database(settings)
     _app: FastAPI = FastAPI(
         title=settings.PROJECT_NAME,
         swagger_ui_parameters={"defaultModelExpandDepth": 1, "deepLinking": True},

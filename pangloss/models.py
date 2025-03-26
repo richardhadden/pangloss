@@ -1,6 +1,8 @@
 from pangloss.model_config.models_base import (
     BaseMeta,
+    EdgeModel,
     Embedded,
+    HeritableTrait,
     MultiKeyField,
     ReferenceSetBase,
     ReifiedRelation,
@@ -18,6 +20,8 @@ reexported = (
     BaseMeta,
     ReferenceSetBase,
     ReifiedRelationNode,
+    EdgeModel,
+    HeritableTrait,
 )
 
 

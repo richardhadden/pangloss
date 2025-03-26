@@ -20,6 +20,10 @@ It provides a database layer (using Python to write Cypher queries) for the data
 
 (There is no reason for neo4j not to be swapped for something else at some stage: the data modelling, validation and API use _Pangloss_'s own model)
 
+## `from __future__ import annotations`
+
+...does not work; quote types if necessary
+
 ### Basic modelling
 
 Models are defined by subclassing `BaseNode`. Value fields using native Python types.

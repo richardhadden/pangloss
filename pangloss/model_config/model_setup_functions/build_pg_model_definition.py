@@ -22,6 +22,7 @@ from pangloss.model_config.field_definitions import (
     TypeParamsToTypeMap,
     annotation_types,
 )
+from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.models_base import (
     EdgeModel,
     EmbeddedCreateBase,
@@ -131,25 +132,33 @@ def pg_is_subclass(
     return False
 
 
-def resolve_forward_ref(cls: typing.Any):
-    if not isinstance(cls, typing.ForwardRef):
-        return cls
+def resolve_forward_ref(annotation: typing.Any):
+    if not isinstance(annotation, (typing.ForwardRef)):
+        return annotation
+
     for f in inspect.stack():
-        if isinstance(cls, typing.ForwardRef):
-            try:
-                frame = f.frame
-                resolved_cls = cls._evaluate(
-                    globalns={
-                        **frame.f_globals,
-                    },
-                    localns=frame.f_locals,
-                    type_params=(),
-                    recursive_guard=frozenset(),
-                )
-                return resolved_cls
-            except NameError:
-                pass
-    raise NameError(f"Cannot find {cls}")
+        try:
+            frame = f.frame
+
+            resolved_cls = annotation._evaluate(
+                globalns={
+                    **frame.f_globals,
+                    **ModelManager.base_models,
+                    **ModelManager.reified_relation_models,
+                    **ModelManager.edge_models,
+                    **ModelManager.multikeyfields_models,
+                    **ModelManager.trait_models,
+                },
+                localns={**frame.f_locals, **locals()},
+                type_params=(),
+                recursive_guard=frozenset(),
+            )
+
+            return resolved_cls
+        except NameError:
+            pass
+
+    return annotation
 
 
 def build_relation_fields_definitions(
@@ -450,7 +459,11 @@ def build_field_definition(
             validators=validators,
         )
 
-    if is_annotated(annotation) and primary_type:
+    if (
+        is_annotated(annotation)
+        and primary_type
+        and not isinstance(primary_type, typing.ForwardRef)
+    ):
         # Annotation of base property type
         # e.g. Annotated[str, MaxLen(10)]
 
@@ -544,6 +557,7 @@ def build_field_definition(
 
     # Finally, any base annotation value
     # e.g. str
+
     return PropertyFieldDefinition(
         field_name=field_name,
         field_annotation=annotation,
@@ -566,7 +580,7 @@ def build_pg_model_definitions(
 
 
 class BaseModelBaseClassProxy(BaseModel, _BaseClassProxy):
-    __pg_annotations__: typing.ClassVar
+    __pg_annotations__: typing.ClassVar[dict[str, typing.Any]]
 
 
 def build_abstract_specialist_type_model_definitions(
