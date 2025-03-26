@@ -171,6 +171,7 @@ try:
             c = m.cli.__dict__.get("cli")
             if c:
                 cli_app.add_typer(c, name=c.info.name)
+
         except ModuleNotFoundError:
             raise PanglossInitialisationError(
                 f"Could not find module {app} declared in {project_path}.settings.INSTALLED_APPS"
