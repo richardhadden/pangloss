@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import dataclasses
 import datetime
 import typing
@@ -89,7 +87,7 @@ class BaseMeta:
     """Alternative field to be displayed as label"""
 
     @property
-    def fields(self) -> ModelFieldDefinitions:
+    def fields(self) -> "ModelFieldDefinitions":
         return self.base_model.__pg_field_definitions__
 
     @property
@@ -104,44 +102,85 @@ class BaseMeta:
         ]
 
 
+@dataclasses.dataclass
+class RelationConfig:
+    reverse_name: str
+    """Reverse name for the relationship"""
+    bind_fields_to_related: typing.Optional[
+        typing.Iterable[
+            "tuple[str, str] | tuple[str, str, typing.Callable] | BoundField"
+        ]
+    ] = dataclasses.field(default_factory=list)
+    """Use the value of the containing model field as the value of contained model 
+    field, via optional transforming function"""
+
+    subclasses_relation: typing.Optional[list[str] | frozenset[str]] = None
+    """This relation is a subclass of the relation of a parent model"""
+
+    edge_model: typing.Optional[type["EdgeModel"]] = None
+    """Model to use as for edge of the relationship"""
+
+    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
+        default_factory=list
+    )
+
+    create_inline: bool = False
+    edit_inline: bool = False
+    delete_related_on_detach: bool = False
+    default_reified_type: typing.Optional[str] = None
+
+    def __hash__(self):
+        if self.subclasses_relation:
+            self.subclasses_relation = frozenset(self.subclasses_relation)
+        return hash(self.__dict__)
+
+    def __post_init__(self):
+        self.reverse_name = self.reverse_name.lower().replace(" ", "_")
+
+        if self.bind_fields_to_related and not self.create_inline:
+            raise PanglossConfigError(
+                "Cannot use `bind_field_to_related` unless also `create_inline=True`"
+            )
+
+
 class RootNode(_OwnsMethods):
     """Base class for basic BaseModel"""
 
     type: str
 
-    Create: typing.ClassVar[type[CreateBase]]
-    HeadView: typing.ClassVar[type[HeadViewBase]]
-    View: typing.ClassVar[type[ViewBase]]
-    EditHeadView: typing.ClassVar[type[EditHeadViewBase]]
-    EditHeadSet: typing.ClassVar[type[EditHeadSetBase]]
-    EditSet: typing.ClassVar[type[EditSetBase]]
-    ReferenceCreate: typing.ClassVar[type[ReferenceCreateBase]] | None = None
-    ReferenceView: typing.ClassVar[type[ReferenceViewBase]]
-    ReferenceSet: typing.ClassVar[type[ReferenceSetBase]]
-    EmbeddedCreate: typing.ClassVar[type[EmbeddedCreateBase]]
-    EmbeddedView: typing.ClassVar[type[EmbeddedViewBase]]
-    EmbeddedSet: typing.ClassVar[type[EmbeddedSetBase]]
+    Create: typing.ClassVar["type[CreateBase]"]
+    HeadView: typing.ClassVar["type[HeadViewBase]"]
+    View: typing.ClassVar["type[ViewBase]"]
+    EditHeadView: typing.ClassVar["type[EditHeadViewBase]"]
+    EditHeadSet: typing.ClassVar["type[EditHeadSetBase]"]
+    EditSet: typing.ClassVar["type[EditSetBase]"]
+    ReferenceCreate: "typing.ClassVar[type[ReferenceCreateBase]] | None" = None
+    ReferenceView: typing.ClassVar["type[ReferenceViewBase]"]
+    ReferenceSet: typing.ClassVar["type[ReferenceSetBase]"]
+    EmbeddedCreate: typing.ClassVar["type[EmbeddedCreateBase]"]
+    EmbeddedView: typing.ClassVar["type[EmbeddedViewBase]"]
+    EmbeddedSet: typing.ClassVar["type[EmbeddedSetBase]"]
 
-    Meta: typing.ClassVar[type[BaseMeta]] = BaseMeta
+    Meta: typing.ClassVar["type[BaseMeta]"] = BaseMeta
     _meta: typing.ClassVar[BaseMeta]
 
-    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
+    __pg_annotations__: typing.ClassVar["ChainMap[str, type]"]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     class edit:
-        __pg_base_class__: typing.ClassVar[type[RootNode]]
+        __pg_base_class__: typing.ClassVar["type[RootNode]"]
 
         @classmethod
-        def get(cls, id: ULID | AnyHttpUrl) -> EditHeadViewBase:
+        def get(cls, id: ULID | AnyHttpUrl) -> "EditHeadViewBase":
             # TODO: Sketching API so far
             return cls.__pg_base_class__.EditHeadView()
 
-        def __new__(cls, *args, **kwargs) -> EditSetBase:
+        def __new__(cls, *args, **kwargs) -> "EditSetBase":
             # TODO: Sketching API so far
             return cls.__pg_base_class__.EditSet(*args, **kwargs)
 
     class view:
-        __pg_base_class__: typing.ClassVar[type[RootNode]]
+        __pg_base_class__: typing.ClassVar["type[RootNode]"]
 
         @classmethod
         def get(cls, id: ULID | AnyHttpUrl):
@@ -174,13 +213,13 @@ class CreateBase(
     label: str
     uris: list[AnyHttpUrl] = Field(default_factory=list)
 
-    async def create_and_get(self, username: str | None = None) -> EditHeadSetBase:
+    async def create_and_get(self, username: str | None = None) -> "EditHeadSetBase":
         """Create this instance in the database and return the created object"""
         return await self.__pg_base_class__._create_method(  # type: ignore
             self, username, return_edit_view=True
         )
 
-    async def create(self, username: str | None = None) -> ReferenceViewBase:
+    async def create(self, username: str | None = None) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
         return await self.__pg_base_class__._create_method(  # type: ignore
             self, username, return_edit_view=False
@@ -250,7 +289,7 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
             return value.to_native()
         return value
 
-    async def update(self, username: str | None = None) -> ReferenceViewBase:
+    async def update(self, username: str | None = None) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
         return await self.__pg_base_class__._update_method(  # type: ignore
             self, current_username=username or "DefaultUser"
@@ -273,7 +312,7 @@ class EditHeadSetBase(
     label: str
     uris: list[AnyHttpUrl] = Field(default_factory=list)
 
-    async def update(self, username: str | None = None) -> ReferenceViewBase:
+    async def update(self, username: str | None = None) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
         return await self.__pg_base_class__._update_method(  # type: ignore
             self, current_username=username or "DefaultUser"
@@ -343,7 +382,7 @@ class ReifiedMeta:
     base_model: type["ReifiedBase"]
 
     @property
-    def fields(self) -> ModelFieldDefinitions:
+    def fields(self) -> "ModelFieldDefinitions":
         return self.base_model.__pg_get_fields__()
 
     @property
@@ -355,8 +394,8 @@ class ReifiedBase(BaseModel, _OwnsMethods):
     model_config = {"arbitrary_types_allowed": True}
 
     Create: typing.ClassVar[type[ReifiedCreateBase]]
-    View: typing.ClassVar[type[ReifiedRelationViewBase]]
-    EditSet: typing.ClassVar[type[ReifiedRelationEditSetBase]]
+    View: typing.ClassVar[type["ReifiedRelationViewBase"]]
+    EditSet: typing.ClassVar[type["ReifiedRelationEditSetBase"]]
 
     __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
@@ -375,7 +414,7 @@ class ReifiedBase(BaseModel, _OwnsMethods):
         cls._meta = ReifiedMeta(base_model=cls)
 
     @classmethod
-    def __pg_get_fields__(cls) -> ModelFieldDefinitions:
+    def __pg_get_fields__(cls) -> "ModelFieldDefinitions":
         """Internal getter for reified relation fields to present a consistent API
         and avoid potentially accidentally omitting logic in other spots.
 
@@ -516,7 +555,7 @@ class MultiKeyFieldMeta:
     base_model: type["MultiKeyField"]
 
     @property
-    def fields(self) -> ModelFieldDefinitions:
+    def fields(self) -> "ModelFieldDefinitions":
         return self.base_model.__pg_field_definitions__
 
 
@@ -541,47 +580,6 @@ class MultiKeyField[T](BaseModel, _StandardModel):
         cls._meta = MultiKeyFieldMeta(base_model=cls)
 
         ModelManager.register_multikeyfield_model(cls)
-
-
-@dataclasses.dataclass
-class RelationConfig:
-    reverse_name: str
-    """Reverse name for the relationship"""
-    bind_fields_to_related: typing.Optional[
-        typing.Iterable[
-            tuple[str, str] | tuple[str, str, typing.Callable] | "BoundField"
-        ]
-    ] = dataclasses.field(default_factory=list)
-    """Use the value of the containing model field as the value of contained model 
-    field, via optional transforming function"""
-
-    subclasses_relation: typing.Optional[list[str] | frozenset[str]] = None
-    """This relation is a subclass of the relation of a parent model"""
-
-    edge_model: typing.Optional[type["EdgeModel"]] = None
-    """Model to use as for edge of the relationship"""
-
-    validators: list[annotated_types.BaseMetadata] = dataclasses.field(
-        default_factory=list
-    )
-
-    create_inline: bool = False
-    edit_inline: bool = False
-    delete_related_on_detach: bool = False
-    default_reified_type: typing.Optional[str] = None
-
-    def __hash__(self):
-        if self.subclasses_relation:
-            self.subclasses_relation = frozenset(self.subclasses_relation)
-        return hash(self.__dict__)
-
-    def __post_init__(self):
-        self.reverse_name = self.reverse_name.lower().replace(" ", "_")
-
-        if self.bind_fields_to_related and not self.create_inline:
-            raise PanglossConfigError(
-                "Cannot use `bind_field_to_related` unless also `create_inline=True`"
-            )
 
 
 class BoundField(typing.NamedTuple):

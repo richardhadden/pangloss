@@ -133,6 +133,9 @@ def pg_is_subclass(
 
 
 def resolve_forward_ref(annotation: typing.Any):
+    if isinstance(annotation, str):
+        annotation = typing.ForwardRef(annotation)
+
     if not isinstance(annotation, (typing.ForwardRef)):
         return annotation
 
@@ -588,7 +591,6 @@ def build_abstract_specialist_type_model_definitions(
 ):
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
-        print(annotation, type(annotation))
         if field_name in model.__class_vars__:
             continue
         field_definitions[field_name] = build_field_definition(
