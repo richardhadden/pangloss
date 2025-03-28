@@ -586,3 +586,97 @@ class BoundField(typing.NamedTuple):
     parent_field_name: str
     bound_field_name: str
     transform: typing.Optional[typing.Callable] = None
+
+
+@dataclasses.dataclass
+class SemanticSpaceMeta:
+    base_model: type["SemanticSpaceBase"]
+
+    abstract: bool = False
+    can_nest: bool = False
+
+    @property
+    def fields(self) -> "ModelFieldDefinitions":
+        return self.base_model.__pg_get_fields__()
+
+    @property
+    def type_labels(self) -> list[str]:
+        return [self.base_model.__name__]
+
+
+class SemanticSpaceBase(BaseModel, _OwnsMethods):
+    model_config = {"arbitrary_types_allowed": True}
+
+    Create: typing.ClassVar[type["SemanticSpaceCreateBase"]]
+    View: typing.ClassVar[type["SemanticSpaceViewBase"]]
+    EditSet: typing.ClassVar[type["SemanticSpaceEditSetBase"]]
+
+    __pg_annotations__: typing.ClassVar[ChainMap[str, type]]
+    __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+    __pg_bound_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
+
+    Meta: typing.ClassVar["type[SemanticSpaceMeta]"] = SemanticSpaceMeta
+    _meta: typing.ClassVar[SemanticSpaceMeta]
+
+    collapse_when: typing.ClassVar[
+        typing.Optional[typing.Callable[[typing.Self], bool]]
+    ] = None
+
+    @classmethod
+    def __pg_get_fields__(cls) -> "ModelFieldDefinitions":
+        """Internal getter for semantic space fields to present a consistent API
+        and avoid potentially accidentally omitting logic in other spots.
+
+        If it is a generic class, return __pg_field_definitions__;
+        if bound (i.e. has origin and args set in __pydantic_generic_metadata,
+        check whether the bound field definitions have been created and return, or just return"""
+
+        if getattr(cls, "__pg_bound_field_definitions__", None):
+            return cls.__pg_bound_field_definitions__
+        return cls.__pg_field_definitions__
+
+
+class SemanticSpace[T](SemanticSpaceBase, _StandardModel):
+    """Base model for creating a reified relation"""
+
+    type: str
+    contents: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+
+    def __init_subclass__(cls) -> None:
+        from pangloss.model_config.model_manager import ModelManager
+
+        # Dubious hack to update the parameters used by typing module to allow
+        # inheriting class to include additional type parameters
+        cls.__parameters__ = cls.__type_params__
+
+        ModelManager.register_semantic_space_model(cls)
+
+        """ if (
+            not cls.__pydantic_generic_metadata__["origin"]
+            and not cls.__pydantic_generic_metadata__["args"]
+            and "TypeVar" not in cls.__name__
+        ):
+            cls._meta = typing.cast("SemanticSpaceMeta", _SemanticSpaceMetaDescriptor()) """
+
+
+class SemanticSpaceViewBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _RelationInContextOf["SemanticSpaceViewBase"],
+):
+    """Base model for viewing a semantic space (contains id and additional metadata)"""
+
+    type: str
+    id: ULID
+    head_node: typing.Optional[ULID] = None
+    head_type: typing.Optional[str] = None
+
+
+class SemanticSpaceCreateBase(BaseModel, _StandardModel, _BaseClassProxy):
+    pass
+
+
+class SemanticSpaceEditSetBase(BaseModel, _StandardModel, _BaseClassProxy):
+    type: str
+    id: ULID

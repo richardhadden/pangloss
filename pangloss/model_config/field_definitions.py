@@ -7,7 +7,7 @@ from collections import ChainMap, defaultdict
 
 import annotated_types
 
-from pangloss.model_config.models_base import ReifiedRelationNode
+from pangloss.model_config.models_base import ReifiedRelationNode, SemanticSpace
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.model_setup_functions.build_reverse_relation_definitions import (
@@ -137,6 +137,19 @@ class RelationToReifiedDefinition(RelationDefinition):
     metatype: typing.ClassVar[typing.Literal["RelationToReified"]] = "RelationToReified"
 
 
+@dataclasses.dataclass
+class RelationToSemanticSpaceDefinition(RelationDefinition):
+    annotated_type: type["SemanticSpace"]
+    origin_type: type["SemanticSpace"]
+    type_params_to_type_map: dict[
+        str,
+        TypeParamsToTypeMap,
+    ]
+    metatype: typing.ClassVar[typing.Literal["RelationToSemanticSpace"]] = (
+        "RelationToSemanticSpace"
+    )
+
+
 type annotation_types = (
     type["RootNode"]
     | types.UnionType
@@ -196,6 +209,14 @@ class RelationFieldDefinition(FieldDefinition):
             relation
             for relation in self.field_type_definitions
             if isinstance(relation, RelationToReifiedDefinition)
+        ]
+
+    @property
+    def relations_to_semantic_space(self) -> list[RelationToSemanticSpaceDefinition]:
+        return [
+            relation
+            for relation in self.field_type_definitions
+            if isinstance(relation, RelationToSemanticSpaceDefinition)
         ]
 
     @property

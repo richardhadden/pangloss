@@ -7,6 +7,7 @@ if typing.TYPE_CHECKING:
         MultiKeyField,
         ReifiedBase,
         RootNode,
+        SemanticSpace,
     )
 
 
@@ -14,7 +15,8 @@ def build_pg_annotations(
     cls: type["RootNode"]
     | type["ReifiedBase"]
     | type["EdgeModel"]
-    | type["MultiKeyField"],
+    | type["MultiKeyField"]
+    | type["SemanticSpace"],
 ) -> None:
     """Set the __pg_annotations__ of the class to a ChainMap
     gathering the class's own annotations and all parent class annotations
@@ -28,6 +30,7 @@ def build_pg_annotations(
         EdgeModel,
         MultiKeyField,
         ReifiedBase,
+        SemanticSpaceBase,
     )
     from pangloss.models import BaseNode
 
@@ -39,6 +42,7 @@ def build_pg_annotations(
             or parent is ReifiedBase
             or parent is EdgeModel
             or parent is MultiKeyField
+            or parent is SemanticSpaceBase
         ):
             break
         annotation_dicts.append(parent.__annotations__)

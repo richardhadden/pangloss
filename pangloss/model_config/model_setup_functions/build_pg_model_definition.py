@@ -18,6 +18,7 @@ from pangloss.model_config.field_definitions import (
     RelationFieldDefinition,
     RelationToNodeDefinition,
     RelationToReifiedDefinition,
+    RelationToSemanticSpaceDefinition,
     RelationToTypeVarDefinition,
     TypeParamsToTypeMap,
     annotation_types,
@@ -33,6 +34,7 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     RelationConfig,
     RootNode,
+    SemanticSpace,
     Trait,
     ViewBase,
     _BaseClassProxy,
@@ -174,6 +176,7 @@ def build_relation_fields_definitions(
     ReifiedRelation[RootNode] -> [ReifiedRelationDefinition] TICK
     ReifiedRelation[Union[RootNode | ReifiedRelation]] -> ReifiedRelationDefinition
     """
+
     if isinstance(primary_type, typing.TypeVar):
         return [
             RelationToTypeVarDefinition(
@@ -202,6 +205,31 @@ def build_relation_fields_definitions(
 
         return [
             RelationToReifiedDefinition(
+                annotated_type=primary_type,
+                origin_type=possible_generic_type,
+                type_params_to_type_map=type_param_to_types_map,
+            )
+        ]
+    elif issubclass(primary_type, SemanticSpace):
+        possible_generic_type = typing.cast(
+            type[SemanticSpace], primary_type.__pydantic_generic_metadata__["origin"]
+        )
+
+        inner_types = primary_type.__pydantic_generic_metadata__["args"]
+        inner_types = typing.cast(
+            list[type[RootNode | ReifiedRelation]],
+            [resolve_forward_ref(inner_type) for inner_type in inner_types],
+        )
+
+        type_param_to_types_map = {
+            type_param.__name__: TypeParamsToTypeMap(type_param, real_type)
+            for type_param, real_type in zip(
+                possible_generic_type.__parameters__, inner_types
+            )
+        }
+
+        return [
+            RelationToSemanticSpaceDefinition(
                 annotated_type=primary_type,
                 origin_type=possible_generic_type,
                 type_params_to_type_map=type_param_to_types_map,
@@ -239,17 +267,20 @@ def build_field_definition(
     | type[ReifiedBase]
     | type[EdgeModel]
     | type[MultiKeyField]
+    | type["SemanticSpace"]
     | type[_BaseClassProxy],
 ) -> FieldDefinition:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
+
     annotation = resolve_forward_ref(annotation)
-    if issubclass(model, (ReifiedBase, EdgeModel)):
-        # ReifiedBase is already necessarily a pydantic.BaseModel, which interprets
+    if issubclass(model, (ReifiedBase, EdgeModel, SemanticSpace)):
+        # ReifiedBase/SemanticSpace is already necessarily a pydantic.BaseModel, which interprets
         # the annotation as a string; so need to do the actual lookups of types on the model
         # and then can reconstruct the type back to the unadulterated Python format
         # i.e. typing.Annotated[<Type>, *<Metadata>]
         # so we can use the same code below
+
         primary_type = model.model_fields[field_name].annotation
 
         if metadata := model.model_fields[field_name].metadata:
@@ -362,7 +393,7 @@ def build_field_definition(
         return field_definition
 
     if is_annotated(annotation) and pg_is_subclass(
-        primary_type, (RootNode, ReifiedRelation, Trait)
+        primary_type, (RootNode, ReifiedRelation, Trait, SemanticSpace)
     ):
         # If primary type is one class, build relation_definition here and get
         # relation fields definitions
@@ -571,7 +602,8 @@ def build_pg_model_definitions(
     model: type["RootNode"]
     | type["ReifiedBase"]
     | type["EdgeModel"]
-    | type["MultiKeyField"],
+    | type["MultiKeyField"]
+    | type["SemanticSpace"],
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
@@ -603,36 +635,62 @@ def build_abstract_specialist_type_model_definitions(
 
 
 def create_relation_with_bound_type(
-    bound_type: type[RootNode] | type[ReifiedRelation],
+    bound_type: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
 ) -> RelationDefinition:
     if pg_is_subclass(bound_type, RootNode):
         return RelationToNodeDefinition(
             annotated_type=typing.cast(type[RootNode], bound_type)
         )
 
-    bound_type = typing.cast(type[ReifiedRelation], bound_type)
+    elif pg_is_subclass(bound_type, ReifiedRelation):
+        bound_type = typing.cast(type[ReifiedRelation], bound_type)
 
-    build_pg_bound_model_definition_for_instatiated_reified(bound_type)
+        build_pg_bound_model_definition_for_instatiated_reified(bound_type)
 
-    origin_type = typing.cast(
-        type[ReifiedRelation], bound_type.__pydantic_generic_metadata__["origin"]
-    )
+        origin_type = typing.cast(
+            type[ReifiedRelation], bound_type.__pydantic_generic_metadata__["origin"]
+        )
 
-    inner_types = bound_type.__pydantic_generic_metadata__["args"]
-    inner_types = typing.cast(
-        list[type[RootNode | ReifiedRelation]],
-        [resolve_forward_ref(inner_type) for inner_type in inner_types],
-    )
+        inner_types = bound_type.__pydantic_generic_metadata__["args"]
+        inner_types = typing.cast(
+            list[type[RootNode | ReifiedRelation]],
+            [resolve_forward_ref(inner_type) for inner_type in inner_types],
+        )
 
-    type_param_to_types_map = {
-        type_param.__name__: TypeParamsToTypeMap(type_param, real_type)
-        for type_param, real_type in zip(origin_type.__parameters__, inner_types)
-    }
-    return RelationToReifiedDefinition(
-        annotated_type=bound_type,
-        origin_type=origin_type,
-        type_params_to_type_map=type_param_to_types_map,
-    )
+        type_param_to_types_map = {
+            type_param.__name__: TypeParamsToTypeMap(type_param, real_type)
+            for type_param, real_type in zip(origin_type.__parameters__, inner_types)
+        }
+        return RelationToReifiedDefinition(
+            annotated_type=bound_type,
+            origin_type=origin_type,
+            type_params_to_type_map=type_param_to_types_map,
+        )
+
+    elif pg_is_subclass(bound_type, SemanticSpace):
+        bound_type = typing.cast(type[SemanticSpace], bound_type)
+
+        build_pg_bound_model_definition_for_instatiated_semantic_space(bound_type)
+
+        origin_type = typing.cast(
+            type[SemanticSpace], bound_type.__pydantic_generic_metadata__["origin"]
+        )
+
+        inner_types = bound_type.__pydantic_generic_metadata__["args"]
+        inner_types = typing.cast(
+            list[type[RootNode | ReifiedRelation]],
+            [resolve_forward_ref(inner_type) for inner_type in inner_types],
+        )
+
+        type_param_to_types_map = {
+            type_param.__name__: TypeParamsToTypeMap(type_param, real_type)
+            for type_param, real_type in zip(origin_type.__parameters__, inner_types)
+        }
+        return RelationToSemanticSpaceDefinition(
+            annotated_type=bound_type,
+            origin_type=origin_type,
+            type_params_to_type_map=type_param_to_types_map,
+        )
 
 
 def build_pg_bound_model_definition_for_instatiated_reified(
@@ -652,6 +710,46 @@ def build_pg_bound_model_definition_for_instatiated_reified(
                     new_relation_definition = create_relation_with_bound_type(
                         typing.cast(
                             type[RootNode] | type[ReifiedRelation],
+                            model.model_fields[field.field_name].annotation,
+                        )
+                    )
+                    field_type_definitions.append(new_relation_definition)
+            annotation = model.model_fields[field.field_name].annotation
+            annotation = typing.cast(annotation_types, annotation)
+            field_as_dict = {
+                **dataclasses.asdict(field),
+                "field_annotation": annotation,
+                "field_type_definitions": field_type_definitions,
+            }
+
+            field_definitions[field.field_name] = RelationFieldDefinition(
+                **field_as_dict
+            )
+        else:
+            field_definitions[field.field_name] = field
+
+    model.__pg_bound_field_definitions__ = ModelFieldDefinitions(field_definitions)
+
+
+def build_pg_bound_model_definition_for_instatiated_semantic_space(
+    model: type[SemanticSpace[typing.Any]],
+):
+    """Created a ModelFieldDefinition object for a semantic space
+    with bound generic type, i.e. Negative[Model] not Negative"""
+
+    field_definitions = {}
+    for field in model.__pg_field_definitions__:
+        if isinstance(field, RelationFieldDefinition):
+            field_type_definitions: list[RelationDefinition] = []
+            for relation_definition in field.field_type_definitions:
+                if isinstance(relation_definition, RelationToNodeDefinition):
+                    field_type_definitions.append(relation_definition)
+                elif isinstance(relation_definition, RelationToTypeVarDefinition):
+                    new_relation_definition = create_relation_with_bound_type(
+                        typing.cast(
+                            type[RootNode]
+                            | type[ReifiedRelation]
+                            | type[SemanticSpace],
                             model.model_fields[field.field_name].annotation,
                         )
                     )

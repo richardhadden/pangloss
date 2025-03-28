@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
         EdgeModel,
         MultiKeyField,
         ReifiedRelation,
+        SemanticSpace,
         Trait,
     )
     from pangloss.models import BaseNode
@@ -21,6 +22,7 @@ class ModelManager:
     edge_models: dict[str, type["EdgeModel"]] = {}
     multikeyfields_models: dict[str, type["MultiKeyField"]] = {}
     trait_models: dict[str, type["Trait"]] = {}
+    semantic_space_models: dict[str, type["SemanticSpace"]] = {}
 
     def __init__(self):
         raise PanglossInitialisationError("ModelManager class cannot be initialised")
@@ -42,6 +44,12 @@ class ModelManager:
         if trait_model.__name__ in {"Trait", "HeritableTrait"}:
             return
         cls.trait_models[trait_model.__name__] = trait_model
+
+    @classmethod
+    def register_semantic_space_model(cls, semantic_space_model: type["SemanticSpace"]):
+        if semantic_space_model.__name__ == "SemanticSpace":
+            return
+        cls.semantic_space_models[semantic_space_model.__name__] = semantic_space_model
 
     @classmethod
     def register_reified_relation_model(
@@ -89,6 +97,7 @@ class ModelManager:
         )
         from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
             build_abstract_specialist_type_model_definitions,
+            build_pg_bound_model_definition_for_instatiated_semantic_space,
             build_pg_model_definitions,
         )
         from pangloss.model_config.model_setup_functions.build_reference_model import (
@@ -99,13 +108,16 @@ class ModelManager:
         from pangloss.model_config.model_setup_functions.build_reverse_relation_definitions import (
             build_reverse_relations_definitions_to,
         )
+        from pangloss.model_config.model_setup_functions.build_semantic_space_meta import (
+            initialise_semantic_space_meta_inheritance,
+        )
         from pangloss.model_config.model_setup_functions.initialise_subclassed_relations import (
             initialise_subclassed_relations,
         )
         from pangloss.model_config.model_setup_functions.set_type_on_base_model import (
             set_type_to_literal_on_base_model,
         )
-        from pangloss.model_config.models_base import _BaseClassProxy
+        from pangloss.model_config.models_base import SemanticSpace, _BaseClassProxy
 
         for specialising_abstract_class in _BaseClassProxy.__subclasses__():
             specialising_abstract_class = typing.cast(
@@ -126,6 +138,9 @@ class ModelManager:
             set_type_to_literal_on_base_model(model)
             build_pg_annotations(model)
 
+        for model_name, model in cls.semantic_space_models.items():
+            set_type_to_literal_on_base_model(model)
+
         for model_name, model in cls.reified_relation_models.items():
             set_type_to_literal_on_base_model(model)
 
@@ -134,6 +149,25 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             initialise_model_meta_inheritance(model)
+
+        for model_name, model in cls.semantic_space_models.items():
+            build_pg_annotations(model)
+
+        for model_name, model in cls.semantic_space_models.items():
+            build_pg_model_definitions(model)
+
+        for model_name, model in cls.semantic_space_models.items():
+            # If this is a bound semantic space, i.e. Negative[Statement], not
+            # Negative, build the bound field definition for the model as well
+            if (
+                model.__pydantic_generic_metadata__["origin"]
+                and model.__pydantic_generic_metadata__["origin"] is not SemanticSpace
+                and type(model.__pydantic_generic_metadata__["args"][0])
+                is not typing.TypeVar
+            ):
+                build_pg_bound_model_definition_for_instatiated_semantic_space(model)
+
+            initialise_semantic_space_meta_inheritance(model)
 
         for model_name, model in cls.base_models.items():
             initialise_subclassed_relations(model)

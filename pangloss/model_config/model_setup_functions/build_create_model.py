@@ -27,10 +27,13 @@ from pangloss.model_config.models_base import (
     ReifiedCreateBase,
     ReifiedRelation,
     RootNode,
+    SemanticSpace,
 )
 
 
-def build_reified_model_name(model: type[ReifiedRelation]) -> str:
+def build_reified_or_semantic_space_model_name(
+    model: type[ReifiedRelation] | type[SemanticSpace],
+) -> str:
     """Build a more elegant model name for reified models, omitting the module name
     and other ugliness"""
     origin_name = typing.cast(
@@ -61,7 +64,9 @@ def build_field_type_definitions(
     return fields
 
 
-def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
+def build_create_model(
+    model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
+):
     """Builds model.Create for a RootNode/ReifiedRelation where it does not exist"""
 
     # If model.Create already exists, return early
@@ -71,7 +76,7 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
     # Construct class
     if issubclass(model, ReifiedRelation):
         model.Create = create_model(
-            f"{build_reified_model_name(model)}Create",
+            f"{build_reified_or_semantic_space_model_name(model)}Create",
             __module__=model.__module__,
             __base__=ReifiedCreateBase,
         )
@@ -81,6 +86,20 @@ def build_create_model(model: type[RootNode] | type[ReifiedRelation]):
             type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
         )
         model.Create.model_rebuild(force=True)
+
+    elif issubclass(model, SemanticSpace):
+        model.Create = create_model(
+            f"{build_reified_or_semantic_space_model_name(model)}Create",
+            __module__=model.__module__,
+            __base__=ReifiedCreateBase,
+        )
+
+        unpack_fields_onto_model(model.Create, build_field_type_definitions(model))
+        model.Create.__pg_base_class__ = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
+        )
+        model.Create.model_rebuild(force=True)
+
     else:
         # To avoid recursion of self-referencing models, the create model
         # needs to be built and *then* have its fields generated and added!
@@ -218,6 +237,10 @@ def get_models_for_relation_field(
 
     # Add relations_to_reified_to_concrete_model_Types
     for field_type_definition in field.relations_to_reified:
+        build_create_model(field_type_definition.annotated_type)
+        related_models.append(field_type_definition.annotated_type.Create)
+
+    for field_type_definition in field.relations_to_semantic_space:
         build_create_model(field_type_definition.annotated_type)
         related_models.append(field_type_definition.annotated_type.Create)
 
