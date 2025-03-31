@@ -691,6 +691,9 @@ def create_relation_with_bound_type(
             origin_type=origin_type,
             type_params_to_type_map=type_param_to_types_map,
         )
+    raise PanglossConfigError(
+        f"Create Relation With Bound type failed with {bound_type}"
+    )
 
 
 def build_pg_bound_model_definition_for_instatiated_reified(

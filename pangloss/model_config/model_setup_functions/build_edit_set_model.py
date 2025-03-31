@@ -202,7 +202,7 @@ def bound_field_creation_model_after_validator(self: "CreateBase") -> typing.Any
 
 def build_bound_field_creation_model(
     field: RelationFieldDefinition,
-    parent_model: type[RootNode] | type[ReifiedRelation],
+    parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     base_type_for_bound_model: type[RootNode],
     bound_relation_field_names: set[str],
 ):
@@ -258,7 +258,7 @@ def bound_field_edit_model_after_validator(self: "CreateBase") -> typing.Any:
 
 def build_bound_field_edit_model(
     field: RelationFieldDefinition,
-    parent_model: type[RootNode] | type[ReifiedRelation],
+    parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     base_type_for_bound_model: type[RootNode],
     bound_relation_field_names: set[str],
 ):
@@ -307,7 +307,7 @@ def build_bound_field_edit_model(
 
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
-    parent_model: type[RootNode] | type[ReifiedRelation],
+    parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     bound_relation_field_names: set[str] | None = None,
 ) -> list[
     type[
@@ -389,7 +389,7 @@ def get_bound_relation_field_names_for_bound(
 
 def get_relation_field(
     field: RelationFieldDefinition,
-    model: type["RootNode"] | type["ReifiedRelation"],
+    model: type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"],
     is_bound: bool = False,
 ) -> FieldInfo:
     # Get the relations which are fields bound to this model
