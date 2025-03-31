@@ -159,6 +159,7 @@ class ModelManager:
         for model_name, model in cls.semantic_space_models.items():
             # If this is a bound semantic space, i.e. Negative[Statement], not
             # Negative, build the bound field definition for the model as well
+
             if (
                 model.__pydantic_generic_metadata__["origin"]
                 and model.__pydantic_generic_metadata__["origin"] is not SemanticSpace
@@ -188,6 +189,9 @@ class ModelManager:
             build_reference_set(model)
             build_reference_view(model)
             build_reference_create(model)
+
+        # for model_name, model in cls.semantic_space_models.items():
+        #    build_create_model(model)
 
         for model_name, model in cls.base_models.items():
             build_create_model(model)

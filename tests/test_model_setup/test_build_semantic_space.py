@@ -1,4 +1,5 @@
-from typing import Annotated
+import datetime
+from typing import Annotated, no_type_check
 
 from pangloss import initialise_models
 from pangloss.model_config.field_definitions import (
@@ -14,6 +15,7 @@ from pangloss.model_config.model_setup_functions.build_semantic_space_meta impor
 )
 from pangloss.model_config.models_base import SemanticSpace, SemanticSpaceMeta
 from pangloss.models import BaseNode, RelationConfig
+from pangloss.utils import gen_ulid
 
 
 def test_semantic_space_meta_inheritance():
@@ -122,3 +124,282 @@ def test_semantic_space_field_definition_of_bound_type():
     relation_type_defintion = contents_field_definition.field_type_definitions[0]
     assert isinstance(relation_type_defintion, RelationToNodeDefinition)
     assert relation_type_defintion.annotated_type is DoingThing
+
+
+@no_type_check
+def test_semanic_space_create_model():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class ReallyInfinitive[T: BaseNode](Infinitive[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class NegativeInfinitive[T](Infinitives[T]):
+        pass
+
+    class DoingThing(BaseNode):
+        pass
+
+    class DoingOtherThing(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: Annotated[
+            Infinitives[DoingThing | DoingOtherThing],
+            RelationConfig(reverse_name="was_ordered_in"),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.Create.model_fields["thing_ordered"].annotation
+        == list[
+            Infinitive[DoingThing | DoingOtherThing].Create
+            | ReallyInfinitive[DoingThing | DoingOtherThing].Create
+            | NegativeInfinitive[DoingThing | DoingOtherThing].Create
+        ]
+    )
+
+    assert (
+        Infinitive[DoingThing | DoingOtherThing]
+        .Create.model_fields["contents"]
+        .annotation
+        == list[DoingThing.Create | DoingOtherThing.Create]
+    )
+
+    order = Order(
+        type="Order",
+        label="An Order",
+        thing_ordered=[
+            {
+                "type": "ReallyInfinitive",
+                "contents": [{"type": "DoingThing", "label": "A Thing Done"}],
+            }
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "ReallyInfinitive"
+    assert order.thing_ordered[0].contents[0].type == "DoingThing"
+
+    order = Order(
+        type="Order",
+        label="An Order",
+        thing_ordered=[
+            {
+                "type": "Infinitive",
+                "contents": [{"type": "DoingOtherThing", "label": "A Thing Done"}],
+            }
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "Infinitive"
+    assert order.thing_ordered[0].contents[0].type == "DoingOtherThing"
+
+
+@no_type_check
+def test_semanic_space_edit_set_model():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class ReallyInfinitive[T: BaseNode](Infinitive[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class NegativeInfinitive[T](Infinitives[T]):
+        pass
+
+    class DoingThing(BaseNode):
+        pass
+
+    class DoingOtherThing(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: Annotated[
+            Infinitives[DoingThing | DoingOtherThing],
+            RelationConfig(reverse_name="was_ordered_in"),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.EditHeadSet.model_fields["thing_ordered"].annotation
+        == list[
+            ReallyInfinitive[DoingThing | DoingOtherThing].Create
+            | ReallyInfinitive[DoingThing | DoingOtherThing].EditSet
+            | Infinitive[DoingThing | DoingOtherThing].Create
+            | Infinitive[DoingThing | DoingOtherThing].EditSet
+            | NegativeInfinitive[DoingThing | DoingOtherThing].Create
+            | NegativeInfinitive[DoingThing | DoingOtherThing].EditSet
+        ]
+    )
+
+    order = Order.EditHeadSet(
+        id=gen_ulid(),
+        label="An Order",
+        type="Order",
+        thing_ordered=[
+            {
+                "id": gen_ulid(),
+                "type": "Infinitive",
+                "contents": [{"type": "DoingOtherThing", "label": "A Thing Done"}],
+            }
+        ],
+    )
+
+
+@no_type_check
+def test_semanic_space_edit_view_model():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class ReallyInfinitive[T: BaseNode](Infinitive[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class NegativeInfinitive[T](Infinitives[T]):
+        pass
+
+    class DoingThing(BaseNode):
+        pass
+
+    class DoingOtherThing(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: Annotated[
+            Infinitives[DoingThing | DoingOtherThing],
+            RelationConfig(reverse_name="was_ordered_in"),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.EditHeadView.model_fields["thing_ordered"].annotation
+        == list[
+            ReallyInfinitive[DoingThing | DoingOtherThing].View
+            | Infinitive[DoingThing | DoingOtherThing].View
+            | NegativeInfinitive[DoingThing | DoingOtherThing].View
+        ]
+    )
+
+    order = Order.EditHeadView(
+        id=gen_ulid(),
+        label="An Order",
+        type="Order",
+        created_by="User",
+        created_when=datetime.datetime.now(),
+        thing_ordered=[
+            {
+                "id": gen_ulid(),
+                "type": "Infinitive",
+                "contents": [
+                    {
+                        "type": "DoingOtherThing",
+                        "label": "A Thing Done",
+                        "id": gen_ulid(),
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "Infinitive"
+    assert order.thing_ordered[0].contents[0].type == "DoingOtherThing"
+
+
+@no_type_check
+def test_semanic_space_view_model():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class ReallyInfinitive[T: BaseNode](Infinitive[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class NegativeInfinitive[T](Infinitives[T]):
+        pass
+
+    class DoingThing(BaseNode):
+        pass
+
+    class DoingOtherThing(BaseNode):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: Annotated[
+            Infinitives[DoingThing | DoingOtherThing],
+            RelationConfig(reverse_name="was_ordered_in"),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.HeadView.model_fields["thing_ordered"].annotation
+        == list[
+            ReallyInfinitive[DoingThing | DoingOtherThing].View
+            | Infinitive[DoingThing | DoingOtherThing].View
+            | NegativeInfinitive[DoingThing | DoingOtherThing].View
+        ]
+    )
+
+    order = Order.HeadView(
+        id=gen_ulid(),
+        label="An Order",
+        type="Order",
+        created_by="User",
+        created_when=datetime.datetime.now(),
+        thing_ordered=[
+            {
+                "id": gen_ulid(),
+                "type": "Infinitive",
+                "contents": [
+                    {
+                        "type": "DoingOtherThing",
+                        "label": "A Thing Done",
+                        "id": gen_ulid(),
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "Infinitive"
+    assert order.thing_ordered[0].contents[0].type == "DoingOtherThing"

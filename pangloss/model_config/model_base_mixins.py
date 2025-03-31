@@ -16,6 +16,8 @@ if typing.TYPE_CHECKING:
         ReifiedRelation,
         ReifiedRelationViewBase,
         RootNode,
+        SemanticSpace,
+        SemanticSpaceMeta,
         ViewBase,
     )
 
@@ -91,13 +93,15 @@ class _OwnsMethods:
 class _MetaDescriptor:
     def __get__(
         self, obj, parent_type: "_BaseClassProxy | None" = None
-    ) -> "BaseMeta | ReifiedMeta":
+    ) -> "BaseMeta | ReifiedMeta | SemanticSpaceMeta":
         assert parent_type
         return parent_type.__pg_base_class__._meta
 
 
 class _BaseClassProxy(_OwnsMethods):
-    __pg_base_class__: typing.ClassVar[type["RootNode"] | type["ReifiedRelation"]]
+    __pg_base_class__: typing.ClassVar[
+        type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"]
+    ]
     __pg_specialist_type_fields_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
     @property
@@ -204,7 +208,7 @@ class _RelationInContext(typing.Generic[RelationInContextType]):
 
     def _add(
         self,
-        relation_target_model: type["RootNode | ReifiedRelation"],
+        relation_target_model: type["RootNode | ReifiedRelation | SemanticSpace"],
         view_in_context_model: type[RelationInContextType],
         field_name: str,
     ):

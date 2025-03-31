@@ -345,6 +345,7 @@ class ReferenceViewBase(
     head_node: ULID | None = None
     head_type: str | None = None
     uris: list[AnyHttpUrl] | None = Field(default_factory=list)
+    semantic_spaces: list[str] | None = Field(default=None)
 
     def __hash__(self):
         return hash(str(self.id))
@@ -595,6 +596,8 @@ class SemanticSpaceMeta:
     abstract: bool = False
     can_nest: bool = False
 
+    supertypes: list[type["SemanticSpace"]] = dataclasses.field(default_factory=list)
+
     @property
     def fields(self) -> "ModelFieldDefinitions":
         return self.base_model.__pg_get_fields__()
@@ -633,6 +636,7 @@ class SemanticSpaceBase(BaseModel, _OwnsMethods):
 
         if getattr(cls, "__pg_bound_field_definitions__", None):
             return cls.__pg_bound_field_definitions__
+
         return cls.__pg_field_definitions__
 
 
@@ -640,7 +644,12 @@ class SemanticSpace[T](SemanticSpaceBase, _StandardModel):
     """Base model for creating a reified relation"""
 
     type: str
-    contents: typing.Annotated[T, RelationConfig(reverse_name="is_target_of")]
+    contents: typing.Annotated[
+        T,
+        RelationConfig(
+            reverse_name="is_target_of", create_inline=True, edit_inline=True
+        ),
+    ]
 
     def __init_subclass__(cls) -> None:
         from pangloss.model_config.model_manager import ModelManager
@@ -650,13 +659,6 @@ class SemanticSpace[T](SemanticSpaceBase, _StandardModel):
         cls.__parameters__ = cls.__type_params__
 
         ModelManager.register_semantic_space_model(cls)
-
-        """ if (
-            not cls.__pydantic_generic_metadata__["origin"]
-            and not cls.__pydantic_generic_metadata__["args"]
-            and "TypeVar" not in cls.__name__
-        ):
-            cls._meta = typing.cast("SemanticSpaceMeta", _SemanticSpaceMetaDescriptor()) """
 
 
 class SemanticSpaceViewBase(

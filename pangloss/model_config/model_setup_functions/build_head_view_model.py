@@ -1,3 +1,4 @@
+import types
 import typing
 from functools import cache
 
@@ -15,6 +16,7 @@ from pangloss.model_config.model_setup_functions.field_builders import (
 )
 from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
+    get_base_models_for_semantic_space,
     get_concrete_model_types,
     unpack_fields_onto_model,
 )
@@ -26,22 +28,38 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     ReifiedRelationViewBase,
     RootNode,
+    SemanticSpace,
+    SemanticSpaceViewBase,
     ViewBase,
 )
 
 
-def get_reified_model_name(model: type[ReifiedRelation]) -> str:
+def parse_union_names(t) -> str:
+    if (
+        getattr(t, "__origin__", None) is typing.Union
+        or isinstance(t, types.UnionType)
+        or t == typing.Union
+    ):
+        return " | ".join(a.__name__ for a in typing.get_args(t))
+    return t.__name__
+
+
+def get_reified_or_semantic_space_model_name(
+    model: type[ReifiedRelation] | type[SemanticSpace],
+) -> str:
     """Build a more elegant model name for reified models, omitting the module name
     and other ugliness"""
     origin_name = typing.cast(
         type, model.__pydantic_generic_metadata__["origin"]
     ).__name__
-    args_names = [arg.__name__ for arg in model.__pydantic_generic_metadata__["args"]]
+    args_names = [
+        parse_union_names(arg) for arg in model.__pydantic_generic_metadata__["args"]
+    ]
     return f"{origin_name}[{', '.join(args_names)}]"
 
 
 def get_field_type_definitions(
-    model: type[RootNode | ReifiedRelation],
+    model: type[RootNode | ReifiedRelation | SemanticSpace],
 ):
     """For each type of possible field, build a dict of field name
     and pydantic tuple-type definition"""
@@ -83,7 +101,9 @@ def build_head_view_model(model: type[RootNode]):
     model.HeadView.model_rebuild(force=True)
 
 
-def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
+def build_view_model(
+    model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
+):
     # If model.Create already exists, return early
     if model.has_own("View"):
         return
@@ -91,7 +111,7 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
     # Construct class
     if issubclass(model, ReifiedRelation):
         model.View = create_model(
-            f"{get_reified_model_name(model)}View",
+            f"{get_reified_or_semantic_space_model_name(model)}View",
             __module__=model.__module__,
             __base__=ReifiedRelationViewBase,
         )
@@ -101,6 +121,20 @@ def build_view_model(model: type[RootNode] | type[ReifiedRelation]):
             type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
         )
         model.View.model_rebuild(force=True)
+
+    elif issubclass(model, SemanticSpace):
+        model.View = create_model(
+            f"{get_reified_or_semantic_space_model_name(model)}View",
+            __module__=model.__module__,
+            __base__=SemanticSpaceViewBase,
+        )
+
+        unpack_fields_onto_model(model.View, get_field_type_definitions(model))
+        model.View.__pg_base_class__ = typing.cast(
+            type[ReifiedRelation], model.__pydantic_generic_metadata__["origin"]
+        )
+        model.View.model_rebuild(force=True)
+
     else:
         # To avoid recursion of self-referencing models, the create model
         # needs to be built and *then* have its fields generated and added!
@@ -159,6 +193,12 @@ def get_models_for_relation_field(
     for field_type_definition in field.relations_to_reified:
         build_view_model(field_type_definition.annotated_type)
         related_models.append(field_type_definition.annotated_type.View)
+
+    for field_type_definition in field.relations_to_semantic_space:
+        bound_types = get_base_models_for_semantic_space(field_type_definition)
+        for bound_type in bound_types:
+            build_view_model(bound_type)
+            related_models.append(bound_type.View)
 
     return related_models
 

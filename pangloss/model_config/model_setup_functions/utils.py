@@ -7,12 +7,24 @@ from pydantic.fields import FieldInfo
 
 from pangloss.model_config.field_definitions import (
     RelationToNodeDefinition,
+    RelationToSemanticSpaceDefinition,
+)
+from pangloss.model_config.model_setup_functions.build_pg_annotations import (
+    build_pg_annotations,
+)
+from pangloss.model_config.model_setup_functions.build_pg_model_definition import (
+    build_pg_bound_model_definition_for_instatiated_semantic_space,
+    build_pg_model_definitions,
+)
+from pangloss.model_config.model_setup_functions.build_semantic_space_meta import (
+    initialise_semantic_space_meta_inheritance,
 )
 from pangloss.model_config.models_base import (
     HeritableTrait,
     NonHeritableTrait,
     ReifiedRelation,
     RootNode,
+    SemanticSpace,
 )
 from pangloss.models import BaseNode
 
@@ -237,6 +249,54 @@ def get_base_models_for_relations_to_node(
         )
 
     return related_node_base_type
+
+
+def get_root_semantic_space_subclasses(
+    cls: type[SemanticSpace],
+) -> set[type[SemanticSpace]]:
+    if not cls:
+        return set()
+    subclasses = []
+    if not cls.__pydantic_generic_metadata__["origin"] and not cls._meta.abstract:
+        subclasses.append(cls)
+
+    for subclass in cls.__subclasses__():
+        if (
+            not subclass.__pydantic_generic_metadata__["origin"]
+            and not subclass._meta.abstract
+        ):
+            subclasses.append(subclass)
+        subclasses.extend(get_root_semantic_space_subclasses(subclass))
+
+    return set(subclasses)
+
+
+def get_base_models_for_semantic_space(
+    relation_to_semantic_space: RelationToSemanticSpaceDefinition,
+) -> set[type[SemanticSpace]]:
+    """Get unbound base semantic space models for a relation"""
+
+    from pangloss.model_config.model_manager import ModelManager
+
+    root_semantic_space_subclasses = get_root_semantic_space_subclasses(
+        relation_to_semantic_space.origin_type
+    )
+    bound_types = []
+    for unbound_model_type in root_semantic_space_subclasses:
+        generic_type_arg = relation_to_semantic_space.type_params_to_type_map[
+            str(unbound_model_type.__pydantic_generic_metadata__["parameters"][0])
+        ].type
+
+        bound_model = ModelManager.semantic_space_models[
+            unbound_model_type[generic_type_arg].__name__  # type: ignore
+        ]
+        if not getattr(bound_model, "__pg__pg_bound_field_definitions__", None):
+            initialise_semantic_space_meta_inheritance(bound_model)
+            build_pg_annotations(bound_model)
+            build_pg_model_definitions(bound_model)
+            build_pg_bound_model_definition_for_instatiated_semantic_space(bound_model)
+        bound_types.append(bound_model)
+    return set(bound_types)
 
 
 def unpack_fields_onto_model(

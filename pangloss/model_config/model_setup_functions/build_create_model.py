@@ -1,3 +1,4 @@
+import types
 import typing
 import warnings
 from functools import cache
@@ -15,6 +16,7 @@ from pangloss.model_config.model_setup_functions.field_builders import (
 )
 from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
+    get_base_models_for_semantic_space,
     get_concrete_model_types,
     unpack_fields_onto_model,
 )
@@ -28,7 +30,18 @@ from pangloss.model_config.models_base import (
     ReifiedRelation,
     RootNode,
     SemanticSpace,
+    SemanticSpaceCreateBase,
 )
+
+
+def parse_union_names(t) -> str:
+    if (
+        getattr(t, "__origin__", None) is typing.Union
+        or isinstance(t, types.UnionType)
+        or t == typing.Union
+    ):
+        return " | ".join(a.__name__ for a in typing.get_args(t))
+    return t.__name__
 
 
 def build_reified_or_semantic_space_model_name(
@@ -39,12 +52,15 @@ def build_reified_or_semantic_space_model_name(
     origin_name = typing.cast(
         type, model.__pydantic_generic_metadata__["origin"]
     ).__name__
-    args_names = [arg.__name__ for arg in model.__pydantic_generic_metadata__["args"]]
+    args_names = [
+        parse_union_names(arg) for arg in model.__pydantic_generic_metadata__["args"]
+    ]
     return f"{origin_name}[{', '.join(args_names)}]"
 
 
 def build_field_type_definitions(
-    model: type[RootNode | ReifiedRelation], bound_field_names: set[str] | None = None
+    model: type[RootNode | ReifiedRelation | SemanticSpace],
+    bound_field_names: set[str] | None = None,
 ):
     """For each type of possible field, build a dict of field name
     and pydantic tuple-type definition"""
@@ -91,7 +107,7 @@ def build_create_model(
         model.Create = create_model(
             f"{build_reified_or_semantic_space_model_name(model)}Create",
             __module__=model.__module__,
-            __base__=ReifiedCreateBase,
+            __base__=SemanticSpaceCreateBase,
         )
 
         unpack_fields_onto_model(model.Create, build_field_type_definitions(model))
@@ -153,7 +169,7 @@ def bound_field_creation_model_after_validator(self: "CreateBase") -> typing.Any
 
 def build_bound_field_creation_model(
     field: RelationFieldDefinition,
-    parent_model: type[RootNode] | type[ReifiedRelation],
+    parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     base_type_for_bound_model: type[RootNode],
     bound_relation_field_names: set[str],
 ):
@@ -206,7 +222,7 @@ def build_bound_field_creation_model(
 
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
-    parent_model: type[RootNode] | type[ReifiedRelation],
+    parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     bound_relation_field_names: set[str] | None = None,
 ) -> list[type[ReferenceCreateBase | ReferenceSetBase | ReifiedCreateBase]]:
     """Creates a list of actual classes to be referenced by a relation"""
@@ -241,8 +257,10 @@ def get_models_for_relation_field(
         related_models.append(field_type_definition.annotated_type.Create)
 
     for field_type_definition in field.relations_to_semantic_space:
-        build_create_model(field_type_definition.annotated_type)
-        related_models.append(field_type_definition.annotated_type.Create)
+        bound_types = get_base_models_for_semantic_space(field_type_definition)
+        for bound_type in bound_types:
+            build_create_model(bound_type)
+            related_models.append(bound_type.Create)
 
     return related_models
 
@@ -265,7 +283,7 @@ def get_bound_relation_field_names_for_bound(
 
 def build_relation_field(
     field: RelationFieldDefinition,
-    model: type["RootNode"] | type["ReifiedRelation"],
+    model: type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"],
     is_bound: bool = False,
 ) -> FieldInfo:
     # Get the relations which are fields bound to this model
@@ -295,7 +313,8 @@ def build_relation_field(
 
     if len(field.relation_labels) > 1:
         field_info.validation_alias = AliasChoices(
-            *field.relation_labels, *(humps.camelize(l) for l in field.relation_labels)
+            *field.relation_labels,
+            *(humps.camelize(label) for label in field.relation_labels),
         )
         field_info.alias_priority = 2
 
@@ -339,7 +358,8 @@ def get_models_for_embedded_field(
 
 
 def build_embedded_field(
-    field: EmbeddedFieldDefinition, model: type["RootNode"] | type["ReifiedRelation"]
+    field: EmbeddedFieldDefinition,
+    model: type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"],
 ) -> FieldInfo:
     embedded_types = get_models_for_embedded_field(field)
     field_info = FieldInfo.from_annotation(list[typing.Union[*embedded_types]])

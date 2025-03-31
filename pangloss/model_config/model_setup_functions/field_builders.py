@@ -2,7 +2,7 @@ import typing
 
 from pydantic.fields import FieldInfo
 
-from pangloss.model_config.models_base import ReifiedRelation, RootNode
+from pangloss.model_config.models_base import ReifiedRelation, RootNode, SemanticSpace
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
@@ -14,7 +14,7 @@ if typing.TYPE_CHECKING:
 
 def build_property_type_field(
     field: "PropertyFieldDefinition",
-    model: type[RootNode] | type[ReifiedRelation],
+    model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     bound: bool = False,
 ) -> FieldInfo:
     if bound:
@@ -39,7 +39,7 @@ def build_property_type_field(
 
 def build_list_property_type_field(
     field: "ListFieldDefinition",
-    model: type[RootNode] | type[ReifiedRelation],
+    model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     bound: bool = False,
 ) -> FieldInfo:
     inner_type = field.field_annotation
@@ -64,7 +64,7 @@ def build_list_property_type_field(
 
 def build_multikey_property_type_field(
     field: "MultiKeyFieldDefinition",
-    model: type[RootNode] | type[ReifiedRelation],
+    model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     bound: bool = False,
 ) -> FieldInfo:
     if bound:
@@ -78,7 +78,7 @@ def build_multikey_property_type_field(
 
 
 def build_property_fields(
-    model: type["RootNode | ReifiedRelation"],
+    model: type["RootNode | ReifiedRelation | SemanticSpace"],
     bound_field_names: set[str] | None = None,
 ) -> dict[str, FieldInfo]:
     fields = {}
