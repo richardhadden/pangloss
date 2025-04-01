@@ -39,7 +39,7 @@ wheels = [
 
 [[package]]
 name = "authx"
-version = "1.4.1"
+version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -51,9 +51,9 @@ dependencies = [
     { name = "python-jose" },
     { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/f9/9ccf53c2f31222e2caf67f1e4504a9b3d8c3a84fdf098b56031a4b127219/authx-1.4.1.tar.gz", hash = "sha256:06ddad3f80ebe32ce7d97adc8915c1f64b389298849f0058a713f3b0c2c1e64a", size = 58825 }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/c8/8d3b404eef2aa0f186f37b941b81bc2306348b4ba53c9c3ca958b5decea6/authx-1.4.2.tar.gz", hash = "sha256:e3cc118da7bd089f0cb9a242b0514dedd7f866e913316032e45f4b248734db87", size = 59901 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/42/ef4220b13ca3d6b7fe6c0c46cbda0923d06274b822e807a2c740be49fef3/authx-1.4.1-py3-none-any.whl", hash = "sha256:4d42082230125e446fd5240b9531af7726d7d69370bfc5aedd6fafeb9df6ffc9", size = 28277 },
+    { url = "https://files.pythonhosted.org/packages/cd/25/6a17b7d6ac55237eb9e032a3d8d5dbe895cc6fcce1632edd8b1296470379/authx-1.4.2-py3-none-any.whl", hash = "sha256:4be830cd5a83bfd22d7b5371fba7dc6402dda7eb6e072b8393e8da9455adb50a", size = 28450 },
 ]
 
 [[package]]
