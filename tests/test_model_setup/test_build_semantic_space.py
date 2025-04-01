@@ -13,7 +13,11 @@ from pangloss.model_config.model_setup_functions.build_pg_model_definition impor
 from pangloss.model_config.model_setup_functions.build_semantic_space_meta import (
     initialise_semantic_space_meta_inheritance,
 )
-from pangloss.model_config.models_base import SemanticSpace, SemanticSpaceMeta
+from pangloss.model_config.models_base import (
+    BoundField,
+    SemanticSpace,
+    SemanticSpaceMeta,
+)
 from pangloss.models import BaseNode, RelationConfig
 from pangloss.utils import gen_ulid
 
@@ -403,3 +407,42 @@ def test_semanic_space_view_model():
 
     assert order.thing_ordered[0].type == "Infinitive"
     assert order.thing_ordered[0].contents[0].type == "DoingOtherThing"
+
+
+@no_type_check
+def test_bound_field_through_semantic_space():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class Person(BaseNode):
+        pass
+
+    class DoingThing(BaseNode):
+        done_by_person: Annotated[Person, RelationConfig(reverse_name="did_a_thing")]
+
+    class Order(BaseNode):
+        person_receiving_order: Annotated[
+            Person, RelationConfig(reverse_name="received_an_order")
+        ]
+        thing_ordered: Annotated[
+            Infinitives[DoingThing],
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                bind_fields_to_related=[
+                    BoundField("person_receiving_order", "done_by_person")
+                ],
+            ),
+        ]
+
+    initialise_models()
+
+    assert False

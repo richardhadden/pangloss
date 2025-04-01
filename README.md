@@ -262,6 +262,64 @@ A relation to a node type allows the creation of a complete node of that type "i
 
 Inline viewing/creation/editing therefore serves as the abstract model for the implementation of directed subgraphs that function as "entities" in their own right.
 
+```python
+class Activity(BaseNode):
+    pass
+
+class Order(BaseNode):
+    thing_ordered: Annotated[
+        Activity, 
+        RelationConfig(reverse_name="is_ordered_in", create_inline=True, edit_inline=True)
+    ]
+```
+
+In this example, Activity can be created and viewed in full as a nested object within Order.
+
+#### Bound fields
+
+For convenience, it is possible to optionally bind the value of a parent object field to a nested object field (can be overridden).
+
+```python
+class Person(BaseNode):
+    pass
+
+class Activity(BaseNode):
+    carried_out_by: Annotated[Person, RelationConfig(reverse_name="carried_out_activity")]
+
+class Order(BaseNode):
+    person_receiving_order: Annotated[Person, RelationConfig(reverse_name="received_order")]
+    thing_ordered: Annotated[
+        Activity, 
+        RelationConfig(
+            reverse_name="is_ordered_in", 
+            create_inline=True, 
+            edit_inline=True
+            bind_fields_to_related=[BoundField("person_receiving_order", "carried_out_by")]
+        )                                           # ^ parent field name       ^ related field name
+    ]
+```
+When creating an Order instance, it is possible to omit `Activity.carried_out_by`; the value from
+`Order.person_receiving_order` will be used.
+
+## Semantic Spaces
+
+To provide the facilities to e.g. negate an object, Pangloss provides `SemanticSpace` models. These provide
+some modification to all create-inline/edit-inline models beneath. These are declared by subclassing the
+generic `SemanticSpace[T]` model. The direct contents of a semantic space are attached using the `contents` field,
+which should not be overridden.
+
+```python
+class Negative[T](SemanticSpace[T]):
+    pass
+
+class Action(BaseNode):
+    pass
+
+class Factoid(BaseNode):
+    statements: Annotated[Action | Negative[Action], RelationConfig(reverse_name="is_statement_in")]
+```
+
+Bound field (see above) are passed through SemanticSpace models to the contained objects.
 
 ## Generated Classes
 

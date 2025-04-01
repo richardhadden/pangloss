@@ -40,6 +40,8 @@ class _BindingSubModelValidator[T]:
 
     @classmethod
     def set_has_bindable_relations(cls) -> None:
+        # Change this to allow bound through SemanticSpace...
+
         bindable_relations = [
             rf
             for rf in typing.cast(
@@ -54,6 +56,8 @@ class _BindingSubModelValidator[T]:
     @model_validator(mode="before")
     @classmethod
     def binding_submodel_validator(cls, data):
+        # Change this to allow bound through SemanticSpace...
+
         if not cls._has_bindable_relations:
             return data
 

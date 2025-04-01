@@ -271,7 +271,7 @@ def get_root_semantic_space_subclasses(
     return set(subclasses)
 
 
-def get_base_models_for_semantic_space(
+def get_specialised_models_for_semantic_space(
     relation_to_semantic_space: RelationToSemanticSpaceDefinition,
 ) -> set[type[SemanticSpace]]:
     """Get unbound base semantic space models for a relation"""

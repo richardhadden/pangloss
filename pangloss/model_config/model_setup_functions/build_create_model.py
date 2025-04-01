@@ -16,8 +16,8 @@ from pangloss.model_config.model_setup_functions.field_builders import (
 )
 from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
-    get_base_models_for_semantic_space,
     get_concrete_model_types,
+    get_specialised_models_for_semantic_space,
     unpack_fields_onto_model,
 )
 from pangloss.model_config.models_base import (
@@ -251,16 +251,23 @@ def get_models_for_relation_field(
             if base_type.Meta.create_by_reference:
                 related_models.append(base_type.ReferenceCreate)
 
-    # Add relations_to_reified_to_concrete_model_Types
     for field_type_definition in field.relations_to_reified:
         build_create_model(field_type_definition.annotated_type)
         related_models.append(field_type_definition.annotated_type.Create)
 
     for field_type_definition in field.relations_to_semantic_space:
-        bound_types = get_base_models_for_semantic_space(field_type_definition)
-        for bound_type in bound_types:
-            build_create_model(bound_type)
-            related_models.append(bound_type.Create)
+        print(
+            "bound fields",
+            bound_relation_field_names,
+        )
+        specialised_generic_types = get_specialised_models_for_semantic_space(
+            field_type_definition
+        )
+        for specialised_generic_type in specialised_generic_types:
+            # Build a specialised create_model function for SemanticSpace,
+            # forwarding bound_fields down to the next model...
+            build_create_model(specialised_generic_type)
+            related_models.append(specialised_generic_type.Create)
 
     return related_models
 

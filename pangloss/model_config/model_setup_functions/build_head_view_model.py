@@ -16,8 +16,8 @@ from pangloss.model_config.model_setup_functions.field_builders import (
 )
 from pangloss.model_config.model_setup_functions.utils import (
     get_base_models_for_relations_to_node,
-    get_base_models_for_semantic_space,
     get_concrete_model_types,
+    get_specialised_models_for_semantic_space,
     unpack_fields_onto_model,
 )
 from pangloss.model_config.models_base import (
@@ -195,7 +195,7 @@ def get_models_for_relation_field(
         related_models.append(field_type_definition.annotated_type.View)
 
     for field_type_definition in field.relations_to_semantic_space:
-        bound_types = get_base_models_for_semantic_space(field_type_definition)
+        bound_types = get_specialised_models_for_semantic_space(field_type_definition)
         for bound_type in bound_types:
             build_view_model(bound_type)
             related_models.append(bound_type.View)

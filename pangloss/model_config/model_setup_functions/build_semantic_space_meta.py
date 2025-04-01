@@ -67,7 +67,7 @@ def initialise_semantic_space_meta_inheritance(model: type[SemanticSpace]):
             and model.Meta.__dict__["abstract"] is True
         ):
             meta_settings["abstract"] = True
-        print("building meta model", model)
+
         model._meta = SemanticSpaceMeta(
             base_model=model,
             **meta_settings,
