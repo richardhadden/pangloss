@@ -75,20 +75,7 @@ def build_field_type_definitions(
 
     fields.update(build_property_fields(model, bound_field_names))
     for field in model._meta.fields.relation_fields:
-        print(
-            "???", model.__name__, bound_field_name, field.field_name, bound_field_names
-        )
-
-        if bound_field_definitions and field.field_name in bound_field_names:
-            print("building normal relation field")
-            fields[field.field_name] = build_relation_field(
-                field,
-                model,
-                bound_fields=bound_field_definitions,
-                top_parent_model=top_parent_model,
-                bound_field_name=field.field_name,
-            )
-        elif (
+        if (
             bound_field_definitions
             and issubclass(model, SemanticSpace)
             and field.field_name == "contents"
@@ -100,15 +87,22 @@ def build_field_type_definitions(
                 top_parent_model=top_parent_model,
                 bound_field_name=bound_field_name,
             )
-
-        else:
-            print("ELSE!")
+        elif bound_field_definitions and field.field_name in bound_field_names:
             fields[field.field_name] = build_relation_field(
                 field,
                 model,
                 bound_fields=bound_field_definitions,
                 top_parent_model=top_parent_model,
-                bound_field_name=bound_field_name,
+                bound_field_name=field.field_name,
+            )
+
+        else:
+            fields[field.field_name] = build_relation_field(
+                field,
+                model,
+                bound_fields=bound_field_definitions,
+                top_parent_model=top_parent_model,
+                bound_field_name=field.field_name,
             )
 
     for field in model._meta.fields.embedded_fields:
@@ -149,7 +143,6 @@ def build_create_model(
         model.Create.model_rebuild(force=True)
 
     elif issubclass(model, SemanticSpace):
-        print("this!!")
         model.Create = create_model(
             f"{build_reified_or_semantic_space_model_name(model)}Create",
             __module__=model.__module__,
@@ -275,15 +268,14 @@ def build_bound_field_creation_model(
     top_parent_model: type[RootNode]
     | type[ReifiedRelation]
     | type[SemanticSpace]
-    | None = None,
-    bound_field_name: str | None = None,
+    | None,
+    bound_field_name: str,
 ):
+    print("building_bound_field_creation_model for", base_type_for_bound_model)
     """Creates a variant of a model (base_type_for_bound_models) with the fields
     that are bound to the parent made optional. Also adds a validator function that
     checks the data from parent-bound fields are included"""
-    print(
-        "build_bound_field_creation_model", top_parent_model.__name__, bound_field_name
-    )
+
     # Bug with Pydantic: adding __validators__ (as per documentation) causes a
     # runtime warning that fields should not start with an underscore... but of course it can
     # so suppress the warning here
@@ -305,7 +297,10 @@ def build_bound_field_creation_model(
     unpack_fields_onto_model(
         bound_field_model,
         build_field_type_definitions(
-            base_type_for_bound_model, bound_field_definitions, top_parent_model
+            base_type_for_bound_model,
+            bound_field_definitions,
+            top_parent_model,
+            bound_field_name,
         ),
     )
     bound_field_model.__pg_base_class__ = base_type_for_bound_model
@@ -345,41 +340,27 @@ def get_models_for_relation_field(
     """Creates a list of actual classes to be referenced by a relation"""
     related_models = []
 
-    print(">>>", field.field_name)
-
     # Add relations_to_nodes to concrete_model_types
     for base_type in get_base_models_for_relations_to_node(field.relations_to_node):
-        print("now!", field)
         if field.create_inline:
-            build_create_model(base_type)
-
-            print(
-                "!",
-                field.field_name,
-                bound_field_name,
-                bound_field_definitions,
-                base_type._meta.fields.keys(),
-                any(bf[1] in base_type._meta.fields for bf in bound_field_definitions),
-            )
-
             # Check if any of the fields bound to parent_model field are in this model,
             # and if so, create a bound_field_model instead of the usual one
             if bound_field_definitions and any(
                 bf[1] in base_type._meta.fields for bf in bound_field_definitions
             ):
-                print("calling with", bound_field_name)
                 bound_field_model = build_bound_field_creation_model(
-                    field,
-                    parent_model,
-                    base_type,
-                    bound_field_definitions,
-                    top_parent_model,
-                    bound_field_name,
+                    field=field,
+                    parent_model=parent_model,
+                    base_type_for_bound_model=base_type,
+                    bound_field_definitions=bound_field_definitions,
+                    top_parent_model=top_parent_model,
+                    bound_field_name=bound_field_name
+                    if bound_field_name
+                    else field.field_name,
                 )
                 related_models.append(bound_field_model)
 
             else:
-                print("doing this instead with", bound_field_name, base_type.__name__)
                 related_models.append(base_type.Create)
 
         else:
@@ -399,7 +380,6 @@ def get_models_for_relation_field(
             build_create_model(specialised_generic_type)
             related_models.append(specialised_generic_type.Create)
             if bound_field_definitions:
-                print("there are boudn field definitions", bound_field_name)
                 bound_field_model = build_semantic_space_model_with_bound_model(
                     specialised_generic_type,
                     parent_model,
@@ -413,7 +393,6 @@ def get_models_for_relation_field(
     return related_models
 
 
-@cache
 def get_bound_relation_fields_for_parent_model(
     model: type["RootNode"],
 ) -> set[BoundFieldsType]:
@@ -430,16 +409,16 @@ def get_bound_relation_fields_for_parent_model(
 def build_relation_field(
     field: RelationFieldDefinition,
     model: type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"],
+    bound_field_name: str | None,
     bound_fields: set[BoundFieldsType] | None = None,
     top_parent_model: type["RootNode"]
     | type["ReifiedRelation"]
     | type["SemanticSpace"]
     | None = None,
-    bound_field_name: str | None = None,
 ) -> FieldInfo:
     # Get the relations which are fields bound to this model
     # bound_fields = get_bound_relation_fields_for_parent_model(model)
-    print("building_relation_field", bound_field_name)
+    print("build_relation_field with model", model)
 
     related_models = get_models_for_relation_field(
         field, model, bound_fields, top_parent_model, bound_field_name
@@ -452,8 +431,8 @@ def build_relation_field(
     for m in related_models:
         m.model_rebuild(force=True)
 
-    if (
-        bound_fields
+    if bound_fields and not issubclass(
+        model, SemanticSpace
     ):  # If the field is bound to value from parent field, make this field optional
         field_info = FieldInfo.from_annotation(
             typing.cast(

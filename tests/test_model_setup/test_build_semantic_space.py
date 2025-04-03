@@ -1,5 +1,5 @@
 import datetime
-from typing import Annotated, no_type_check
+from typing import Annotated, Optional, get_args, no_type_check
 
 from pangloss import initialise_models
 from pangloss.model_config.field_definitions import (
@@ -445,6 +445,25 @@ def test_bound_field_through_semantic_space():
 
     initialise_models()
 
-    assert Infinitive[DoingThing].Create.in_context_of.Order.thing_ordered
-    print(">>>>>", DoingThing.Create.in_context_of.Order._context_field_names)
-    assert DoingThing.Create.in_context_of.Order.thing_ordered
+    assert (
+        Infinitive[DoingThing]
+        .Create.in_context_of.Order.thing_ordered.model_fields["contents"]
+        .annotation
+        == list[DoingThing.Create.in_context_of.Order.thing_ordered]
+    )
+
+    assert (
+        get_args(
+            Infinitive[DoingThing]
+            .Create.in_context_of.Order.thing_ordered.model_fields["contents"]
+            .annotation
+        )[0]
+        == DoingThing.Create.in_context_of.Order.thing_ordered
+    )
+
+    assert (
+        DoingThing.Create.in_context_of.Order.thing_ordered.model_fields[
+            "done_by_person"
+        ].annotation
+        == Optional[list[Person.ReferenceSet]]
+    )
