@@ -445,4 +445,6 @@ def test_bound_field_through_semantic_space():
 
     initialise_models()
 
-    assert False
+    assert Infinitive[DoingThing].Create.in_context_of.Order.thing_ordered
+    print(">>>>>", DoingThing.Create.in_context_of.Order._context_field_names)
+    assert DoingThing.Create.in_context_of.Order.thing_ordered

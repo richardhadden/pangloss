@@ -65,7 +65,7 @@ def get_field_type_definitions(
     and pydantic tuple-type definition"""
 
     fields = {}
-    fields.update(build_property_fields(model))
+    fields.update(build_property_fields(model, set()))
 
     for field in model._meta.fields.relation_fields:
         fields[field.field_name] = get_relation_field(field)

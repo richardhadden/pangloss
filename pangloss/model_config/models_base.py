@@ -675,7 +675,13 @@ class SemanticSpaceViewBase(
     head_type: typing.Optional[str] = None
 
 
-class SemanticSpaceCreateBase(BaseModel, _StandardModel, _BaseClassProxy):
+class SemanticSpaceCreateBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _RelationInContextOf["SemanticSpaceCreateBase"],
+    _BindingSubModelValidator["SemanticSpaceCreateBase"],
+):
     pass
 
 

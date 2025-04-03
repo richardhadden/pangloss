@@ -79,7 +79,7 @@ def build_multikey_property_type_field(
 
 def build_property_fields(
     model: type["RootNode | ReifiedRelation | SemanticSpace"],
-    bound_field_names: set[str] | None = None,
+    bound_field_names: set[str],
 ) -> dict[str, FieldInfo]:
     fields = {}
     for field in model._meta.fields.property_fields:

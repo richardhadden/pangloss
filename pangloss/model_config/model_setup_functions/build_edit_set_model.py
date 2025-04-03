@@ -72,7 +72,7 @@ def get_field_type_definitions(
     and pydantic tuple-type definition"""
 
     fields = {}
-    fields.update(build_property_fields(model))
+    fields.update(build_property_fields(model, set()))
 
     for field in model._meta.fields.relation_fields:
         if bound_field_names and field.field_name in bound_field_names:
