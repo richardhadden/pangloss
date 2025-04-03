@@ -21,6 +21,7 @@ from pangloss.model_config.model_setup_functions.utils import (
     unpack_fields_onto_model,
 )
 from pangloss.model_config.models_base import (
+    BoundField,
     CreateBase,
     EdgeModel,
     EmbeddedCreateBase,
@@ -32,6 +33,8 @@ from pangloss.model_config.models_base import (
     SemanticSpace,
     SemanticSpaceCreateBase,
 )
+
+type BoundFieldsType = BoundField | tuple[str, str] | tuple[str, str, typing.Callable]
 
 
 def parse_union_names(t) -> str:
