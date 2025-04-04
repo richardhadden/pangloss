@@ -410,7 +410,7 @@ def test_semanic_space_view_model():
 
 
 @no_type_check
-def test_bound_field_through_semantic_space():
+def test_bound_field_through_semantic_space_with_create_model():
     class Infinitives[T](SemanticSpace[T]):
         """Abstract class for Infinitive and NegativeInfinitive types"""
 
@@ -499,3 +499,76 @@ def test_bound_field_through_semantic_space():
         == order.person_receiving_order[0].id
     )
     assert order.thing_ordered[0].contents[0].when == "Some time after Some time"
+
+
+def test_bound_field_through_semantic_space_with_edit_set():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class Person(BaseNode):
+        pass
+
+    class DoingThing(BaseNode):
+        done_by_person: Annotated[Person, RelationConfig(reverse_name="did_a_thing")]
+        when: str
+
+    class Order(BaseNode):
+        when: str
+        person_receiving_order: Annotated[
+            Person, RelationConfig(reverse_name="received_an_order")
+        ]
+        thing_ordered: Annotated[
+            Infinitives[DoingThing],
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                bind_fields_to_related=[
+                    BoundField("person_receiving_order", "done_by_person"),
+                    BoundField("when", "when", lambda when: f"Some time after {when}"),
+                ],
+            ),
+        ]
+
+    initialise_models()
+
+    assert (
+        Order.EditHeadSet.model_fields["thing_ordered"].annotation
+        == list[
+            Infinitive[DoingThing].EditSet
+            | Infinitive[DoingThing].Create
+            | Infinitive[DoingThing].EditSet.in_context_of.Order.thing_ordered
+            | Infinitive[DoingThing].Create.in_context_of.Order.thing_ordered
+        ]
+    )
+
+    """ assert (
+        Infinitive[DoingThing]
+        .EditSet.in_context_of.Order.thing_ordered.model_fields["contents"]
+        .annotation
+        == list[DoingThing.Create.in_context_of.Order.thing_ordered]
+    )
+
+    assert (
+        get_args(
+            Infinitive[DoingThing]
+            .EditSet.in_context_of.Order.thing_ordered.model_fields["contents"]
+            .annotation
+        )[0]
+        == DoingThing.Create.in_context_of.Order.thing_ordered
+    )
+
+    assert (
+        DoingThing.EditSet.in_context_of.Order.thing_ordered.model_fields[
+            "done_by_person"
+        ].annotation
+        == Optional[list[Person.ReferenceSet]]
+    )
+    """

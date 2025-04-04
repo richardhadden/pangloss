@@ -685,6 +685,12 @@ class SemanticSpaceCreateBase(
     pass
 
 
-class SemanticSpaceEditSetBase(BaseModel, _StandardModel, _BaseClassProxy):
+class SemanticSpaceEditSetBase(
+    BaseModel,
+    _StandardModel,
+    _BaseClassProxy,
+    _RelationInContextOf["SemanticSpaceEditSetBase"],
+    _BindingSubModelValidator["SemanticSpaceCreateBase"],
+):
     type: str
     id: ULID
