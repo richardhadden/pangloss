@@ -20,3 +20,7 @@ class PanglossUserError(Exception):
 
 class PanglossDatabaseError(Exception):
     pass
+
+
+class PanglossValidationError(Exception):
+    pass

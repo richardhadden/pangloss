@@ -193,8 +193,6 @@ def build_semantic_space_model_with_bound_model(
     field_name: str,
     bound_field_name: str | None = None,
 ):
-    print("BUILDING SEMANTIC SPACE MODEL WITH BOUND MODEL", bound_field_name)
-
     semantic_space_with_bound_model = create_model(
         f"{build_reified_or_semantic_space_model_name(model)}Create__in_context_of__{parent_model.__name__}__{field_name}",
         __module__=model.__module__,
@@ -271,7 +269,6 @@ def build_bound_field_creation_model(
     | None,
     bound_field_name: str,
 ):
-    print("building_bound_field_creation_model for", base_type_for_bound_model)
     """Creates a variant of a model (base_type_for_bound_models) with the fields
     that are bound to the parent made optional. Also adds a validator function that
     checks the data from parent-bound fields are included"""
@@ -361,6 +358,7 @@ def get_models_for_relation_field(
                 related_models.append(bound_field_model)
 
             else:
+                build_create_model(base_type)
                 related_models.append(base_type.Create)
 
         else:
@@ -394,7 +392,7 @@ def get_models_for_relation_field(
 
 
 def get_bound_relation_fields_for_parent_model(
-    model: type["RootNode"],
+    model: type["RootNode | SemanticSpace | ReifiedRelation"],
 ) -> set[BoundFieldsType]:
     bound_relations = [
         rf for rf in model._meta.fields.relation_fields if rf.bind_fields_to_related
@@ -416,10 +414,6 @@ def build_relation_field(
     | type["SemanticSpace"]
     | None = None,
 ) -> FieldInfo:
-    # Get the relations which are fields bound to this model
-    # bound_fields = get_bound_relation_fields_for_parent_model(model)
-    print("build_relation_field with model", model)
-
     related_models = get_models_for_relation_field(
         field, model, bound_fields, top_parent_model, bound_field_name
     )
@@ -431,8 +425,10 @@ def build_relation_field(
     for m in related_models:
         m.model_rebuild(force=True)
 
-    if bound_fields and not issubclass(
-        model, SemanticSpace
+    if (
+        bound_fields
+        and not issubclass(model, SemanticSpace)
+        and not field.create_inline
     ):  # If the field is bound to value from parent field, make this field optional
         field_info = FieldInfo.from_annotation(
             typing.cast(

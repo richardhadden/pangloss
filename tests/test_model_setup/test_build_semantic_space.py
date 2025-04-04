@@ -427,8 +427,10 @@ def test_bound_field_through_semantic_space():
 
     class DoingThing(BaseNode):
         done_by_person: Annotated[Person, RelationConfig(reverse_name="did_a_thing")]
+        when: str
 
     class Order(BaseNode):
+        when: str
         person_receiving_order: Annotated[
             Person, RelationConfig(reverse_name="received_an_order")
         ]
@@ -438,12 +440,21 @@ def test_bound_field_through_semantic_space():
                 reverse_name="was_ordered_in",
                 create_inline=True,
                 bind_fields_to_related=[
-                    BoundField("person_receiving_order", "done_by_person")
+                    BoundField("person_receiving_order", "done_by_person"),
+                    BoundField("when", "when", lambda when: f"Some time after {when}"),
                 ],
             ),
         ]
 
     initialise_models()
+
+    assert (
+        Order.Create.model_fields["thing_ordered"].annotation
+        == list[
+            Infinitive[DoingThing].Create
+            | Infinitive[DoingThing].Create.in_context_of.Order.thing_ordered,
+        ]
+    )
 
     assert (
         Infinitive[DoingThing]
@@ -467,3 +478,24 @@ def test_bound_field_through_semantic_space():
         ].annotation
         == Optional[list[Person.ReferenceSet]]
     )
+
+    order = Order(
+        type="Order",
+        label="An Order",
+        when="Some time",
+        person_receiving_order=[{"type": "Person", "id": gen_ulid()}],
+        thing_ordered=[
+            {
+                "type": "Infinitive",
+                "contents": [{"type": "DoingThing", "label": "A Thing Done"}],
+            }
+        ],
+    )
+
+    assert order.thing_ordered[0].type == "Infinitive"
+    assert order.thing_ordered[0].contents[0].type == "DoingThing"
+    assert (
+        order.thing_ordered[0].contents[0].done_by_person[0].id
+        == order.person_receiving_order[0].id
+    )
+    assert order.thing_ordered[0].contents[0].when == "Some time after Some time"

@@ -3,6 +3,9 @@ import typing
 import humps
 from pydantic import ConfigDict, model_validator
 
+from pangloss.exceptions import PanglossValidationError
+from pangloss.model_config.model_manager import ModelManager
+
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import ModelFieldDefinitions
     from pangloss.model_config.models_base import (
@@ -20,6 +23,7 @@ if typing.TYPE_CHECKING:
         SemanticSpaceMeta,
         ViewBase,
     )
+
 
 STANDARD_MODEL_CONFIG: ConfigDict = {
     "alias_generator": humps.camelize,
@@ -57,7 +61,6 @@ class _BindingSubModelValidator[T]:
     @classmethod
     def binding_submodel_validator(cls, data):
         # Change this to allow bound through SemanticSpace...
-
         if not cls._has_bindable_relations:
             return data
 
@@ -65,13 +68,30 @@ class _BindingSubModelValidator[T]:
             assert bindable_relation.bind_fields_to_related
 
             for binding_def in bindable_relation.bind_fields_to_related:
-                if data[binding_def[0]]:
+                if data.get(binding_def[0], None):
                     for c in data[bindable_relation.field_name]:
+                        if c["type"] in ModelManager.semantic_space_models:
+                            for d in c["contents"]:
+                                if not d.get(binding_def[1], None):
+                                    if (
+                                        len(binding_def) == 3
+                                        and binding_def[2] is not None
+                                    ):
+                                        d[binding_def[1]] = binding_def[2](
+                                            data[binding_def[0]]
+                                        )
+                                    else:
+                                        d[binding_def[1]] = data[binding_def[0]]
+
                         if not c.get(binding_def[1], None):
                             if len(binding_def) == 3 and binding_def[2] is not None:
                                 c[binding_def[1]] = binding_def[2](data[binding_def[0]])
                             else:
                                 c[binding_def[1]] = data[binding_def[0]]
+                else:
+                    raise PanglossValidationError(
+                        f"{typing.cast('_BaseClassProxy', cls).__pg_base_class__.__name__} missing {binding_def[0]}",
+                    )
 
         return data
 
