@@ -501,7 +501,7 @@ def test_bound_field_through_semantic_space_with_create_model():
     assert order.thing_ordered[0].contents[0].when == "Some time after Some time"
 
 
-def test_bound_field_through_semantic_space_with_edit_set():
+def test_bound_field_through_semantic_space_with_edit_set_model():
     class Infinitives[T](SemanticSpace[T]):
         """Abstract class for Infinitive and NegativeInfinitive types"""
 

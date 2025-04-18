@@ -83,11 +83,14 @@ class _BindingSubModelValidator[T]:
                                     else:
                                         d[binding_def[1]] = data[binding_def[0]]
 
-                        if not c.get(binding_def[1], None):
-                            if len(binding_def) == 3 and binding_def[2] is not None:
-                                c[binding_def[1]] = binding_def[2](data[binding_def[0]])
-                            else:
-                                c[binding_def[1]] = data[binding_def[0]]
+                        else:
+                            if not c.get(binding_def[1], None):
+                                if len(binding_def) == 3 and binding_def[2] is not None:
+                                    c[binding_def[1]] = binding_def[2](
+                                        data[binding_def[0]]
+                                    )
+                                else:
+                                    c[binding_def[1]] = data[binding_def[0]]
                 else:
                     raise PanglossValidationError(
                         f"{typing.cast('_BaseClassProxy', cls).__pg_base_class__.__name__} missing {binding_def[0]}",
