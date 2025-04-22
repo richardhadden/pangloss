@@ -18,8 +18,10 @@ if typing.TYPE_CHECKING:
         HeritableTrait,
         MultiKeyField,
         NonHeritableTrait,
+        ReifiedBase,
         ReifiedRelation,
         RootNode,
+        _BaseClassProxy,
     )
 
 
@@ -167,6 +169,7 @@ class SubclassedRelationNames(typing.NamedTuple):
 
 @dataclasses.dataclass
 class RelationFieldDefinition(FieldDefinition):
+    containing_model: "type[ReifiedBase] | type[EdgeModel] | type[SemanticSpace] | type[RootNode] | type[MultiKeyField] | type[_BaseClassProxy]"
     field_annotation: annotation_types
     reverse_name: str
 
@@ -194,6 +197,9 @@ class RelationFieldDefinition(FieldDefinition):
         default_factory=set
     )
     default_reified_type: typing.Optional[str] = None
+
+    def __hash__(self):
+        return hash(self.containing_model.__name__ + self.field_name)
 
     @property
     def relations_to_node(self) -> list[RelationToNodeDefinition]:

@@ -463,6 +463,11 @@ def test_bound_field_through_semantic_space_with_create_model():
         == list[DoingThing.Create.in_context_of.Order.thing_ordered]
     )
 
+    """
+    list[pangloss.model_config.model_setup_functions.build_create_model.DoingThing_Create__in_context_of__Infinitive[test_bound_field_through_semantic_space_with_create_model.<locals>.DoingThing]__contents] == 
+    list[pangloss.model_config.model_setup_functions.build_create_model.DoingThing_Create__in_context_of__Infinitive[test_bound_field_through_semantic_space_with_create_model.<locals>.DoingThing]__contents]
+    """
+
     assert (
         get_args(
             Infinitive[DoingThing]
@@ -501,6 +506,7 @@ def test_bound_field_through_semantic_space_with_create_model():
     assert order.thing_ordered[0].contents[0].when == "Some time after Some time"
 
 
+@no_type_check
 def test_bound_field_through_semantic_space_with_edit_set_model():
     class Infinitives[T](SemanticSpace[T]):
         """Abstract class for Infinitive and NegativeInfinitive types"""
@@ -548,6 +554,14 @@ def test_bound_field_through_semantic_space_with_edit_set_model():
             | Infinitive[DoingThing].Create.in_context_of.Order.thing_ordered
         ]
     )
+
+    """
+    list[typing.Union[
+    tests.test_model_setup.test_build_semantic_space.Infinitive[DoingThing]Create, 
+    tests.test_model_setup.test_build_semantic_space.Infinitive[DoingThing]EditSet, 
+    tests.test_model_setup.test_build_semantic_space.Infinitive[DoingThing]EditSet__in_context_of__Order__thing_ordered
+    ]] 
+    """
 
     """ assert (
         Infinitive[DoingThing]

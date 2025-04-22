@@ -261,6 +261,9 @@ def test_build_edit_set_model_with_reified_relations():
     )
     union = get_args(Event.EditHeadSet.model_fields["involves_person"].annotation)[0]
     assert get_origin(union) is Union
+
+    print(id(get_args(union)[0]))
+    print(id(Person.ReferenceSet.via.Certainty))
     assert get_args(union)[0] == Person.ReferenceSet.via.Certainty
     assert get_args(union)[1] == Intermediate[Person].EditSet.via.Certainty
     assert get_args(union)[2] == Intermediate[Person].Create.via.Certainty

@@ -332,6 +332,7 @@ def build_field_definition(
             field_name=field_name,
             field_annotation=primary_type,
             field_type_definitions=relation_fields_definitions,
+            containing_model=model,
             **relation_config_dict,
         )
         return field_definition
@@ -384,6 +385,7 @@ def build_field_definition(
         ]
 
         field_definition = RelationFieldDefinition(
+            containing_model=model,
             field_name=field_name,
             field_annotation=typing.cast(type[RootNode], primary_type),
             field_type_definitions=relation_fields_definitions,
@@ -427,6 +429,7 @@ def build_field_definition(
         ]
 
         field_definition = RelationFieldDefinition(
+            containing_model=model,
             field_name=field_name,
             field_annotation=typing.cast(type[RootNode], primary_type),
             field_type_definitions=relation_fields_definitions,

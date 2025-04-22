@@ -63,7 +63,7 @@ def build_reified_or_semantic_space_model_name(
 
 def build_field_type_definitions(
     model: type[RootNode | ReifiedRelation | SemanticSpace],
-    bound_field_definitions: set[BoundFieldsType],
+    bound_field_definitions: set[BoundFieldsType] | frozenset[BoundFieldsType],
     top_parent_model: type[RootNode | ReifiedRelation | SemanticSpace] | None = None,
     bound_field_name: str | None = None,
 ):
@@ -187,7 +187,8 @@ def build_create_model(
         model.Create.model_rebuild(force=True)
 
 
-def build_semantic_space_model_with_bound_model(
+@cache
+def build_semantic_space_create_model_with_bound_model(
     model: type[SemanticSpace],
     parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     field_name: str,
@@ -258,11 +259,12 @@ def bound_field_creation_model_after_validator(self: "CreateBase") -> typing.Any
     return self
 
 
+@cache
 def build_bound_field_creation_model(
     field: RelationFieldDefinition,
     parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
     base_type_for_bound_model: type[RootNode],
-    bound_field_definitions: set[BoundFieldsType],
+    bound_field_definitions: frozenset[BoundFieldsType],
     top_parent_model: type[RootNode]
     | type[ReifiedRelation]
     | type[SemanticSpace]
@@ -316,7 +318,7 @@ def build_bound_field_creation_model(
             view_in_context_model=bound_field_model,
             field_name=field.field_name,
         )
-
+    base_type_for_bound_model.Create.in_context_of
     return bound_field_model
 
 
@@ -327,7 +329,9 @@ def build_bound_field_creation_model(
 def get_models_for_relation_field(
     field: RelationFieldDefinition,
     parent_model: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
-    bound_field_definitions: set[BoundFieldsType] | None = None,
+    bound_field_definitions: set[BoundFieldsType]
+    | frozenset[BoundFieldsType]
+    | None = None,
     top_parent_model: type[RootNode]
     | type[ReifiedRelation]
     | type[SemanticSpace]
@@ -349,7 +353,7 @@ def get_models_for_relation_field(
                     field=field,
                     parent_model=parent_model,
                     base_type_for_bound_model=base_type,
-                    bound_field_definitions=bound_field_definitions,
+                    bound_field_definitions=frozenset(bound_field_definitions),
                     top_parent_model=top_parent_model,
                     bound_field_name=bound_field_name
                     if bound_field_name
@@ -378,7 +382,7 @@ def get_models_for_relation_field(
             build_create_model(specialised_generic_type)
             related_models.append(specialised_generic_type.Create)
             if bound_field_definitions:
-                bound_field_model = build_semantic_space_model_with_bound_model(
+                bound_field_model = build_semantic_space_create_model_with_bound_model(
                     specialised_generic_type,
                     parent_model,
                     field.field_name,
@@ -408,7 +412,7 @@ def build_relation_field(
     field: RelationFieldDefinition,
     model: type["RootNode"] | type["ReifiedRelation"] | type["SemanticSpace"],
     bound_field_name: str | None,
-    bound_fields: set[BoundFieldsType] | None = None,
+    bound_fields: set[BoundFieldsType] | frozenset[BoundFieldsType] | None = None,
     top_parent_model: type["RootNode"]
     | type["ReifiedRelation"]
     | type["SemanticSpace"]
