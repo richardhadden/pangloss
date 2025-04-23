@@ -563,11 +563,14 @@ def test_bound_field_through_semantic_space_with_edit_set_model():
     ]] 
     """
 
-    """ assert (
+    assert (
         Infinitive[DoingThing]
         .EditSet.in_context_of.Order.thing_ordered.model_fields["contents"]
         .annotation
-        == list[DoingThing.Create.in_context_of.Order.thing_ordered]
+        == list[
+            DoingThing.Create.in_context_of.Order.thing_ordered
+            | DoingThing.EditSet.in_context_of.Order.thing_ordered
+        ]
     )
 
     assert (
@@ -577,6 +580,7 @@ def test_bound_field_through_semantic_space_with_edit_set_model():
             .annotation
         )[0]
         == DoingThing.Create.in_context_of.Order.thing_ordered
+        | DoingThing.EditSet.in_context_of.Order.thing_ordered
     )
 
     assert (
@@ -585,4 +589,3 @@ def test_bound_field_through_semantic_space_with_edit_set_model():
         ].annotation
         == Optional[list[Person.ReferenceSet]]
     )
-    """
