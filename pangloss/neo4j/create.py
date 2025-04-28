@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import jsonpatch
 
 from pydantic import AnyHttpUrl, AnyUrl
+
 from ulid import ULID
 from pydantic_extra_types.ulid import ULID as PdULID
 
@@ -18,6 +19,7 @@ from pangloss.model_config.models_base import (
     EditSetBase,
     ReifiedRelationEditSetBase,
     EmbeddedSetBase,
+    SemanticSpaceCreateBase,
 )
 from pangloss.settings import SETTINGS
 from pangloss.model_config.field_definitions import (
@@ -67,7 +69,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase | EditSetBase | ReifiedRelationEditSetBase | EmbeddedSetBase",
+    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase | EditSetBase | ReifiedRelationEditSetBase | EmbeddedSetBase | SemanticSpaceCreateBase",
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -97,7 +99,7 @@ class DeferredQueryObject:
     set_query_strings: list[str]
     params: QueryParams
     return_identifier: Identifier
-    head_id: ULID
+    head_id: ULID | PdULID
     head_type: str | None
 
     def __init__(self):
@@ -125,7 +127,7 @@ class QueryObject:
     set_query_strings: list[str]
     params: QueryParams
     return_identifier: Identifier
-    head_id: ULID
+    head_id: ULID | PdULID
     head_type: str | None
     deferred_query: "DeferredQueryObject"
 
@@ -148,7 +150,7 @@ class QueryObject:
             {"\n".join(self.create_query_strings)}
             {"\n".join(self.set_query_strings)}
             {"\n".join(self.merge_query_strings)}
-            RETURN {self.return_identifier}{{.*, uris: null}}
+            RETURN {self.return_identifier}{{.*, uris: []}}
         """,
         )
 
@@ -207,8 +209,8 @@ def add_create_inline_relation(
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
-    source_node_id: ULID,
-    use_defer: bool = False,
+    source_node_id: ULID | PdULID,
+    semantic_spaces: list[str],
 ):
     """Adds a query for a CreateInline node"""
 
@@ -237,6 +239,7 @@ def add_create_inline_relation(
         instance=target_instance,
         query_object=query_object,
         extra_labels=extra_labels,
+        semantic_spaces=semantic_spaces,
     )
 
     relation_identifier = Identifier()
@@ -261,7 +264,7 @@ def add_deferred_extra_relation(
     query_object: QueryObject,
     relation_definition: RelationFieldDefinition,
     target_node_id: AnyHttpUrl | PdULID | ULID,
-    source_node_id: ULID,
+    source_node_id: ULID | PdULID,
     primary_relation_edge_properties: dict[str, str | list | typing.Any],
 ) -> None:
     """Adds a deferred query to create inferred relations"""
@@ -334,8 +337,7 @@ def add_reference_set_relation(
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
-    source_node_id: ULID,
-    use_defer: bool = False,
+    source_node_id: ULID | PdULID,
 ) -> None:
     """Add relation to existing node"""
     target_node_identifier = Identifier()
@@ -391,7 +393,7 @@ def add_reference_create_relation(
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
-    source_node_id: ULID,
+    source_node_id: ULID | PdULID,
     username: str,
 ):
     target_node_identifier = Identifier()
@@ -486,12 +488,16 @@ def add_reference_create_relation(
 
 def add_create_reified_relation_node_query(
     target_instance: ReifiedCreateBase,
-    source_instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    source_instance: CreateBase
+    | ReifiedCreateBase
+    | EmbeddedCreateBase
+    | EditHeadSetBase
+    | SemanticSpaceCreateBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
-    source_node_id: ULID,
-    use_defer: bool = False,
+    source_node_id: ULID | PdULID,
+    semantic_spaces: list[str],
 ) -> None:
     """Adds a query to a ReifiedRelation"""
 
@@ -524,6 +530,7 @@ def add_create_reified_relation_node_query(
         instance=target_instance,
         query_object=query_object,
         extra_labels=extra_labels,
+        semantic_spaces=semantic_spaces,
     )
 
     relation_identifier = Identifier()
@@ -613,6 +620,7 @@ def add_create_embedded_relation(
     source_node_identifier: Identifier,
     relation_definition: EmbeddedFieldDefinition,
     query_object: QueryObject,
+    semantic_spaces: list[str],
 ):
     extra_labels = ["Embedded", "ReadInline", "DetachDelete", "PGIndexableNode"]
     relation_identifier = Identifier()
@@ -620,6 +628,7 @@ def add_create_embedded_relation(
         instance=target_instance,
         query_object=query_object,
         extra_labels=extra_labels,
+        semantic_spaces=semantic_spaces,
     )
 
     embedded_properties_identifier = query_object.params.add(
@@ -630,6 +639,63 @@ def add_create_embedded_relation(
             CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
             SET {relation_identifier} = ${embedded_properties_identifier}
         """
+    )
+
+
+def add_create_semantic_space_relation(
+    target_instance: SemanticSpaceCreateBase,
+    source_node_identifier: Identifier,
+    relation_definition: RelationFieldDefinition,
+    query_object: QueryObject,
+    source_node_id: ULID,
+    semantic_spaces: list[str],
+) -> None:
+    assert isinstance(target_instance, SemanticSpaceCreateBase)
+
+    edge_properties = dict(getattr(target_instance, "edge_properties", {}))
+    primary_relation_edge_properties = convert_dict_for_writing(
+        {
+            **edge_properties,
+            "reverse_name": relation_definition.reverse_name,
+            "relation_labels": relation_definition.relation_labels,
+            "reverse_relation_labels": relation_definition.reverse_relation_labels,
+            "_pg_primary_rel": True,
+        }
+    )
+    primary_edge_properties_identifier = query_object.params.add(
+        primary_relation_edge_properties
+    )
+
+    extra_labels = [
+        "ReadInline",
+        "CreateInline",
+        "EditInline",
+        "DetachDelete",
+        "PGIndexableNode",
+    ]
+
+    new_node_identifier, new_node_id = add_node_to_create_query_object(
+        instance=target_instance,
+        query_object=query_object,
+        extra_labels=extra_labels,
+        semantic_spaces=semantic_spaces,
+    )
+
+    relation_identifier = Identifier()
+
+    query_object.create_query_strings.append(
+        f"""
+            CREATE ({source_node_identifier})-[{relation_identifier}:{relation_definition.field_name.upper()}]->({new_node_identifier})
+            SET {relation_identifier} = ${primary_edge_properties_identifier}
+        """
+    )
+    add_deferred_extra_relation(
+        query_object=query_object,
+        relation_definition=relation_definition,
+        # target_node_identifier=new_node_identifier,
+        target_node_id=new_node_id,
+        source_node_id=source_node_id,
+        primary_relation_edge_properties=primary_relation_edge_properties,
     )
 
 
@@ -644,30 +710,54 @@ def add_create_relation_query(
     source_instance: CreateBase
     | ReifiedCreateBase
     | EmbeddedCreateBase
-    | EditHeadSetBase,
+    | EditHeadSetBase
+    | SemanticSpaceCreateBase,
     source_node_identifier: Identifier,
     query_object: QueryObject,
     source_node_id: ULID,
     username: str,
+    semantic_spaces: list[str],
 ) -> None:
-    if isinstance(target_instance, EmbeddedCreateBase):
+    if isinstance(target_instance, EmbeddedCreateBase) and isinstance(
+        relation_definition, EmbeddedFieldDefinition
+    ):
         add_create_embedded_relation(
             target_instance=target_instance,
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
             query_object=query_object,
+            semantic_spaces=semantic_spaces,
         )
 
-    elif isinstance(target_instance, CreateBase) and relation_definition.create_inline:
+    elif isinstance(target_instance, SemanticSpaceCreateBase) and isinstance(
+        relation_definition, RelationFieldDefinition
+    ):
+        add_create_semantic_space_relation(
+            target_instance=target_instance,
+            source_node_identifier=source_node_identifier,
+            relation_definition=relation_definition,
+            query_object=query_object,
+            source_node_id=source_node_id,
+            semantic_spaces=semantic_spaces,
+        )
+
+    elif (
+        isinstance(target_instance, CreateBase)
+        and isinstance(relation_definition, RelationFieldDefinition)
+        and relation_definition.create_inline
+    ):
         add_create_inline_relation(
             target_instance=target_instance,
             source_node_identifier=source_node_identifier,
             relation_definition=relation_definition,
             query_object=query_object,
             source_node_id=source_node_id,
+            semantic_spaces=semantic_spaces,
         )
 
-    elif isinstance(target_instance, ReferenceCreateBase):
+    elif isinstance(target_instance, ReferenceCreateBase) and isinstance(
+        relation_definition, RelationFieldDefinition
+    ):
         add_reference_create_relation(
             target_instance=target_instance,
             source_node_identifier=source_node_identifier,
@@ -677,7 +767,9 @@ def add_create_relation_query(
             username=username,
         )
 
-    elif isinstance(target_instance, ReferenceSetBase):
+    elif isinstance(target_instance, ReferenceSetBase) and isinstance(
+        relation_definition, RelationFieldDefinition
+    ):
         add_reference_set_relation(
             target_instance=target_instance,
             source_node_identifier=source_node_identifier,
@@ -686,7 +778,9 @@ def add_create_relation_query(
             source_node_id=source_node_id,
         )
 
-    elif isinstance(target_instance, ReifiedCreateBase):
+    elif isinstance(target_instance, ReifiedCreateBase) and isinstance(
+        relation_definition, RelationFieldDefinition
+    ):
         add_create_reified_relation_node_query(
             target_instance=target_instance,
             source_instance=source_instance,
@@ -694,16 +788,20 @@ def add_create_relation_query(
             relation_definition=relation_definition,
             query_object=query_object,
             source_node_id=source_node_id,
+            semantic_spaces=semantic_spaces,
         )
 
 
 def add_node_to_create_query_object(
-    instance: CreateBase | ReifiedCreateBase | EmbeddedCreateBase,
+    instance: CreateBase
+    | ReifiedCreateBase
+    | EmbeddedCreateBase
+    | SemanticSpaceCreateBase,
     query_object: QueryObject,
+    semantic_spaces: list[str],
     extra_labels: list[str] | None = None,
     head_node: bool = False,
     username: str = "DefaultUser",
-    use_defer: bool = False,
 ) -> tuple[Identifier, ULID]:
     if not extra_labels:
         extra_labels = []
@@ -728,6 +826,7 @@ def add_node_to_create_query_object(
         "id": instance_id,
         "is_deleted": False,
         "marked_for_delete": False,
+        "semantic_spaces": semantic_spaces,
     }
 
     if head_node:
@@ -775,6 +874,10 @@ def add_node_to_create_query_object(
     if instance_uris:
         add_uri_nodes_query(instance_uris, node_identifier, query_object)
 
+    if isinstance(instance, SemanticSpaceCreateBase):
+        semantic_spaces = semantic_spaces.copy()
+        semantic_spaces.append(instance.__pg_base_class__.__name__)
+
     for relation_definition in instance._meta.fields.relation_fields:
         for related_instance in getattr(instance, relation_definition.field_name, []):
             add_create_relation_query(
@@ -785,6 +888,7 @@ def add_node_to_create_query_object(
                 query_object=query_object,
                 source_node_id=instance_id,
                 username=username,
+                semantic_spaces=semantic_spaces,
             )
 
     for embedded_definition in instance._meta.fields.embedded_fields:
@@ -797,13 +901,14 @@ def add_node_to_create_query_object(
                 query_object=query_object,
                 source_node_id=instance_id,
                 username=username,
+                semantic_spaces=semantic_spaces,
             )
 
     return node_identifier, instance_id
 
 
 def build_create_query_object(
-    instance: CreateBase, current_username: str | None = None, use_defer: bool = False
+    instance: CreateBase, current_username: str | None = None
 ) -> QueryObject:
     query_object = QueryObject()
     add_node_to_create_query_object(
@@ -811,6 +916,6 @@ def build_create_query_object(
         query_object=query_object,
         head_node=True,
         username=current_username or "DefaultUser",
-        use_defer=use_defer,
+        semantic_spaces=[],
     )
     return query_object

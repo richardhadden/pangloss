@@ -781,4 +781,5 @@ def test_build_pg_annotations_for_specialising_abstract_classes():
         "created_when",
         "modified_by",
         "modified_when",
+        "semantic_spaces",
     ]

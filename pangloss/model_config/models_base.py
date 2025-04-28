@@ -242,6 +242,7 @@ class ViewBase(
     label: str
     head_node: ULID | None = None
     head_type: str | None = None
+    semantic_spaces: list[str] | None = Field(default_factory=list)
 
 
 class HeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
@@ -258,6 +259,7 @@ class HeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     created_when: datetime.datetime
     modified_by: str | None = None
     modified_when: datetime.datetime | None = None
+    semantic_spaces: list[str] = Field(default_factory=list)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -281,6 +283,7 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
     created_when: datetime.datetime
     modified_by: str | None = None
     modified_when: datetime.datetime | None = None
+    semantic_spaces: list[str] | None = Field(default_factory=list)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -311,6 +314,7 @@ class EditHeadSetBase(
     type: str
     label: str
     uris: list[AnyHttpUrl] = Field(default_factory=list)
+    semantic_spaces: list[str] | None = Field(default_factory=list)
 
     async def update(self, username: str | None = None) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
@@ -332,6 +336,7 @@ class EditSetBase(
     id: ULID
     type: str
     label: str
+    semantic_spaces: list[str] = Field(default_factory=list)
 
 
 class ReferenceViewBase(
@@ -345,7 +350,7 @@ class ReferenceViewBase(
     head_node: ULID | None = None
     head_type: str | None = None
     uris: list[AnyHttpUrl] | None = Field(default_factory=list)
-    semantic_spaces: list[str] | None = Field(default=None)
+    semantic_spaces: list[str] | None = Field(default_factory=list)
 
     def __hash__(self):
         return hash(str(self.id))
@@ -375,7 +380,7 @@ class ReferenceSetBase(
 class ReifiedCreateBase(
     BaseModel, _StandardModel, _BaseClassProxy, _ViaEdge["ReifiedCreateBase"]
 ):
-    pass
+    type: str
 
 
 @dataclasses.dataclass
@@ -471,6 +476,7 @@ class ReifiedRelationViewBase(
     id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
+    semantic_spaces: list[str] = Field(default_factory=list)
 
     @computed_field
     @property
@@ -502,6 +508,7 @@ class ReifiedRelationEditSetBase(
 ):
     type: str
     id: ULID
+    semantic_spaces: list[str] = Field(default_factory=list)
 
 
 class Embedded[T]:
@@ -525,6 +532,7 @@ class EmbeddedViewBase(
     id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
+    semantic_spaces: list[str] = Field(default_factory=list)
 
 
 class EmbeddedSetBase(
@@ -532,6 +540,7 @@ class EmbeddedSetBase(
 ):
     type: str
     id: ULID
+    semantic_spaces: list[str] = Field(default_factory=list)
 
 
 class Trait:
@@ -604,7 +613,16 @@ class SemanticSpaceMeta:
 
     @property
     def type_labels(self) -> list[str]:
-        return [self.base_model.__name__]
+        labels = []
+        for superclass in self.base_model.__mro__:
+            if superclass is SemanticSpace:
+                break
+            if (
+                issubclass(superclass, SemanticSpace)
+                and not superclass.__pydantic_generic_metadata__["origin"]
+            ):
+                labels.append(superclass.__name__)
+        return labels
 
 
 class SemanticSpaceBase(BaseModel, _OwnsMethods):
@@ -647,7 +665,7 @@ class SemanticSpace[T](SemanticSpaceBase, _StandardModel):
     contents: typing.Annotated[
         T,
         RelationConfig(
-            reverse_name="is_target_of", create_inline=True, edit_inline=True
+            reverse_name="is_contents_of", create_inline=True, edit_inline=True
         ),
     ]
 
@@ -673,6 +691,7 @@ class SemanticSpaceViewBase(
     id: ULID
     head_node: typing.Optional[ULID] = None
     head_type: typing.Optional[str] = None
+    semantic_spaces: list[str] = Field(default_factory=list)
 
 
 class SemanticSpaceCreateBase(
@@ -682,7 +701,7 @@ class SemanticSpaceCreateBase(
     _RelationInContextOf["SemanticSpaceCreateBase"],
     _BindingSubModelValidator["SemanticSpaceCreateBase"],
 ):
-    pass
+    type: str
 
 
 class SemanticSpaceEditSetBase(
@@ -694,3 +713,4 @@ class SemanticSpaceEditSetBase(
 ):
     type: str
     id: ULID
+    semantic_spaces: list[str] = Field(default_factory=list)

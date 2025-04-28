@@ -17,6 +17,8 @@ from pangloss.model_config.models_base import (
     EdgeModel,
     HeritableTrait,
     ReifiedRelationNode,
+    SemanticSpace,
+    SemanticSpaceMeta,
 )
 from pangloss.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 from pangloss.neo4j.database import DatabaseUtils
@@ -555,6 +557,111 @@ async def test_list_with_multiple_types():
     magazine = await Magazine(label="A Magazine").create()
 
     search_results = await Text.get_list()
+
     assert len(search_results) == 2
+    print("----")
+    print(search_results.results[0], "\n", magazine)
+
+    assert search_results.results[0] == magazine
 
     assert set(search_results.results) == set([book, magazine])
+    from pangloss.neo4j.database_mixins import SearchResultObject
+
+    sro = SearchResultObject[Magazine.ReferenceView | Book.ReferenceView](
+        **{
+            "page_size": 10,
+            "count": 2,
+            "page": 1,
+            "totalPages": 1,
+            "results": [
+                {
+                    "is_deleted": False,
+                    "marked_for_delete": False,
+                    "semantic_spaces": [],
+                    "id": "01JSKXPQNMQQ7RX77YEZCTPPAX",
+                    "label": "A Magazine",
+                    "type": "Magazine",
+                },
+                {
+                    "is_deleted": False,
+                    "marked_for_delete": False,
+                    "semantic_spaces": [],
+                    "id": "01JSKXSFD0RT7BE3F1RZC0RHB7",
+                    "label": "A Book",
+                    "type": "Book",
+                },
+            ],
+        }
+    )
+
+    assert sro.results[0].semantic_spaces == []
+    assert sro.results[0].semantic_spaces == []
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_create_with_semantic_spaces():
+    class Subjunctives[T](SemanticSpace[T]):
+        """Abstract class for Subjunctive and NegativeSubjunctive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Subjunctive[T: BaseNode](Subjunctives[T]):
+        """Creates a semantic space in which contained statements have
+        an subjunctive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class Person(BaseNode):
+        pass
+
+    class DoingThing(BaseNode):
+        done_by_person: Annotated[Person, RelationConfig(reverse_name="did_a_thing")]
+        when: str
+
+    class Order(BaseNode):
+        when: str
+        person_receiving_order: Annotated[
+            Person, RelationConfig(reverse_name="received_an_order")
+        ]
+        thing_ordered: Annotated[
+            Subjunctives[DoingThing],
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                edit_inline=True,
+            ),
+        ]
+
+    initialise_models()
+
+    person = await Person(label="John Smith").create()
+
+    order = await Order(
+        label="An Order",
+        when="2023-10-01",
+        person_receiving_order=[{"type": "Person", "id": person.id}],
+        thing_ordered=[
+            {
+                "type": "Subjunctive",
+                "contents": [
+                    {
+                        "type": "DoingThing",
+                        "label": "John Smith Did A Thing",
+                        "when": "2023-10-01",
+                        "done_by_person": [{"type": "Person", "id": person.id}],
+                    }
+                ],
+            }
+        ],
+    ).create_and_get()
+
+    assert order
+    assert order.label == "An Order"
+    assert order.thing_ordered[0].type == "Subjunctive"
+    assert order.thing_ordered[0].contents[0].type == "DoingThing"
+    assert order.thing_ordered[0].contents[0].label == "John Smith Did A Thing"
+    assert order.thing_ordered[0].contents[0].when == "2023-10-01"
+    assert order.thing_ordered[0].contents[0].done_by_person[0].type == "Person"
+    assert order.thing_ordered[0].contents[0].done_by_person[0].id == person.id
+    assert order.thing_ordered[0].contents[0].semantic_spaces == ["Subjunctive"]

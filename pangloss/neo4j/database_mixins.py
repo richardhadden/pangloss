@@ -58,8 +58,8 @@ class DatabaseQueryMixin:
         with time_query(f"Building update query time for {self.type}"):
             query_object = await build_update_query(
                 instance=self,
+                semantic_spaces=[],
                 current_username=current_username,
-                use_defer=use_deferred_query,
             )
 
             # build_query_update returns None if diff of with previous value
@@ -124,6 +124,7 @@ class DatabaseQueryMixin:
                 query, typing.cast(dict[str, typing.Any], query_object.params)
             )
             record = await result.value()
+            print(record)
 
         if use_deferred_query:
             pass
@@ -256,5 +257,6 @@ class DatabaseQueryMixin:
             )
             records = await result.value()
             return_object = SearchResultObject[search_result_object_type](**records[0])
+            print(records)
 
             return return_object

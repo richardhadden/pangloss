@@ -48,7 +48,7 @@ def build_get_list_query(
                 UNION
                 MATCH (node)<-[]-(n:BaseNode)
                 MATCH (item:Factoid WHERE n.head_type = "{model.__name__}" AND item.id=n.head_id AND NOT item.is_deleted)
-                RETURN item, score as this_score
+                RETURN item{{.*, uris: []}} as item, score as this_score
             }}
             WITH DISTINCT item, max(this_score) as max_score ORDER BY max_score
             RETURN collect(item) as results, count(item) as total_items
@@ -93,7 +93,7 @@ def build_get_list_query(
                         MATCH (node:{model.__name__} WHERE NOT node.is_deleted)
                         WITH collect(node) AS ns, COUNT (DISTINCT node) as total
                         UNWIND ns AS m
-                        RETURN m as matches, total as total_items ORDER BY m.id DESC SKIP $skip LIMIT $pageSize
+                        RETURN m{{.*, uris: []}} as matches, total as total_items ORDER BY m.id DESC SKIP $skip LIMIT $pageSize
                     }}
                     WITH COLLECT(matches) AS matches_list, total_items
                     RETURN {{results: matches_list, count: total_items, page: $page, page_size: $pageSize, totalPages: toInteger(round((total_items*1.0)/$pageSize, 0, "UP"))}}

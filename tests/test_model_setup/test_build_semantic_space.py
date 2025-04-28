@@ -257,7 +257,7 @@ def test_semanic_space_edit_set_model():
         ]
     )
 
-    order = Order.EditHeadSet(
+    Order.EditHeadSet(
         id=gen_ulid(),
         label="An Order",
         type="Order",
@@ -589,3 +589,48 @@ def test_bound_field_through_semantic_space_with_edit_set_model():
         ].annotation
         == Optional[list[Person.ReferenceSet]]
     )
+
+
+def test_semantic_space_type_labels():
+    class Infinitives[T](SemanticSpace[T]):
+        """Abstract class for Infinitive and NegativeInfinitive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Infinitive[T: BaseNode](Infinitives[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class SubInfinitive[T: BaseNode](Infinitive[T]):
+        """Creates a semantic space in which contained statements have
+        an infinitive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    initialise_models()
+
+    assert SubInfinitive._meta.type_labels == [
+        "SubInfinitive",
+        "Infinitive",
+        "Infinitives",
+    ]
+
+
+def test_semantic_space_appears_in_reference_view():
+    class Magazine(BaseNode):
+        pass
+
+    initialise_models()
+
+    m = Magazine.ReferenceView(
+        type="Magazine",
+        id=gen_ulid(),
+        label="A Magazine",
+        head_node=None,
+        head_type=None,
+        uris=None,
+        semantic_spaces=[],
+    )
+
+    assert m.semantic_spaces == []

@@ -3,7 +3,13 @@ from typing import Annotated, no_type_check
 import pytest
 
 from pangloss import initialise_models
-from pangloss.model_config.models_base import EdgeModel, Embedded, ReifiedRelation
+from pangloss.model_config.models_base import (
+    EdgeModel,
+    Embedded,
+    ReifiedRelation,
+    SemanticSpace,
+    SemanticSpaceMeta,
+)
 from pangloss.models import BaseNode, RelationConfig
 
 
@@ -309,3 +315,105 @@ async def test_update_embedded_node():
     assert factoid_edit_updated.citation[0].source[0].id == book2.id
     assert factoid_edit_updated.citation[0].page_number == 43
     assert factoid_edit_updated.citation[0].id != factoid.citation[0].id
+
+
+@no_type_check
+@pytest.mark.asyncio
+async def test_update_semantic_space():
+    class Subjunctives[T](SemanticSpace[T]):
+        """Abstract class for Subjunctive and NegativeSubjunctive types"""
+
+        class Meta(SemanticSpaceMeta):
+            abstract = True
+
+    class Subjunctive[T: BaseNode](Subjunctives[T]):
+        """Creates a semantic space in which contained statements have
+        an subjunctive (rather than indicative) character, e.g.
+        an order *to do something* (rather than *something was done*)"""
+
+    class NegativeSubjunctive[T: BaseNode](Subjunctives[T]):
+        pass
+
+    class Person(BaseNode):
+        pass
+
+    class DoingThing(BaseNode):
+        done_by_person: Annotated[Person, RelationConfig(reverse_name="did_a_thing")]
+        when: str
+
+    class Order(BaseNode):
+        when: str
+        person_receiving_order: Annotated[
+            Person, RelationConfig(reverse_name="received_an_order")
+        ]
+        thing_ordered: Annotated[
+            Subjunctives[DoingThing],
+            RelationConfig(
+                reverse_name="was_ordered_in",
+                create_inline=True,
+                edit_inline=True,
+            ),
+        ]
+
+    initialise_models()
+
+    person = await Person(label="John Smith").create()
+
+    order = await Order(
+        label="An Order",
+        when="2023-10-01",
+        person_receiving_order=[{"type": "Person", "id": person.id}],
+        thing_ordered=[
+            {
+                "type": "Subjunctive",
+                "contents": [
+                    {
+                        "type": "DoingThing",
+                        "label": "John Smith Did A Thing",
+                        "when": "2023-10-01",
+                        "done_by_person": [{"type": "Person", "id": person.id}],
+                    }
+                ],
+            }
+        ],
+    ).create_and_get()
+
+    assert order
+    assert order.label == "An Order"
+    assert order.thing_ordered[0].type == "Subjunctive"
+    assert order.thing_ordered[0].contents[0].type == "DoingThing"
+    assert order.thing_ordered[0].contents[0].label == "John Smith Did A Thing"
+    assert order.thing_ordered[0].contents[0].when == "2023-10-01"
+    assert order.thing_ordered[0].contents[0].done_by_person[0].type == "Person"
+    assert order.thing_ordered[0].contents[0].done_by_person[0].id == person.id
+    assert order.thing_ordered[0].contents[0].semantic_spaces == ["Subjunctive"]
+
+    await Order.EditHeadSet(
+        id=order.id,
+        label="An Order",
+        when="2023-10-01",
+        person_receiving_order=[{"type": "Person", "id": person.id}],
+        thing_ordered=[
+            {
+                "type": "NegativeSubjunctive",
+                "contents": [
+                    {
+                        "type": "DoingThing",
+                        "label": "John Smith Did A Thing",
+                        "when": "2023-10-01",
+                        "done_by_person": [{"type": "Person", "id": person.id}],
+                    }
+                ],
+            }
+        ],
+    ).update()
+
+    order_from_db = await Order.get_edit_view(id=order.id)
+    assert order_from_db
+    assert order_from_db.id == order.id
+    assert order_from_db.label == "An Order"
+    assert order_from_db.thing_ordered[0].type == "NegativeSubjunctive"
+    assert order_from_db.thing_ordered[0].contents[0].type == "DoingThing"
+    assert order_from_db.thing_ordered[0].contents[0].label == "John Smith Did A Thing"
+    assert order_from_db.thing_ordered[0].contents[0].when == "2023-10-01"
+    assert order_from_db.thing_ordered[0].contents[0].done_by_person[0].type == "Person"
