@@ -2,7 +2,7 @@ import time
 import typing
 from contextlib import contextmanager
 
-from pydantic import BaseModel
+from pydantic import AnyHttpUrl, BaseModel
 from ulid import ULID
 
 from pangloss.exceptions import PanglossNotFoundError
@@ -39,6 +39,10 @@ class SearchResultObject[T](BaseModel, _StandardModel):
     total_pages: int
     page_size: int
     results: list[T]
+    next_page: int | None = None
+    previous_page: int | None = None
+    next_url: AnyHttpUrl | None = None
+    previous_url: AnyHttpUrl | None = None
 
     def __len__(self):
         return self.count
@@ -175,7 +179,7 @@ class DatabaseQueryMixin:
 
     @classmethod
     @database.read_transaction
-    async def get_view(cls, tx: Transaction, id: ULID | str) -> "HeadViewBase":
+    async def get_view(cls, tx: Transaction, id: ULID | AnyHttpUrl) -> "HeadViewBase":
         print("============= GET VIEW")
 
         cls = typing.cast(type["RootNode"], cls)

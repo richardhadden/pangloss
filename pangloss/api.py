@@ -54,15 +54,25 @@ def build_list_handler(model: type[BaseNode]):
         # TODO add get_list method
         result = await model.get_list(q=q, page=page, page_size=pageSize)
 
-        result["nextPage"] = page + 1 if page + 1 <= result["totalPages"] else None
-        result["nextUrl"] = (
-            str(request.url.replace_query_params(q=q, page=page + 1, pageSize=pageSize))
-            if page + 1 <= result["totalPages"]
+        result.next_page = page + 1 if page + 1 <= result.total_pages else None
+        result.next_url = (
+            typing.cast(
+                AnyHttpUrl,
+                request.url.replace_query_params(q=q, page=page + 1, pageSize=pageSize),
+            )
+            if page + 1 <= result.total_pages
             else None
         )
-        result["previousPage"] = page - 1 if page - 1 >= 1 else None
-        result["previousUrl"] = (
-            str(request.url.replace_query_params(q=q, page=page - 1, pageSize=pageSize))
+        result.previous_page = page - 1 if page - 1 >= 1 else None
+        result.previous_url = (
+            typing.cast(
+                AnyHttpUrl,
+                (
+                    request.url.replace_query_params(
+                        q=q, page=page - 1, pageSize=pageSize
+                    )
+                ),
+            )
             if page - 1 >= 1
             else None
         )
@@ -94,7 +104,7 @@ def build_get_handler(model: type["BaseNode"]):
 def build_create_handler(model: type[BaseNode]):
     async def create(
         request: Request,
-        entity: model.Create,
+        entity: model.Create,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
     ) -> model.Create:  # type: ignore
         result = await entity.create(current_username=current_user.username)
