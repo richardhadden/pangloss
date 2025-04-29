@@ -516,6 +516,7 @@ def add_update_relation_query(
             query_object=query_object,
             source_node_id=source_node_id,
             username=username,
+            semantic_spaces=semantic_spaces,
         )
 
     elif isinstance(target_instance, ReferenceSetBase) and isinstance(
@@ -527,6 +528,7 @@ def add_update_relation_query(
             relation_definition=relation_definition,
             query_object=query_object,
             source_node_id=source_node_id,
+            semantic_spaces=semantic_spaces,
         )
 
     elif isinstance(target_instance, ReifiedCreateBase) and isinstance(

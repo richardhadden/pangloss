@@ -224,6 +224,7 @@ def add_create_inline_relation(
             "relation_labels": relation_definition.relation_labels,
             "reverse_relation_labels": relation_definition.reverse_relation_labels,
             "_pg_primary_rel": True,
+            "semantic_spaces": semantic_spaces,
         }
     )
     primary_edge_properties_identifier = query_object.params.add(
@@ -338,6 +339,7 @@ def add_reference_set_relation(
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
     source_node_id: ULID | PdULID,
+    semantic_spaces: list[str],
 ) -> None:
     """Add relation to existing node"""
     target_node_identifier = Identifier()
@@ -364,6 +366,7 @@ def add_reference_set_relation(
             "relation_labels": relation_definition.relation_labels,
             "reverse_relation_labels": relation_definition.reverse_relation_labels,
             "_pg_primary_rel": True,
+            "semantic_spaces": semantic_spaces,
         }
     )
     primary_edge_properties_identifier = query_object.params.add(
@@ -395,6 +398,7 @@ def add_reference_create_relation(
     query_object: QueryObject,
     source_node_id: ULID | PdULID,
     username: str,
+    semantic_spaces: list[str],
 ):
     target_node_identifier = Identifier()
 
@@ -462,6 +466,7 @@ def add_reference_create_relation(
             "relation_labels": relation_definition.relation_labels,
             "reverse_relation_labels": relation_definition.reverse_relation_labels,
             "_pg_primary_rel": True,
+            "semantic_spaces": semantic_spaces,
         }
     )
     primary_edge_properties_identifier = query_object.params.add(
@@ -511,6 +516,7 @@ def add_create_reified_relation_node_query(
             "relation_labels": relation_definition.relation_labels,
             "reverse_relation_labels": relation_definition.reverse_relation_labels,
             "_pg_primary_rel": True,
+            "semantic_spaces": semantic_spaces,
         }
     )
     primary_edge_properties_identifier = query_object.params.add(
@@ -589,6 +595,7 @@ def add_create_reified_relation_node_query(
             "_pg_superclass_of": relation_definition.field_name,
             "_pg_shortcut": True,
             "head_id": str(source_node_id),
+            "semantic_spaces": semantic_spaces,
         }
     )
     reverse_sub_edge_properties_identifier = query_object.deferred_query.params.add(
@@ -597,6 +604,7 @@ def add_create_reified_relation_node_query(
             "_pg_superclass_of": relation_definition.reverse_name,
             "_pg_shortcut": True,
             "head_id": str(source_node_id),
+            "semantic_spaces": semantic_spaces,
         }
     )
 
@@ -660,6 +668,7 @@ def add_create_semantic_space_relation(
             "relation_labels": relation_definition.relation_labels,
             "reverse_relation_labels": relation_definition.reverse_relation_labels,
             "_pg_primary_rel": True,
+            "semantic_spaces": semantic_spaces,
         }
     )
     primary_edge_properties_identifier = query_object.params.add(
@@ -765,6 +774,7 @@ def add_create_relation_query(
             query_object=query_object,
             source_node_id=source_node_id,
             username=username,
+            semantic_spaces=semantic_spaces,
         )
 
     elif isinstance(target_instance, ReferenceSetBase) and isinstance(
@@ -776,6 +786,7 @@ def add_create_relation_query(
             relation_definition=relation_definition,
             query_object=query_object,
             source_node_id=source_node_id,
+            semantic_spaces=semantic_spaces,
         )
 
     elif isinstance(target_instance, ReifiedCreateBase) and isinstance(
