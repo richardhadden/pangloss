@@ -87,8 +87,11 @@ def add_edit_reified_relation_node_query(
     | ReifiedCreateBase
     | EmbeddedCreateBase
     | EditHeadSetBase
+    | SemanticSpaceCreateBase
     | SemanticSpaceEditSetBase
-    | SemanticSpaceCreateBase,
+    | EditSetBase
+    | ReifiedRelationEditSetBase
+    | EmbeddedSetBase,
     source_node_identifier: Identifier,
     query_object: QueryObject,
     source_node_id: ULID | PydanticULID,
@@ -451,6 +454,10 @@ def add_update_relation_query(
     | EmbeddedCreateBase
     | EditHeadSetBase
     | SemanticSpaceCreateBase
+    | SemanticSpaceEditSetBase
+    | EditSetBase
+    | ReifiedRelationEditSetBase
+    | EmbeddedSetBase
     | SemanticSpaceEditSetBase,
     source_node_identifier: Identifier,
     query_object: QueryObject,

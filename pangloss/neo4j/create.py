@@ -20,6 +20,7 @@ from pangloss.model_config.models_base import (
     ReifiedRelationEditSetBase,
     EmbeddedSetBase,
     SemanticSpaceCreateBase,
+    SemanticSpaceEditSetBase,
 )
 from pangloss.settings import SETTINGS
 from pangloss.model_config.field_definitions import (
@@ -69,7 +70,19 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: "CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase | EditSetBase | ReifiedRelationEditSetBase | EmbeddedSetBase | SemanticSpaceCreateBase",
+    instance: CreateBase
+    | ReifiedCreateBase
+    | EmbeddedCreateBase
+    | ReferenceCreateBase
+    | EditHeadSetBase
+    | EditSetBase
+    | ReifiedRelationEditSetBase
+    | EmbeddedSetBase
+    | SemanticSpaceCreateBase
+    | EditSetBase
+    | ReifiedRelationEditSetBase
+    | EmbeddedSetBase
+    | SemanticSpaceEditSetBase,
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -497,7 +510,11 @@ def add_create_reified_relation_node_query(
     | ReifiedCreateBase
     | EmbeddedCreateBase
     | EditHeadSetBase
-    | SemanticSpaceCreateBase,
+    | SemanticSpaceCreateBase
+    | SemanticSpaceEditSetBase
+    | EditSetBase
+    | ReifiedRelationEditSetBase
+    | EmbeddedSetBase,
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
@@ -655,7 +672,7 @@ def add_create_semantic_space_relation(
     source_node_identifier: Identifier,
     relation_definition: RelationFieldDefinition,
     query_object: QueryObject,
-    source_node_id: ULID,
+    source_node_id: ULID | PdULID,
     semantic_spaces: list[str],
 ) -> None:
     assert isinstance(target_instance, SemanticSpaceCreateBase)
