@@ -1,4 +1,8 @@
-"""Utiility functions for managing an external Uvicorn test process.
+"""
+# This file is part of safir.
+https://github.com/lsst-sqre/safir/blob/main/safir/src/safir/testing/uvicorn.py
+
+Utiility functions for managing an external Uvicorn test process.
 
 Normally, ASGI apps are tested via the built-in support in HTTPX for running
 an ASGI app directly. However, sometimes the app has to be spawned in a
