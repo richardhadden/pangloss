@@ -628,6 +628,7 @@ name = "pangloss"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "authx" },
     { name = "authx-extra" },
     { name = "bcrypt" },
@@ -643,6 +644,7 @@ dependencies = [
     { name = "python-forge" },
     { name = "python-ulid", extra = ["pydantic"] },
     { name = "rich" },
+    { name = "structlog" },
     { name = "typer" },
 ]
 
@@ -659,6 +661,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.8.0" },
     { name = "authx", specifier = ">=1.4.1" },
     { name = "authx-extra", specifier = ">=1.2.0" },
     { name = "bcrypt", specifier = ">=4.3.0" },
@@ -674,6 +677,7 @@ requires-dist = [
     { name = "python-forge", specifier = ">=18.6.0" },
     { name = "python-ulid", extras = ["pydantic"], specifier = ">=3.0.0" },
     { name = "rich", specifier = ">=13.9.4" },
+    { name = "structlog", specifier = ">=25.3.0" },
     { name = "typer", specifier = ">=0.15.2" },
 ]
 
@@ -1135,6 +1139,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/44/b6/fb9a32e3c5d59b1e383c357534c63c2d3caa6f25bf3c59dd89d296ecbaec/starlette-0.46.0.tar.gz", hash = "sha256:b359e4567456b28d473d0193f34c0de0ed49710d75ef183a74a5ce0499324f50", size = 2575568 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/41/94/8af675a62e3c91c2dee47cf92e602cfac86e8767b1a1ac3caf1b327c2ab0/starlette-0.46.0-py3-none-any.whl", hash = "sha256:913f0798bd90ba90a9156383bcf1350a17d6259451d0d8ee27fc0cf2db609038", size = 71991 },
+]
+
+[[package]]
+name = "structlog"
+version = "25.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/6a/b0b6d440e429d2267076c4819300d9929563b1da959cf1f68afbcd69fe45/structlog-25.3.0.tar.gz", hash = "sha256:8dab497e6f6ca962abad0c283c46744185e0c9ba900db52a423cb6db99f7abeb", size = 1367514 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/52/7a2c7a317b254af857464da3d60a0d3730c44f912f8c510c76a738a207fd/structlog-25.3.0-py3-none-any.whl", hash = "sha256:a341f5524004c158498c3127eecded091eb67d3a611e7a3093deca30db06e172", size = 68240 },
 ]
 
 [[package]]

@@ -8,6 +8,7 @@ from pangloss.exceptions import PanglossNotFoundError
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_functions.utils import get_all_subclasses
 from pangloss.models import BaseNode
+from pangloss.neo4j.utils import SearchResultObject
 from pangloss.users.routes import User, get_current_active_user
 
 if typing.TYPE_CHECKING:
@@ -50,7 +51,7 @@ def build_list_handler(model: type[BaseNode]):
         q: str = "",
         page: int = 1,
         pageSize: int = 50,
-    ) -> ListResponse[allowed_types]:  # type: ignore
+    ) -> SearchResultObject[allowed_types]:  # type: ignore
         # TODO add get_list method
         result = await model.get_list(q=q, page=page, page_size=pageSize)
 

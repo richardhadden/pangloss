@@ -89,8 +89,9 @@ def build_get_list_query(
         }
 
     else:
+        print("building no search term")
         query = f"""CALL () {{
-                        MATCH (node:{model.__name__} WHERE NOT node.is_deleted)
+                        OPTIONAL MATCH (node:{model.__name__} WHERE NOT node.is_deleted)
                         WITH collect(node) AS ns, COUNT (DISTINCT node) as total
                         UNWIND ns AS m
                         RETURN m{{.*, uris: []}} as matches, total as total_items ORDER BY m.id DESC SKIP $skip LIMIT $pageSize

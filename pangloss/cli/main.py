@@ -34,7 +34,7 @@ Project = typing.Annotated[
 ]
 
 
-def start_project_settings():
+def start_project_settings(project_path):
     if not project_path:
         raise PanglossInitialisationError(
             "No Pangloss Project specified in pyproject.toml or via --project flag"
@@ -46,6 +46,8 @@ def start_project_settings():
     try:
         Database.initialise_default_database(settings)
         for app in settings.INSTALLED_APPS:
+            print("app", app)
+            __import__(app)
             __import__(f"{app}.models")
             try:
                 __import__(f"{app}.background_tasks")
@@ -53,10 +55,12 @@ def start_project_settings():
                 pass
             try:
                 m = __import__(f"{app}.cli")
+                print(m)
                 c = m.cli.__dict__.get("cli")
                 if c:
                     cli_app.add_typer(c, name=c.info.name)
-
+            except AttributeError:
+                pass
             except ModuleNotFoundError:
                 raise PanglossInitialisationError(
                     f"Could not find module {app} declared in {project_path}.settings.INSTALLED_APPS"
@@ -66,10 +70,17 @@ def start_project_settings():
 
 
 @cli_app.command(help="Starts development server")
-def run():
-    start_project_settings()
+def run(
+    Project=typing.Annotated[
+        Path, typer.Option(exists=False, help="The path of the project to run")
+    ],
+):
+    project_path = get_project_path()
+
+    start_project_settings(project_path)
     settings = get_project_settings(str(project_path))
-    reload_watch_list = ["--reload-dir", project_path]
+    reload_watch_list = []  # ["--reload-dir", project_path]
+
     for installed_app in settings.INSTALLED_APPS:
         m = __import__(installed_app)
 
@@ -86,9 +97,12 @@ def run():
         subtitle_align="right",
     )
     print("\n\n", panel, "\n\n")
+
+    pp = ".".join(Path(typing.cast(str, project_path)).parts)
+
     sc_command = [
         "uvicorn",
-        f"{str(project_path)}.main:app",
+        f"{str(pp)}.main:app",
         "--lifespan",
         "on",
         "--reload",
@@ -99,7 +113,8 @@ def run():
 
 @cli_app.command()
 def setup_database():
-    start_project_settings()
+    project_path = get_project_path()
+    start_project_settings(project_path)
     install_indexes_and_constraints()
 
 

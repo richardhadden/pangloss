@@ -2,16 +2,16 @@ import time
 import typing
 from contextlib import contextmanager
 
-from pydantic import AnyHttpUrl, BaseModel
+from pydantic import AnyHttpUrl
 from ulid import ULID
 
 from pangloss.exceptions import PanglossNotFoundError
-from pangloss.model_config.model_base_mixins import _StandardModel
 from pangloss.neo4j.create import build_create_query_object
 from pangloss.neo4j.database import Transaction, database
 from pangloss.neo4j.list import build_get_list_query
 from pangloss.neo4j.read import build_edit_view_query, build_view_read_query
 from pangloss.neo4j.update import build_update_query
+from pangloss.neo4j.utils import SearchResultObject
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
@@ -31,21 +31,6 @@ def time_query(label: str = "Query time"):
     elapsed_time = time.perf_counter() - start_time
     print(f"{label}:", elapsed_time)
     return elapsed_time
-
-
-class SearchResultObject[T](BaseModel, _StandardModel):
-    count: int
-    page: int
-    total_pages: int
-    page_size: int
-    results: list[T]
-    next_page: int | None = None
-    previous_page: int | None = None
-    next_url: AnyHttpUrl | None = None
-    previous_url: AnyHttpUrl | None = None
-
-    def __len__(self):
-        return self.count
 
 
 class DatabaseQueryMixin:
@@ -260,7 +245,18 @@ class DatabaseQueryMixin:
                 query, typing.cast(dict[str, typing.Any], query_params)
             )
             records = await result.value()
+            if not records:
+                return SearchResultObject[search_result_object_type](
+                    results=[],
+                    count=0,
+                    page=1,
+                    total_pages=1,
+                    page_size=10,
+                    next_page=None,
+                    previous_page=None,
+                    next_url=None,
+                    previous_url=None,
+                )
             return_object = SearchResultObject[search_result_object_type](**records[0])
-            print(records)
 
             return return_object

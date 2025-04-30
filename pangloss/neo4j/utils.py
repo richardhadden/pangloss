@@ -5,6 +5,8 @@ import uuid
 import pydantic
 from ulid import ULID
 
+from pangloss.model_config.model_base_mixins import _StandardModel
+
 if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import (
         EditSetBase,
@@ -146,3 +148,18 @@ def get_properties_as_writeable_dict(
             data[key] = convert_type_for_writing(value)
 
     return data
+
+
+class SearchResultObject[T](pydantic.BaseModel, _StandardModel):
+    count: int
+    page: int
+    total_pages: int
+    page_size: int
+    results: list[T]
+    next_page: int | None = None
+    previous_page: int | None = None
+    next_url: pydantic.AnyHttpUrl | None = None
+    previous_url: pydantic.AnyHttpUrl | None = None
+
+    def __len__(self):
+        return self.count
