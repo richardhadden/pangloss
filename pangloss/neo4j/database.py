@@ -37,11 +37,12 @@ class Database:
     def __init__(
         self, settings: "BaseSettings", instance_identifier: int | None = None
     ):
+        print("INITIALISING DATABASE")
         if settings is None:
             return
 
         self.settings = settings
-        self._initialise_driver()
+        # self._initialise_driver()
 
         # Because @read_transaction and @write_transaction are decorators,
         # "self" is bound with non-functioning instance before initialisation of the db;
@@ -49,16 +50,16 @@ class Database:
         # to look up the instance
         self.__class__._instances[instance_identifier or id(self)] = self
 
-    def _initialise_driver(self):
+    async def _initialise_driver(self):
         self.driver = neo4j.AsyncGraphDatabase.driver(
             self.settings.DB_URL,
             auth=(self.settings.DB_USER, self.settings.DB_PASSWORD),
             keep_alive=True,
         )
 
-    def _check_driver(self):
-        if self.driver._closed:
-            self._initialise_driver()
+    async def _check_driver(self):
+        if not getattr(self, "driver", None) or self.driver._closed:
+            await self._initialise_driver()
 
     @typing.overload
     def read_transaction[ModelType, ReturnType, **Params](
@@ -108,7 +109,7 @@ class Database:
             instance: ModelType, *args: Params.args, **kwargs: Params.kwargs
         ) -> ReturnType:
             this: "Database" = self.__class__._instances[id(self)]
-            this._check_driver()
+            await this._check_driver()
             # async with neo4j.AsyncGraphDatabase.driver(uri, auth=auth) as driver:
             async with this.driver.session(
                 database=this.settings.DB_DATABASE_NAME
@@ -169,7 +170,7 @@ class Database:
             **kwargs: Params.kwargs,
         ) -> ReturnType:
             this: "Database" = self.__class__._instances[id(self)]
-            this._check_driver()
+            await this._check_driver()
 
             async with this.driver.session(
                 database=this.settings.DB_DATABASE_NAME
@@ -198,9 +199,14 @@ class Database:
         return wrapper
 
     @staticmethod
-    def initialise_default_database(settings: "BaseSettings") -> "Database":
+    def initialise_default_database(
+        settings: "BaseSettings", instance_identifier: int | None = None
+    ) -> "Database":
         global database
-        database = Database(settings=settings, instance_identifier=id(database))
+
+        database = Database(
+            settings=settings, instance_identifier=instance_identifier or id(database)
+        )
         return database
 
     async def close(self):

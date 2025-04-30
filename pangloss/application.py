@@ -9,7 +9,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from pangloss.auth import security
 from pangloss.model_config.model_manager import ModelManager
-from pangloss.neo4j.database import Database
+from pangloss.neo4j.database import Database, database
 from pangloss.settings import BaseSettings
 from pangloss.users.routes import setup_user_routes
 
@@ -17,7 +17,8 @@ logger = logging.getLogger("uvicorn.info")
 RunningBackgroundTasks = []
 
 
-def get_application(settings: BaseSettings):
+def get_application(settings: BaseSettings, db_instance_identifier: int | None = None):
+    print("calling get application")
     DEVELOPMENT_MODE = "--reload" in sys.argv  # Dumb hack!
 
     from pangloss.api import setup_api_routes
@@ -29,7 +30,6 @@ def get_application(settings: BaseSettings):
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Load the ML model
         for task in BackgroundTaskRegistry:
             if not DEVELOPMENT_MODE or task["run_in_dev"]:
                 running_task = asyncio.create_task(task["function"]())  # type: ignore
@@ -48,6 +48,8 @@ def get_application(settings: BaseSettings):
         for task in RunningBackgroundTasks:
             task.cancel()
 
+        await database.close()
+
         logging.info("Background tasks closed")
 
     for installed_app in settings.INSTALLED_APPS:
@@ -65,14 +67,16 @@ def get_application(settings: BaseSettings):
             pass
 
     ModelManager.initialise_models()
+    Database.initialise_default_database(
+        settings, instance_identifier=db_instance_identifier
+    )
 
-    Database.initialise_default_database(settings)
     _app: FastAPI = FastAPI(
         title=settings.PROJECT_NAME,
         swagger_ui_parameters={"defaultModelExpandDepth": 1, "deepLinking": True},
         lifespan=lifespan,
     )
-
+    _app.add_event_handler("startup", lambda: print("RUNNING STARTUP!!"))
     _app = setup_api_routes(_app, settings)
     _app = setup_user_routes(_app, settings)
     _app.add_middleware(
