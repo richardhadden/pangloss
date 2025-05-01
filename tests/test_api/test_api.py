@@ -62,4 +62,9 @@ async def test_list_with_search(server):
         response = await client.get("/api/MyModel/?q=Melon")
         assert response.status_code == 200
         data = response.json()
+
+    async with httpx.AsyncClient(base_url=server.url) as client:
+        response = await client.get("/api/MyModel/?q=tomato")
+        assert response.status_code == 200
+        data = response.json()
         assert data["count"] == 1
