@@ -80,7 +80,7 @@ def get_application(settings: BaseSettings, initialise_database: bool = True):
         allow_origins=settings.BACKEND_CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
+        allow_headers=["authorization"],
     )
     _app.add_middleware(GZipMiddleware, minimum_size=400)
     security.handle_errors(_app)

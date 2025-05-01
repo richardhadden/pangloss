@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pangloss.users.models import User
 
 config = AuthXConfig()
+config.JWT_HEADER_NAME = "Authorization"
 config.JWT_ALGORITHM = "HS256"
 config.JWT_SECRET_KEY = "SECRET_KEY"
 config.JWT_TOKEN_LOCATION = ["headers", "query", "cookies", "json"]

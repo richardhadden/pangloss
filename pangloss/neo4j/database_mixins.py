@@ -94,7 +94,7 @@ class DatabaseQueryMixin:
         current_username: str | None = None,
         use_deferred_query: bool = False,
         return_edit_view: bool = True,
-    ) -> "ReferenceViewBase":
+    ) -> "ReferenceViewBase | EditHeadSetBase | tuple[ReferenceViewBase, typing.Callable]":
         print("============= CREATE")
 
         self = typing.cast("CreateBase", self)
@@ -115,8 +115,26 @@ class DatabaseQueryMixin:
             record = await result.value()
             print(record)
 
+        response = typing.cast("RootNode", self.__pg_base_class__).ReferenceView(
+            **record[0]
+        )
+
         if use_deferred_query:
-            pass
+            deferred_query = typing.cast(
+                typing.LiteralString, query_object.deferred_query.to_query_string()
+            )
+
+            @database.write_transaction
+            async def deferred_create_method(tx: Transaction):
+                print("============= DEFERRED CREATE")
+                with time_query(f"Deferred create query time for {self.type}"):
+                    result = await tx.run(
+                        typing.cast(typing.LiteralString, deferred_query),
+                        typing.cast(
+                            dict[str, typing.Any], query_object.deferred_query.params
+                        ),
+                    )
+                return result, deferred_create_method
 
         if query_object.deferred_query.params:
             deferred_query = typing.cast(
@@ -135,13 +153,9 @@ class DatabaseQueryMixin:
                     ),
                 )
 
-        response = typing.cast("RootNode", self.__pg_base_class__).ReferenceView(
-            **record[0]
-        )
-
         if not return_edit_view:
             return response
-        print("=============")
+
         with time_query(f"Building read query time for {self.type}"):
             query, query_params = build_edit_view_query(
                 model=self.__pg_base_class__, id=str(response.id)

@@ -20,7 +20,8 @@ from pangloss.users.models import User, UserCreate, UserInDB
 
 @security.set_subject_getter  # type: ignore
 async def get_user_from_uid(uid: str, *args) -> User:
-    user_in_db = await UserInDB.get(username=uid)
+    user_in_db = await UserInDB.get_by_email(email=uid)
+
     if user_in_db:
         return User(**dict(user_in_db))
     raise HTTPException(401, detail={"message": "Session/Token failed"})
@@ -30,6 +31,7 @@ async def get_current_active_user(
     awaitable_user: Annotated[Awaitable[User], Depends(security.get_current_subject)],
 ):
     current_user = await awaitable_user
+
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

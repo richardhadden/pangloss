@@ -57,3 +57,20 @@ class UserInDB(User):
                 return __class__(**user[0])
         except IndexError:
             return None
+
+    @classmethod
+    @database.read_transaction
+    async def get_by_email(cls, tx: Transaction, email: str) -> "UserInDB | None":
+        query = """
+        MATCH (user:PGUser)
+        WHERE user.email = $email
+        RETURN user
+        """
+        params = {"email": email}
+        result = await tx.run(query, params)
+        user = await result.value()
+        try:
+            if user and user[0]:
+                return __class__(**user[0])
+        except IndexError:
+            return None
