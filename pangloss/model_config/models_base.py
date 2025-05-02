@@ -216,13 +216,14 @@ class CreateBase(
     async def create_and_get(self, username: str | None = None) -> "EditHeadSetBase":
         """Create this instance in the database and return the created object"""
         return await self.__pg_base_class__._create_method(  # type: ignore
-            self, username, return_edit_view=True
+            self, current_username=username, return_edit_view=True
         )
 
     async def create(self, username: str | None = None) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
+        print("CreateBase create", username)
         return await self.__pg_base_class__._create_method(  # type: ignore
-            self, username, return_edit_view=False
+            self, current_username=username, return_edit_view=False
         )
 
 

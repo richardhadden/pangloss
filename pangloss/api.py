@@ -107,8 +107,9 @@ def build_create_handler(model: type[BaseNode]):
         request: Request,
         entity: model.Create,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
-    ) -> model.Create:  # type: ignore
-        result = await entity.create(current_username=current_user.username)
+    ) -> model.ReferenceView:  # type: ignore
+        print("handler", current_user.username)
+        result = await entity.create(username=current_user.username)
         # await deferred_query()
         return result
 

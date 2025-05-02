@@ -98,7 +98,7 @@ class DatabaseQueryMixin:
         print("============= CREATE")
 
         self = typing.cast("CreateBase", self)
-
+        print("current username", current_username)
         with time_query(f"Building create query time for {self.type}"):
             query_object = build_create_query_object(
                 instance=self, current_username=current_username

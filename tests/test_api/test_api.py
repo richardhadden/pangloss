@@ -145,8 +145,8 @@ async def test_create(server):
         result = await client.post(
             "api/MyModel/new",
             json={
-                "label": "Tomato",
-                "name": "Tomato",
+                "label": "Gherkin",
+                "name": "Gherkin",
                 "type": "MyModel",
             },
             headers={
@@ -156,3 +156,5 @@ async def test_create(server):
         )
 
         assert result.status_code == 200
+
+        assert False

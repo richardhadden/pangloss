@@ -939,6 +939,7 @@ def build_create_query_object(
     instance: CreateBase, current_username: str | None = None
 ) -> QueryObject:
     query_object = QueryObject()
+    print("build create query", current_username)
     add_node_to_create_query_object(
         instance=instance,
         query_object=query_object,
