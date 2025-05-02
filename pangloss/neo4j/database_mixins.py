@@ -97,8 +97,10 @@ class DatabaseQueryMixin:
     ) -> "ReferenceViewBase | EditHeadSetBase | tuple[ReferenceViewBase, typing.Callable]":
         print("============= CREATE")
 
+        print("use_deferred_query", use_deferred_query)
+
         self = typing.cast("CreateBase", self)
-        print("current username", current_username)
+
         with time_query(f"Building create query time for {self.type}"):
             query_object = build_create_query_object(
                 instance=self, current_username=current_username
@@ -128,13 +130,14 @@ class DatabaseQueryMixin:
             async def deferred_create_method(tx: Transaction):
                 print("============= DEFERRED CREATE")
                 with time_query(f"Deferred create query time for {self.type}"):
-                    result = await tx.run(
+                    await tx.run(
                         typing.cast(typing.LiteralString, deferred_query),
                         typing.cast(
                             dict[str, typing.Any], query_object.deferred_query.params
                         ),
                     )
-                return result, deferred_create_method
+
+            return (response, deferred_create_method)
 
         if query_object.deferred_query.params:
             deferred_query = typing.cast(

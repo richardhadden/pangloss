@@ -69,7 +69,7 @@ def start_project_settings(project_path):
         print("Cannot start app")
 
 
-@cli_app.command(help="Starts development server")
+@cli_app.command(name="dev", help="Starts development server")
 def run(
     Project=typing.Annotated[
         Path, typer.Option(exists=False, help="The path of the project to run")

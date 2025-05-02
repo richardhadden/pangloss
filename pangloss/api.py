@@ -7,12 +7,16 @@ from ulid import ULID
 from pangloss.exceptions import PanglossNotFoundError
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.model_setup_functions.utils import get_all_subclasses
+from pangloss.model_config.models_base import CreateBase
 from pangloss.models import BaseNode
 from pangloss.neo4j.utils import SearchResultObject
 from pangloss.users.routes import User, get_current_active_user
 
 if typing.TYPE_CHECKING:
     from pangloss.settings import BaseSettings
+
+
+LOCKED: set[ULID] = set()
 
 
 class SuccessResponse(BaseModel):
@@ -108,9 +112,13 @@ def build_create_handler(model: type[BaseNode]):
         entity: model.Create,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
     ) -> model.ReferenceView:  # type: ignore
-        print("handler", current_user.username)
-        result = await entity.create(username=current_user.username)
-        # await deferred_query()
+        entity = typing.cast(CreateBase, entity)
+        result, deferred_query = await entity.create(
+            username=current_user.username, use_deferred_query=True
+        )
+        LOCKED.add(result.id)
+        await deferred_query()
+        LOCKED.remove(result.id)
         return result
 
     return create

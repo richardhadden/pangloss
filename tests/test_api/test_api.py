@@ -156,5 +156,3 @@ async def test_create(server):
         )
 
         assert result.status_code == 200
-
-        assert False

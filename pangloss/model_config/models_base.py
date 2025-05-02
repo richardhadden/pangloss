@@ -219,11 +219,16 @@ class CreateBase(
             self, current_username=username, return_edit_view=True
         )
 
-    async def create(self, username: str | None = None) -> "ReferenceViewBase":
+    async def create(
+        self, username: str | None = None, use_deferred_query: bool = False
+    ) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
-        print("CreateBase create", username)
+
         return await self.__pg_base_class__._create_method(  # type: ignore
-            self, current_username=username, return_edit_view=False
+            self,
+            current_username=username,
+            use_deferred_query=use_deferred_query,
+            return_edit_view=False,
         )
 
 
