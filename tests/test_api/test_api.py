@@ -1,4 +1,6 @@
 import asyncio
+import datetime
+import typing
 
 import httpx
 import pytest
@@ -8,7 +10,7 @@ from tests.test_api.test_app.models import MyModel
 
 
 @pytest.mark.asyncio
-async def test_docs(server):
+async def test_get_docs(server):
     async with httpx.AsyncClient(base_url=server.url) as client:
         response = await client.get("/docs")
         assert response.status_code == 200
@@ -16,11 +18,27 @@ async def test_docs(server):
 
 
 @pytest.mark.asyncio
-async def test_docs2(server):
+async def test_docs_endpoints(server):
     async with httpx.AsyncClient(base_url=server.url) as client:
         response = await client.get("/openapi.json")
         assert response.status_code == 200
-        assert "/api/MyModel/" in response.json()["paths"]
+        docs = response.json()
+        assert docs
+        assert "/api/MyModel/" in docs["paths"]
+
+        assert docs["paths"]["/api/MyModel/"]["get"]["operationId"] == "MyModelIndex"
+        assert docs["paths"]["/api/MyModel/{id}"]["get"]["operationId"] == "MyModelGet"
+        assert (
+            docs["paths"]["/api/MyModel/new"]["post"]["operationId"] == "MyModelCreate"
+        )
+        assert (
+            docs["paths"]["/api/MyModel/{id}/edit"]["get"]["operationId"]
+            == "MyModelEditGet"
+        )
+        assert (
+            docs["paths"]["/api/MyModel/{id}/edit"]["patch"]["operationId"]
+            == "MyModelEditPatch"
+        )
 
 
 @pytest.mark.asyncio
@@ -115,10 +133,12 @@ async def test_get_user_token(server):
         assert "access_token" in data
 
 
+@typing.no_type_check
 @pytest.mark.asyncio
 async def test_create(server):
     await user()
 
+    # Check we cannot create when not logged in
     async with httpx.AsyncClient(base_url=server.url) as client:
         result = await client.post(
             "api/MyModel/new",
@@ -127,6 +147,7 @@ async def test_create(server):
 
         assert result.status_code == 401
 
+    # Do log in
     async with httpx.AsyncClient(base_url=server.url) as client:
         # Test with real password works
         response = await client.post(
@@ -137,8 +158,7 @@ async def test_create(server):
         data = response.json()
         assert "access_token" in data
 
-        print(data["access_token"])
-
+    # Now check we can create with authorisation token
     async with httpx.AsyncClient(
         base_url=server.url,
     ) as client:
@@ -156,3 +176,43 @@ async def test_create(server):
         )
 
         assert result.status_code == 200
+
+    data = result.json()
+    gherkin_id = data["id"]
+    assert gherkin_id
+
+    # Check the created item is in the database
+    gherkin_from_db = await MyModel.get_view(id=gherkin_id)
+    assert gherkin_from_db
+    assert gherkin_from_db.id == gherkin_id
+    assert gherkin_from_db.label == "Gherkin"
+    assert gherkin_from_db.name == "Gherkin"
+    assert gherkin_from_db.created_by == "testuser"
+    assert gherkin_from_db.created_when < datetime.datetime.now(datetime.timezone.utc)
+
+    # And check we can get the same item via the API
+    async with httpx.AsyncClient(
+        base_url=server.url,
+    ) as client:
+        result = await client.get(f"/api/MyModel/{gherkin_id}")
+        assert result.status_code == 200
+        data = result.json()
+        assert data
+        assert data["id"] == gherkin_id
+
+
+@typing.no_type_check
+@pytest.mark.asyncio
+async def test_create_with_deferred(server):
+    await user()
+
+    # Do log in
+    async with httpx.AsyncClient(base_url=server.url) as client:
+        # Test with real password works
+        response = await client.post(
+            "api/users/token",
+            json={"username": "testuser", "password": "testpassword"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data

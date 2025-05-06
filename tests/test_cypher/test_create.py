@@ -559,8 +559,6 @@ async def test_list_with_multiple_types():
     search_results = await Text.get_list()
 
     assert len(search_results) == 2
-    print("----")
-    print(search_results.results[0], "\n", magazine)
 
     assert search_results.results[0] == magazine
 
