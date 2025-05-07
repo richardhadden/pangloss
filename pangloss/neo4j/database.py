@@ -142,15 +142,15 @@ class Database:
         self,
         func: Callable[
             Concatenate[ModelType, neo4j.AsyncManagedTransaction, Params],
-            Awaitable[ReturnType],
+            Awaitable[ReturnType | None],
         ]
         | Callable[
             Concatenate[neo4j.AsyncManagedTransaction, Params],
-            Awaitable[ReturnType],
+            Awaitable[ReturnType | None],
         ],
     ) -> (
-        Callable[Concatenate[ModelType, Params], Awaitable[ReturnType]]
-        | Callable[Concatenate[Params], Awaitable[ReturnType]]
+        Callable[Concatenate[ModelType, Params], Awaitable[ReturnType | None]]
+        | Callable[Concatenate[Params], Awaitable[ReturnType | None]]
     ):
         """Decorator to run a database read transaction
 

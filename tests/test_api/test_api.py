@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import time
 import typing
 
 import httpx
@@ -262,6 +263,7 @@ async def test_create_with_deferred(server):
     async with httpx.AsyncClient(
         base_url=server.url,
     ) as client:
+        start = time.perf_counter()
         result = await client.patch(
             f"api/SubSubThing/{result_id}/edit",
             json={
@@ -280,12 +282,14 @@ async def test_create_with_deferred(server):
                 "Content-Type": "application/json",
             },
         )
+        print("update time", time.perf_counter() - start)
 
         assert result.status_code == 200
 
     async with httpx.AsyncClient(
         base_url=server.url,
     ) as client:
+        start = time.perf_counter()
         result = await client.patch(
             f"api/SubSubThing/{result_id}/edit",
             json={
@@ -304,6 +308,8 @@ async def test_create_with_deferred(server):
                 "Content-Type": "application/json",
             },
         )
+
+        print("update time", time.perf_counter() - start)
 
         assert result.status_code == 200
 
@@ -333,3 +339,5 @@ async def test_create_with_deferred(server):
         {},
     )
     assert check_result3
+
+    assert False

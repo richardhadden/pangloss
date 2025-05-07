@@ -107,6 +107,17 @@ class DatabaseQueryMixin:
                     ),
                 )
 
+    @typing.overload
+    @database.write_transaction
+    async def _create_method(
+        self,
+        tx: Transaction,
+        current_username: str | None = None,
+        use_deferred_query: bool = True,
+        return_edit_view: bool = False,
+    ):
+        tuple[ReferenceViewBase, typing.Callable[[None], typing.Awaitable[None]]]
+
     @database.write_transaction
     async def _create_method(
         self,
