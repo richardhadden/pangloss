@@ -167,13 +167,23 @@ class RootNode(_OwnsMethods):
     __pg_annotations__: typing.ClassVar["ChainMap[str, type]"]
     __pg_field_definitions__: typing.ClassVar["ModelFieldDefinitions"]
 
+    def __init_subclass__(cls):
+        from pangloss.model_config.model_manager import ModelManager
+
+        ModelManager.register_base_model(typing.cast("type[BaseNode]", cls))
+
+    def __new__(cls, *args, **kwargs):
+        return cls.Create(*args, **kwargs)
+
+    # Functions for pretty API
     class edit:
+        # TODO: rig up this to the init — or make into descriptor??
         __pg_base_class__: typing.ClassVar["type[RootNode]"]
 
         @classmethod
         def get(cls, id: ULID | AnyHttpUrl) -> "EditHeadViewBase":
             # TODO: Sketching API so far
-            return cls.__pg_base_class__.EditHeadView()
+            return cls.__pg_base_class__.EditHeadView()  # type: ignore
 
         def __new__(cls, *args, **kwargs) -> "EditSetBase":
             # TODO: Sketching API so far
@@ -186,14 +196,6 @@ class RootNode(_OwnsMethods):
         def get(cls, id: ULID | AnyHttpUrl):
             # TODO: Sketching API so far
             return cls.__pg_base_class__.HeadView
-
-    def __init_subclass__(cls):
-        from pangloss.model_config.model_manager import ModelManager
-
-        ModelManager.register_base_model(typing.cast("BaseNode", cls))
-
-    def __new__(cls, *args, **kwargs):
-        return cls.Create(*args, **kwargs)
 
 
 class CreateBase(
@@ -215,8 +217,12 @@ class CreateBase(
 
     async def create_and_get(self, username: str | None = None) -> "EditHeadSetBase":
         """Create this instance in the database and return the created object"""
-        return await self.__pg_base_class__._create_method(  # type: ignore
-            self, current_username=username, return_edit_view=True
+
+        return await typing.cast("BaseNode", self.__pg_base_class__)._create_method(
+            self,
+            current_username=username,
+            return_edit_view=True,
+            use_deferred_query=False,
         )
 
     async def create(
@@ -224,7 +230,7 @@ class CreateBase(
     ) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
 
-        return await self.__pg_base_class__._create_method(  # type: ignore
+        return await typing.cast("BaseNode", self.__pg_base_class__)._create_method(
             self,
             current_username=username,
             use_deferred_query=use_deferred_query,
@@ -298,10 +304,15 @@ class EditHeadViewBase(BaseModel, _StandardModel, _BaseClassProxy):
             return value.to_native()
         return value
 
-    async def update(self, username: str | None = None) -> "ReferenceViewBase":
-        """Create this instance in the database and return a Reference object"""
-        return await self.__pg_base_class__._update_method(  # type: ignore
-            self, current_username=username or "DefaultUser"
+    async def update(
+        self, username: str | None = None, use_deferred_query: bool = False
+    ):
+        """Update this instance in the database"""
+
+        return await typing.cast("BaseNode", self.__pg_base_class__)._update_method(
+            self,
+            current_username=username or "DefaultUser",
+            use_deferred_query=use_deferred_query,
         )
 
 
@@ -324,9 +335,9 @@ class EditHeadSetBase(
 
     async def update(
         self, username: str | None = None, use_deferred_query: bool = False
-    ) -> "ReferenceViewBase":
-        """Create this instance in the database and return a Reference object"""
-        return await self.__pg_base_class__._update_method(  # type: ignore
+    ) -> None:
+        """Write this instance to the database"""
+        return await typing.cast("BaseNode", self.__pg_base_class__)._update_method(
             self,
             current_username=username or "DefaultUser",
             use_deferred_query=use_deferred_query,

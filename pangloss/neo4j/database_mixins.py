@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
         ReferenceViewBase,
         RootNode,
     )
+    from pangloss.models import BaseNode
 
 
 @contextmanager
@@ -35,14 +36,37 @@ def time_query(label: str = "Query time"):
 
 
 class DatabaseQueryMixin:
+    @typing.overload
+    @staticmethod
+    async def _update_method(
+        item: "EditHeadSetBase",
+        current_username: str = "DefaultUser",
+        use_deferred_query: bool = False,
+    ) -> None: ...
+
+    @typing.overload
+    @staticmethod
+    async def _update_method(
+        item: "EditHeadViewBase",
+        current_username: str = "DefaultUser",
+        use_deferred_query: bool = False,
+    ) -> None: ...
+
+    @typing.overload
+    @staticmethod
+    async def _update_method(
+        item: "EditHeadSetBase",
+        current_username: str = "DefaultUser",
+        use_deferred_query: typing.Literal[True] = True,
+    ) -> typing.Awaitable[None]: ...
+
     @database.write_transaction
     async def _update_method(
         self,
         tx: Transaction,
         current_username: str = "DefaultUser",
         use_deferred_query: bool = False,
-    ):
-        print("============= UPDATE")
+    ) -> None | typing.Callable[[None], typing.Awaitable[None]]:
         self = typing.cast("EditHeadSetBase", self)
 
         with time_query(f"Building update query time for {self.type}"):
@@ -51,11 +75,10 @@ class DatabaseQueryMixin:
                 semantic_spaces=[],
                 current_username=current_username,
             )
-
             # build_query_update returns None if diff of with previous value
             # results in no changes
             if query_object is None:
-                return self
+                return None
 
             query = query_object.to_query_string()
 
@@ -88,7 +111,9 @@ class DatabaseQueryMixin:
                 except asyncio.CancelledError:
                     await tx._close()
 
-            return (record, deferred_update_method)
+            return typing.cast(
+                typing.Callable[[None], typing.Awaitable[None]], deferred_update_method
+            )
 
         if query_object.deferred_query.params:
             deferred_query = typing.cast(
@@ -108,15 +133,33 @@ class DatabaseQueryMixin:
                 )
 
     @typing.overload
-    @database.write_transaction
+    @staticmethod
     async def _create_method(
-        self,
-        tx: Transaction,
+        item,
         current_username: str | None = None,
+        use_deferred_query: bool = False,
+        return_edit_view: typing.Literal[False] = False,
+    ) -> "ReferenceViewBase": ...
+
+    @typing.overload
+    @staticmethod
+    async def _create_method(
+        item,
+        current_username: str | None = None,
+        use_deferred_query: typing.Literal[False] = False,
+        return_edit_view: typing.Literal[True] = True,
+    ) -> "EditHeadSetBase": ...
+
+    @typing.overload
+    @staticmethod
+    async def _create_method(
+        item,
+        current_username: str,
         use_deferred_query: bool = True,
         return_edit_view: bool = False,
-    ):
-        tuple[ReferenceViewBase, typing.Callable[[None], typing.Awaitable[None]]]
+    ) -> tuple[
+        "ReferenceViewBase", typing.Callable[[None], typing.Awaitable[None]]
+    ]: ...
 
     @database.write_transaction
     async def _create_method(
@@ -192,7 +235,8 @@ class DatabaseQueryMixin:
 
         with time_query(f"Building read query time for {self.type}"):
             query, query_params = build_edit_view_query(
-                model=self.__pg_base_class__, id=str(response.id)
+                model=typing.cast("type[RootNode]", self.__pg_base_class__),
+                id=str(response.id),
             )
 
         with open("get_edit_query_dump.cypher", "w") as f:
@@ -204,7 +248,9 @@ class DatabaseQueryMixin:
             )
             record = await result.value()
             if record:
-                result = self.__pg_base_class__.EditHeadSet(**record[0])
+                result = typing.cast("BaseNode", self.__pg_base_class__).EditHeadSet(
+                    **record[0]
+                )
             else:
                 raise PanglossNotFoundError(f"Object <{self.type} id='{id}'> not found")
 

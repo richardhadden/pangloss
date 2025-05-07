@@ -187,7 +187,7 @@ def build_patch_edit_handler(model: type[BaseNode]):
 
         try:
             # Do the update, and get deferred update query
-            result, deferred_query = await entity.update(
+            deferred_query = await entity.update(
                 username=current_user.username, use_deferred_query=True
             )
         except PanglossNotFoundError:
