@@ -1,3 +1,4 @@
+import asyncio
 import time
 import typing
 from contextlib import contextmanager
@@ -38,7 +39,7 @@ class DatabaseQueryMixin:
     async def _update_method(
         self,
         tx: Transaction,
-        current_username: str | None = None,
+        current_username: str = "DefaultUser",
         use_deferred_query: bool = False,
     ):
         print("============= UPDATE")
@@ -65,10 +66,29 @@ class DatabaseQueryMixin:
             result = await tx.run(
                 query, typing.cast(dict[str, typing.Any], query_object.params)
             )
+
             record = await result.value()
+            record = record[0]
 
         if use_deferred_query:
-            pass
+            deferred_query = typing.cast(
+                typing.LiteralString, query_object.deferred_query.to_query_string()
+            )
+
+            @database.write_transaction
+            async def deferred_update_method(tx: Transaction):
+                try:
+                    await tx.run(
+                        typing.cast(typing.LiteralString, deferred_query),
+                        typing.cast(
+                            dict[str, typing.Any],
+                            query_object.deferred_query.params,
+                        ),
+                    )
+                except asyncio.CancelledError:
+                    await tx._close()
+
+            return (record, deferred_update_method)
 
         if query_object.deferred_query.params:
             deferred_query = typing.cast(
@@ -96,8 +116,6 @@ class DatabaseQueryMixin:
         return_edit_view: bool = True,
     ) -> "ReferenceViewBase | EditHeadSetBase | tuple[ReferenceViewBase, typing.Callable]":
         print("============= CREATE")
-
-        print("use_deferred_query", use_deferred_query)
 
         self = typing.cast("CreateBase", self)
 
@@ -128,14 +146,16 @@ class DatabaseQueryMixin:
 
             @database.write_transaction
             async def deferred_create_method(tx: Transaction):
-                print("============= DEFERRED CREATE")
-                with time_query(f"Deferred create query time for {self.type}"):
+                try:
                     await tx.run(
                         typing.cast(typing.LiteralString, deferred_query),
                         typing.cast(
-                            dict[str, typing.Any], query_object.deferred_query.params
+                            dict[str, typing.Any],
+                            query_object.deferred_query.params,
                         ),
                     )
+                except asyncio.CancelledError:
+                    await tx._close()
 
             return (response, deferred_create_method)
 

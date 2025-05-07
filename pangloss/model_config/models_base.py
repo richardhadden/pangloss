@@ -322,10 +322,14 @@ class EditHeadSetBase(
     uris: list[AnyHttpUrl] = Field(default_factory=list)
     semantic_spaces: list[str] | None = Field(default_factory=list)
 
-    async def update(self, username: str | None = None) -> "ReferenceViewBase":
+    async def update(
+        self, username: str | None = None, use_deferred_query: bool = False
+    ) -> "ReferenceViewBase":
         """Create this instance in the database and return a Reference object"""
         return await self.__pg_base_class__._update_method(  # type: ignore
-            self, current_username=username or "DefaultUser"
+            self,
+            current_username=username or "DefaultUser",
+            use_deferred_query=use_deferred_query,
         )
 
 

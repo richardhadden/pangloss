@@ -5,8 +5,9 @@ import typing
 import httpx
 import pytest
 
+from pangloss.neo4j.database import DatabaseUtils
 from pangloss.users.utils import create_user
-from tests.test_api.test_app.models import MyModel
+from tests.test_api.test_app.models import MyModel, Person
 
 
 @pytest.mark.asyncio
@@ -204,7 +205,25 @@ async def test_create(server):
 @typing.no_type_check
 @pytest.mark.asyncio
 async def test_create_with_deferred(server):
+    """Testing deferred create and update queries
+
+    In this test, we create an item, which triggers a
+    deferred create query.
+
+    Then we immediately start an update of the same item while
+    the deferred create query is still running.
+
+    The deferred create query should then be cancelled,
+    and the new update query run.
+
+    Then immediately call a second update, which should
+    cancel the deferred query of the first update.
+    """
     await user()
+
+    person = await Person(label="A Person").create()
+    person2 = await Person(label="A Second Person").create()
+    person3 = await Person(label="A Third Person").create()
 
     # Do log in
     async with httpx.AsyncClient(base_url=server.url) as client:
@@ -216,3 +235,101 @@ async def test_create_with_deferred(server):
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
+
+    async with httpx.AsyncClient(
+        base_url=server.url,
+    ) as client:
+        result = await client.post(
+            "api/SubSubThing/new",
+            json={
+                "type": "SubSubThing",
+                "label": "A SubSubThing",
+                "is_person_of_subsubthing": [
+                    {
+                        "type": "Person",
+                        "id": str(person.id),
+                    }
+                ],
+            },
+            headers={
+                "Authorization": f"Bearer {data['access_token']}",
+                "Content-Type": "application/json",
+            },
+        )
+        assert result.status_code == 200
+        result_id = result.json()["id"]
+
+    async with httpx.AsyncClient(
+        base_url=server.url,
+    ) as client:
+        result = await client.patch(
+            f"api/SubSubThing/{result_id}/edit",
+            json={
+                "id": result_id,
+                "type": "SubSubThing",
+                "label": "A SubSubThing",
+                "is_person_of_subsubthing": [
+                    {
+                        "type": "Person",
+                        "id": str(person2.id),
+                    }
+                ],
+            },
+            headers={
+                "Authorization": f"Bearer {data['access_token']}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        assert result.status_code == 200
+
+    async with httpx.AsyncClient(
+        base_url=server.url,
+    ) as client:
+        result = await client.patch(
+            f"api/SubSubThing/{result_id}/edit",
+            json={
+                "id": result_id,
+                "type": "SubSubThing",
+                "label": "A SubSubThing",
+                "is_person_of_subsubthing": [
+                    {
+                        "type": "Person",
+                        "id": str(person3.id),
+                    }
+                ],
+            },
+            headers={
+                "Authorization": f"Bearer {data['access_token']}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        assert result.status_code == 200
+
+    # Allow this to sleep for the deferred update query to take effect
+    await asyncio.sleep(1)
+
+    # Now do a manual check of the database to check the deferred part
+    # (the superclass of the relation) is correct in all places
+
+    # For person1, should not match
+    check_result = await DatabaseUtils._cypher_read(
+        f"""MATCH (sst:SubSubThing {{id: "{result_id}"}})-[:IS_PERSON_OF_THING]->(p:Person {{id: "{person.id}"}}) RETURN sst, p""",
+        {},
+    )
+    assert not check_result
+
+    # For person2, should not match
+    check_result2 = await DatabaseUtils._cypher_read(
+        f"""MATCH (sst:SubSubThing {{id: "{result_id}"}})-[:IS_PERSON_OF_THING]->(p:Person {{id: "{person2.id}"}}) RETURN sst, p""",
+        {},
+    )
+    assert not check_result2
+
+    # For person3, should match
+    check_result3 = await DatabaseUtils._cypher_read(
+        f"""MATCH (sst:SubSubThing {{id: "{result_id}"}})-[:IS_PERSON_OF_THING]->(p:Person {{id: "{person3.id}"}}) RETURN sst, p""",
+        {},
+    )
+    assert check_result3

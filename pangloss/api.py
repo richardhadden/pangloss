@@ -1,6 +1,7 @@
+import asyncio
 import typing
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from pydantic import AnyHttpUrl, BaseModel
 from ulid import ULID
 
@@ -16,7 +17,38 @@ if typing.TYPE_CHECKING:
     from pangloss.settings import BaseSettings
 
 
-LOCKED: set[ULID] = set()
+class DeferredQueryRunner:
+    creation_deferred_tasks: dict[str, asyncio.Task] = {}
+    updating_deferred_tasks: dict[str, asyncio.Task] = {}
+
+    @classmethod
+    def run_deferred_create(cls, instance_id: ULID, task: typing.Callable) -> None:
+        task_id = str(instance_id)
+        cls.creation_deferred_tasks[task_id] = asyncio.create_task(task())
+
+        def on_complete(a):
+            cls.creation_deferred_tasks.pop(task_id, None)
+
+        cls.creation_deferred_tasks[task_id].add_done_callback(on_complete)
+
+    @classmethod
+    def run_deferred_update(cls, instance_id: ULID, task: typing.Callable) -> None:
+        task_id = str(instance_id)
+        cls.updating_deferred_tasks[task_id] = asyncio.create_task(task())
+
+        def on_complete(a):
+            cls.updating_deferred_tasks.pop(task_id, None)
+
+        cls.updating_deferred_tasks[task_id].add_done_callback(on_complete)
+
+    @classmethod
+    def stop_deferred(cls, instance_id: ULID) -> None:
+        task_id = str(instance_id)
+
+        if task_id in cls.creation_deferred_tasks:
+            cls.creation_deferred_tasks[task_id].cancel()
+        if task_id in cls.updating_deferred_tasks:
+            cls.updating_deferred_tasks[task_id].cancel()
 
 
 class SuccessResponse(BaseModel):
@@ -108,6 +140,7 @@ def build_get_handler(model: type["BaseNode"]):
 
 def build_create_handler(model: type[BaseNode]):
     async def create(
+        background_tasks: BackgroundTasks,
         request: Request,
         entity: model.Create,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
@@ -116,9 +149,11 @@ def build_create_handler(model: type[BaseNode]):
         result, deferred_query = await entity.create(
             username=current_user.username, use_deferred_query=True
         )
-        LOCKED.add(result.id)
-        await deferred_query()
-        LOCKED.remove(result.id)
+        print("starting deferred for", result.id)
+        loop = asyncio.get_event_loop()
+        print("loop", loop)
+        DeferredQueryRunner.run_deferred_create(result.id, deferred_query)
+
         return result
 
     return create
@@ -137,6 +172,7 @@ def build_get_edit_handler(model: type[BaseNode]):
 
 def build_patch_edit_handler(model: type[BaseNode]):
     async def patch_edit(
+        background_tasks: BackgroundTasks,
         id: ULID,
         entity: model.EditHeadSet,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
@@ -145,10 +181,20 @@ def build_patch_edit_handler(model: type[BaseNode]):
         if entity.id != id:
             raise HTTPException(status_code=400, detail="Bad request")
 
+        # If a deferred write task on this object is already running,
+        # stop it
+        DeferredQueryRunner.stop_deferred(instance_id=id)
+
         try:
-            await entity.update(username=current_user.username)
+            # Do the update, and get deferred update query
+            result, deferred_query = await entity.update(
+                username=current_user.username, use_deferred_query=True
+            )
         except PanglossNotFoundError:
             raise HTTPException(status_code=404, detail="Item not found")
+
+        # Run the deferred update query
+        DeferredQueryRunner.run_deferred_update(id, deferred_query)
         return SuccessResponse(detail="Update successful")
 
     return patch_edit

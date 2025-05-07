@@ -11,6 +11,7 @@ from typing import (
 )
 
 import neo4j
+import neo4j.exceptions
 from rich import print
 
 if typing.TYPE_CHECKING:
@@ -167,7 +168,7 @@ class Database:
             instance: ModelType | None = None,
             *args: Params.args,
             **kwargs: Params.kwargs,
-        ) -> ReturnType:
+        ) -> ReturnType | None:
             this: "Database" = self.__class__._instances[id(self)]
             this._check_driver()
 
@@ -178,7 +179,12 @@ class Database:
                     bound_func = functools.partial(func, instance)
                 else:
                     bound_func = func
-                records = await session.execute_write(bound_func, **kwargs)  # type: ignore
+
+                records = None
+                try:
+                    records = await session.execute_write(bound_func, **kwargs)  # type: ignore
+                except neo4j.exceptions.TransactionError:
+                    pass
 
                 return records
 
@@ -269,6 +275,18 @@ class DatabaseUtils:
     @database.write_transaction
     @staticmethod
     async def _cypher_write(tx: Transaction, query: str, params: dict = {}):
+        print("---")
+        print(tx, query)
+        result = await tx.run(
+            query,  # type: ignore
+            **params,
+        )
+        records = await result.values()
+        return records
+
+    @database.read_transaction
+    @staticmethod
+    async def _cypher_read(query: str, tx: Transaction, params: dict = {}):
         print("---")
         print(tx, query)
         result = await tx.run(
