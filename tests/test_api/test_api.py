@@ -339,5 +339,3 @@ async def test_create_with_deferred(server):
         {},
     )
     assert check_result3
-
-    assert False
