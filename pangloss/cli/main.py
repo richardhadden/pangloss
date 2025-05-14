@@ -46,7 +46,6 @@ def start_project_settings(project_path):
     try:
         Database.initialise_default_database(settings)
         for app in settings.INSTALLED_APPS:
-            print("app", app)
             __import__(app)
             __import__(f"{app}.models")
             try:
@@ -55,7 +54,7 @@ def start_project_settings(project_path):
                 pass
             try:
                 m = __import__(f"{app}.cli")
-                print(m)
+
                 c = m.cli.__dict__.get("cli")
                 if c:
                     cli_app.add_typer(c, name=c.info.name)
@@ -124,5 +123,10 @@ project_path = get_project_path()
 def cli():
     """Initialises the Typer-based CLI by checking installed app folders
     for a cli.py file and finding Typer apps inside."""
-
+    try:
+        start_project_settings(project_path)
+    except Exception:
+        pass
+    # Ugly hack that supresses all cli errors. Need some way to mark whether a
+    # cli app needs a project or not!
     return cli_app()
