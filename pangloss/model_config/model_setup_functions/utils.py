@@ -257,6 +257,7 @@ def get_root_semantic_space_subclasses(
     if not cls:
         return set()
     subclasses = []
+    print(cls)
     if not cls.__pydantic_generic_metadata__["origin"] and not cls._meta.abstract:
         subclasses.append(cls)
 

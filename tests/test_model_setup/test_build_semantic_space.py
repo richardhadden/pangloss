@@ -636,16 +636,21 @@ def test_semantic_space_appears_in_reference_view():
     assert m.semantic_spaces == []
 
 
-def test_recursive_semantic_space_generic():
+def test_self_reference_semantic_space_generic():
+    class Negation[T](SemanticSpace[T]):
+        pass
+
     class CreationOfObject(BaseNode):
         pass
 
     class Order(BaseNode):
         thing_ordered: Annotated[
-            "SemanticSpace[Order | CreationOfObject]",
+            "Negation[Order | CreationOfObject]",
             RelationConfig(
                 reverse_name="was_ordered_in",
                 create_inline=True,
                 edit_inline=True,
             ),
         ]
+
+    initialise_models()
