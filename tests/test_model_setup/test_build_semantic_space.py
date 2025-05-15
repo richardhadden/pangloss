@@ -654,3 +654,20 @@ def test_self_reference_semantic_space_generic():
         ]
 
     initialise_models()
+
+    assert type(Order.Create._meta.fields["thing_ordered"]) is RelationFieldDefinition
+
+    Order(
+        label="An Order",
+        thing_ordered=[
+            {
+                "type": "Negation",
+                "contents": [
+                    {
+                        "type": "CreationOfObject",
+                        "label": "A Creation",
+                    },
+                ],
+            }
+        ],
+    )

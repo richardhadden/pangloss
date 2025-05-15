@@ -153,6 +153,7 @@ def resolve_forward_ref(annotation: typing.Any):
                     **ModelManager.edge_models,
                     **ModelManager.multikeyfields_models,
                     **ModelManager.trait_models,
+                    **ModelManager.semantic_space_models,
                 },
                 localns={**frame.f_locals, **locals()},
                 type_params=(),

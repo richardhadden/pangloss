@@ -10,6 +10,7 @@ from pangloss.model_config.models_base import (
     RelationConfig,
     RootNode,
     SemanticSpace,
+    SemanticSpaceMeta,
 )
 from pangloss.neo4j.database_mixins import DatabaseQueryMixin
 
@@ -24,6 +25,7 @@ reexported = (
     EdgeModel,
     HeritableTrait,
     SemanticSpace,
+    SemanticSpaceMeta,
 )
 
 

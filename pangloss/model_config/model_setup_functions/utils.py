@@ -2,9 +2,6 @@ import inspect
 import types
 import typing
 
-from pydantic import BaseModel
-from pydantic.fields import FieldInfo
-
 from pangloss.model_config.field_definitions import (
     RelationToNodeDefinition,
     RelationToSemanticSpaceDefinition,
@@ -27,6 +24,8 @@ from pangloss.model_config.models_base import (
     SemanticSpace,
 )
 from pangloss.models import BaseNode
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 
 # TODO: This is not necessary at all as far as I can tell
@@ -257,7 +256,7 @@ def get_root_semantic_space_subclasses(
     if not cls:
         return set()
     subclasses = []
-    print(cls)
+
     if not cls.__pydantic_generic_metadata__["origin"] and not cls._meta.abstract:
         subclasses.append(cls)
 
