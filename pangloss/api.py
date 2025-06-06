@@ -1,5 +1,6 @@
 import asyncio
 import typing
+from threading import Lock
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from pydantic import AnyHttpUrl, BaseModel
@@ -18,37 +19,46 @@ if typing.TYPE_CHECKING:
 
 
 class DeferredQueryRunner:
+    deferred_queries_lock = Lock()
+
     creation_deferred_tasks: dict[str, asyncio.Task] = {}
     updating_deferred_tasks: dict[str, asyncio.Task] = {}
 
     @classmethod
     def run_deferred_create(cls, instance_id: ULID, task: typing.Callable) -> None:
         task_id = str(instance_id)
-        cls.creation_deferred_tasks[task_id] = asyncio.create_task(task())
+        with cls.deferred_queries_lock:
+            cls.creation_deferred_tasks[task_id] = asyncio.create_task(task())
 
         def on_complete(a):
-            cls.creation_deferred_tasks.pop(task_id, None)
+            with cls.deferred_queries_lock:
+                cls.creation_deferred_tasks.pop(task_id, None)
 
-        cls.creation_deferred_tasks[task_id].add_done_callback(on_complete)
+        with cls.deferred_queries_lock:
+            cls.creation_deferred_tasks[task_id].add_done_callback(on_complete)
 
     @classmethod
     def run_deferred_update(cls, instance_id: ULID, task: typing.Callable) -> None:
         task_id = str(instance_id)
-        cls.updating_deferred_tasks[task_id] = asyncio.create_task(task())
+
+        with cls.deferred_queries_lock:
+            cls.updating_deferred_tasks[task_id] = asyncio.create_task(task())
 
         def on_complete(a):
-            cls.updating_deferred_tasks.pop(task_id, None)
+            with cls.deferred_queries_lock:
+                cls.updating_deferred_tasks.pop(task_id, None)
 
-        cls.updating_deferred_tasks[task_id].add_done_callback(on_complete)
+        with cls.deferred_queries_lock:
+            cls.updating_deferred_tasks[task_id].add_done_callback(on_complete)
 
     @classmethod
     def stop_deferred(cls, instance_id: ULID) -> None:
         task_id = str(instance_id)
-
-        if task_id in cls.creation_deferred_tasks:
-            cls.creation_deferred_tasks[task_id].cancel()
-        if task_id in cls.updating_deferred_tasks:
-            cls.updating_deferred_tasks[task_id].cancel()
+        with cls.deferred_queries_lock:
+            if task_id in cls.creation_deferred_tasks:
+                cls.creation_deferred_tasks[task_id].cancel()
+            if task_id in cls.updating_deferred_tasks:
+                cls.updating_deferred_tasks[task_id].cancel()
 
 
 class SuccessResponse(BaseModel):
@@ -149,9 +159,7 @@ def build_create_handler(model: type[BaseNode]):
         result, deferred_query = await entity.create(
             username=current_user.username, use_deferred_query=True
         )
-        print("starting deferred for", result.id)
-        loop = asyncio.get_event_loop()
-        print("loop", loop)
+
         DeferredQueryRunner.run_deferred_create(result.id, deferred_query)
 
         return result
