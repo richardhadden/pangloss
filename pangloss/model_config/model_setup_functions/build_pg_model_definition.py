@@ -719,13 +719,25 @@ def build_pg_bound_model_definition_for_instatiated_reified(
                 if isinstance(relation_definition, RelationToNodeDefinition):
                     field_type_definitions.append(relation_definition)
                 elif isinstance(relation_definition, RelationToTypeVarDefinition):
-                    new_relation_definition = create_relation_with_bound_type(
-                        typing.cast(
-                            type[RootNode] | type[ReifiedRelation],
-                            model.model_fields[field.field_name].annotation,
+                    if is_union(model.model_fields[field.field_name].annotation):
+                        for union_part in typing.get_args(
+                            model.model_fields[field.field_name].annotation
+                        ):
+                            new_relation_definition = create_relation_with_bound_type(
+                                typing.cast(
+                                    type[RootNode] | type[ReifiedRelation],
+                                    union_part,
+                                )
+                            )
+                            field_type_definitions.append(new_relation_definition)
+                    else:
+                        new_relation_definition = create_relation_with_bound_type(
+                            typing.cast(
+                                type[RootNode] | type[ReifiedRelation],
+                                model.model_fields[field.field_name].annotation,
+                            )
                         )
-                    )
-                    field_type_definitions.append(new_relation_definition)
+                        field_type_definitions.append(new_relation_definition)
             annotation = model.model_fields[field.field_name].annotation
             annotation = typing.cast(annotation_types, annotation)
             field_as_dict = {

@@ -19,6 +19,13 @@ if typing.TYPE_CHECKING:
 
 
 class DeferredQueryRunner:
+    """A class to manage deferred queries for creating and updating instances.
+    It uses asyncio tasks to run the deferred queries in the background.
+
+    If a deferred query is already running for a specific instance,
+    it will cancel the existing deferred query.
+    """
+
     deferred_queries_lock = Lock()
 
     creation_deferred_tasks: dict[str, asyncio.Task] = {}

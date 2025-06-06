@@ -31,6 +31,7 @@ from pangloss.model_config.models_base import (
     HeadViewBase,
     HeritableTrait,
     MultiKeyField,
+    ReifiedRelationNode,
 )
 from pangloss.models import BaseNode, Embedded, ReifiedRelation, RelationConfig
 
@@ -797,3 +798,46 @@ def test_build_pg_annotations_for_specialising_abstract_classes():
         "modified_when",
         "semantic_spaces",
     ]
+
+
+def test_build_relation_field_to_reified_with_union_of_types_curious():
+    class Certainty(EdgeModel):
+        certainty: float
+
+    class TestReifiedRelation[T](ReifiedRelation[T]):
+        pass
+
+    class User(BaseNode):
+        pass
+
+    class Identification[T](ReifiedRelation[T]):
+        target: typing.Annotated[
+            T, RelationConfig(reverse_name="is_target_of", edge_model=Certainty)
+        ]
+
+    class WithProxy[T](ReifiedRelationNode[T]):
+        proxy: typing.Annotated[
+            T,
+            RelationConfig(reverse_name="acts_as_proxy_in"),
+        ]
+
+    class Person(BaseNode):
+        pass
+
+    class Test(BaseNode):
+        tested_person: typing.Annotated[
+            TestReifiedRelation[WithProxy[Identification[Person]] | User],
+            RelationConfig(reverse_name="was_tested_in"),
+        ]
+
+    field_definition = build_field_definition(
+        "relation_to_union",
+        typing.Annotated[
+            TestReifiedRelation[WithProxy[Identification[Person]] | User],
+            RelationConfig(reverse_name="was_tested_in"),
+        ],
+        Test,
+    )
+
+    print(field_definition)
+    assert False
