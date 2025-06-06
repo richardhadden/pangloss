@@ -27,6 +27,7 @@ if typing.TYPE_CHECKING:
 
 @dataclasses.dataclass
 class FieldDefinition:
+    field_annotation: typing.Any
     field_name: str
     field_metatype: typing.ClassVar[
         typing.Literal["Field"]
@@ -86,6 +87,12 @@ class ListFieldDefinition(FieldDefinition):
         default_factory=list
     )
     """Validators for each item in the list type"""
+
+
+@dataclasses.dataclass
+class EnumFieldDefinition(FieldDefinition):
+    field_annotation: type[enum.Enum]
+    field_metatype: typing.ClassVar[typing.Literal["EnumField"]] = "EnumField"
 
 
 @dataclasses.dataclass

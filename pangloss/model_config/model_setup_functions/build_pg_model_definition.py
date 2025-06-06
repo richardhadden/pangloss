@@ -2,6 +2,7 @@ import dataclasses
 import inspect
 import types
 import typing
+from enum import Enum
 
 import annotated_types
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
+    EnumFieldDefinition,
     FieldDefinition,
     ListFieldDefinition,
     ModelFieldDefinitions,
@@ -593,8 +595,11 @@ def build_field_definition(
             multi_key_field_value_validators=multi_key_field_value_validators,
         )
 
-    # Finally, any base annotation value
-    # e.g. str
+    if inspect.isclass(annotation) and issubclass(annotation, Enum):
+        return EnumFieldDefinition(
+            field_name=field_name,
+            field_annotation=annotation,
+        )
 
     return PropertyFieldDefinition(
         field_name=field_name,

@@ -1,4 +1,5 @@
 import typing
+from enum import Enum
 
 import annotated_types
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
+    EnumFieldDefinition,
     ListFieldDefinition,
     MultiKeyFieldDefinition,
     PropertyFieldDefinition,
@@ -519,6 +521,18 @@ def test_build_multi_key_field_definition():
     assert multi_key_field_definition.field_annotation is UncertainValue[str]
     assert multi_key_field_definition.multi_key_field_type is UncertainValue
     assert multi_key_field_definition.multi_key_field_value_type is str
+
+
+def test_enum_field_definition():
+    class Roles(Enum):
+        ADMIN = "admin"
+        USER = "user"
+
+    class Person(BaseNode):
+        role: Roles
+
+    enum_field_definition = build_field_definition("multi_key_field", Roles, Person)
+    assert isinstance(enum_field_definition, EnumFieldDefinition)
 
 
 def test_build_relation_to_trait_field_definition():
