@@ -4,6 +4,7 @@ from pangloss.model_config.models_base import (
     Embedded,
     HeritableTrait,
     MultiKeyField,
+    NonHeritableTrait,
     ReferenceSetBase,
     ReifiedRelation,
     ReifiedRelationNode,
@@ -24,6 +25,7 @@ reexported = (
     ReifiedRelationNode,
     EdgeModel,
     HeritableTrait,
+    NonHeritableTrait,
     SemanticSpace,
     SemanticSpaceMeta,
 )

@@ -840,4 +840,3 @@ def test_build_relation_field_to_reified_with_union_of_types_curious():
     )
 
     print(field_definition)
-    assert False

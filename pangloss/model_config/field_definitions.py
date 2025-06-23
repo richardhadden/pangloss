@@ -203,7 +203,7 @@ class RelationFieldDefinition(FieldDefinition):
     subclassed_relations: set[SubclassedRelationNames] = dataclasses.field(
         default_factory=set
     )
-    default_reified_type: typing.Optional[str] = None
+    default_reified_type: typing.Optional["ReifiedRelation | str"] = None
 
     def __hash__(self):
         return hash(self.containing_model.__name__ + self.field_name)

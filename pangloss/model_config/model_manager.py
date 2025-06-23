@@ -31,6 +31,10 @@ class ModelManager:
     def _reset(cls):
         cls.base_models = {}
         cls.reified_relation_models = {}
+        cls.edge_models = {}
+        cls.multikeyfields_models = {}
+        cls.trait_models = {}
+        cls.semantic_space_models = {}
 
     @classmethod
     def register_base_model(cls, base_model: type["BaseNode"]):
@@ -41,7 +45,7 @@ class ModelManager:
 
     @classmethod
     def register_trait_model(cls, trait_model: type["Trait"]):
-        if trait_model.__name__ in {"Trait", "HeritableTrait"}:
+        if trait_model.__name__ in {"Trait", "HeritableTrait", "NonHeritableTrait"}:
             return
         cls.trait_models[trait_model.__name__] = trait_model
 
@@ -59,6 +63,9 @@ class ModelManager:
         # e.g. Intermediate[T]
         # or the "instantiation" of a generic class, e.g. Intermediate[Cat]
         # If the former, add it to model manager
+        if reified_relation_model.__name__ == "ReifiedRelationNode":
+            return
+
         if reified_relation_model.__pydantic_generic_metadata__["origin"]:
             cls.reified_relation_models[reified_relation_model.__name__] = (
                 reified_relation_model

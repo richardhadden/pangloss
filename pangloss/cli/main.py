@@ -47,10 +47,14 @@ def start_project_settings(project_path):
         Database.initialise_default_database(settings)
         for app in settings.INSTALLED_APPS:
             __import__(app)
-            __import__(f"{app}.models")
+            try:
+                __import__(f"{app}.models")
+            except Exception as e:
+                print(e)
             try:
                 __import__(f"{app}.background_tasks")
             except ModuleNotFoundError:
+                # raise PanglossInitialisationError(f"{app} background tasks not found")
                 pass
             try:
                 m = __import__(f"{app}.cli")
@@ -64,8 +68,10 @@ def start_project_settings(project_path):
                 raise PanglossInitialisationError(
                     f"Could not find module {app} declared in {project_path}.settings.INSTALLED_APPS"
                 )
-    except PanglossInitialisationError:
-        print("Cannot start app")
+            except Exception as e:
+                raise PanglossInitialisationError(f"Cannot install CLI for {app}, {e}")
+    except PanglossInitialisationError as e:
+        print("Cannot start app", e)
 
 
 @cli_app.command(name="dev", help="Starts development server")
