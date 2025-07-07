@@ -6,6 +6,7 @@ from pangloss.model_config.models_base import (
     MultiKeyField,
     NonHeritableTrait,
     ReferenceSetBase,
+    ReifiedMeta,
     ReifiedRelation,
     ReifiedRelationNode,
     RelationConfig,
@@ -28,6 +29,7 @@ reexported = (
     NonHeritableTrait,
     SemanticSpace,
     SemanticSpaceMeta,
+    ReifiedMeta,
 )
 
 
