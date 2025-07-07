@@ -85,7 +85,14 @@ def get_application(settings: BaseSettings, initialise_database: bool = True):
     _app.add_middleware(GZipMiddleware, minimum_size=400)
     security.handle_errors(_app)
     for task in InitalisationTaskRegistery:
-        logger.info(f"Initialising: {task['name']}")
-        task["function"]()
+        if task.get("run_in_dev", False) and DEVELOPMENT_MODE:
+            logger.info(f"Initialising: {task['name']}")
+            task["function"]()
+        if task.get("dev_only", False) and not DEVELOPMENT_MODE:
+            pass
+
+        if not task.get("dev_only", False) and not DEVELOPMENT_MODE:
+            logger.info(f"Initialising: {task['name']}")
+            task["function"]()
 
     return _app

@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
 
 
 class ModelManager:
+    _initialised = False
     base_models: dict[str, type["BaseNode"]] = {}
     reified_relation_models: dict[str, type["ReifiedRelation"]] = {}
     edge_models: dict[str, type["EdgeModel"]] = {}
@@ -35,6 +36,7 @@ class ModelManager:
         cls.multikeyfields_models = {}
         cls.trait_models = {}
         cls.semantic_space_models = {}
+        cls._initialised = False
 
     @classmethod
     def register_base_model(cls, base_model: type["BaseNode"]):
@@ -84,6 +86,9 @@ class ModelManager:
 
     @classmethod
     def initialise_models(cls, _defined_in_test: bool = False):
+        if cls._initialised:
+            return
+
         from pangloss.model_config.model_setup_functions.build_create_model import (
             build_create_model,
         )
@@ -214,3 +219,5 @@ class ModelManager:
 
         for model_name, model in cls.base_models.items():
             build_head_view_model(model)
+
+        cls._initialised = True
