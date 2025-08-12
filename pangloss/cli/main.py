@@ -65,11 +65,12 @@ def start_project_settings(project_path):
             except AttributeError:
                 pass
             except ModuleNotFoundError:
-                raise PanglossInitialisationError(
-                    f"Could not find module {app} declared in {project_path}.settings.INSTALLED_APPS"
-                )
+                pass
             except Exception as e:
                 raise PanglossInitialisationError(f"Cannot install CLI for {app}, {e}")
+    except AttributeError as e:
+        print("err", e)
+
     except PanglossInitialisationError as e:
         print("Cannot start app", e)
 

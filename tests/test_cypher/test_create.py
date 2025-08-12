@@ -297,7 +297,7 @@ async def test_write_complex_object():
 
     assert book
 
-    john_smith = await Person(label="John Smith").create()
+    john_smith = await Person(label="John Smith, wanker").create()
 
     kaiser_maximilian = await Person(label="Kaiser Maximilian").create()
 
@@ -501,7 +501,7 @@ async def test_write_complex_object():
         .person_creating_object[0]
         .target[0]
         .label
-        == "John Smith"
+        == "John Smith, wanker"
     )
     assert (
         factoid.has_statements[0]
@@ -523,13 +523,23 @@ async def test_write_complex_object():
     search_results = await Person.get_list(q="M")
     assert len(search_results.results) == 3
     assert set([r.label for r in search_results.results]) == set(
-        ["John Smith", "KM's Secretary", "Kaiser Maximilian"]
+        ["John Smith, wanker", "KM's Secretary", "Kaiser Maximilian"]
     )
 
     # Should get the book name from being associated with this factoid
     search_results = await Factoid.get_list(q="origins", deep_search=True)
     assert search_results.results
     assert search_results.results[0].id == factoid.id
+
+    search_results = await Factoid.get_list(q="wanker", deep_search=True)
+    assert search_results.results
+    assert search_results.results[0].id == factoid.id
+
+    search_results = await Person.get_list(q="Maximilian", deep_search=True)
+
+    assert set([r.label for r in search_results.results]) == set(
+        ["John Smith, wanker", "Kaiser Maximilian"]
+    )
 
     await _clear_full_text_indexes()
 

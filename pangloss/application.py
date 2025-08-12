@@ -56,8 +56,8 @@ def get_application(settings: BaseSettings, initialise_database: bool = True):
 
         try:
             __import__(f"{installed_app}.background_tasks")
-        except Exception:
-            pass
+        except Exception as e:
+            e.add_note(f"Failed to import background_tasks for {installed_app}")
 
         try:
             __import__(f"{installed_app}.initialisation")
@@ -77,7 +77,7 @@ def get_application(settings: BaseSettings, initialise_database: bool = True):
     _app = setup_user_routes(_app, settings)
     _app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_origins=["*"],  # settings.BACKEND_CORS_ORIGINS ,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["authorization"],

@@ -107,7 +107,7 @@ def install_indexes_and_constraints():
 
     async def _run(queries):
         @database.write_transaction
-        async def _run_query(tx, query):
+        async def _run_query(query, tx):
             try:
                 await tx.run(query, {})
             except Exception as e:

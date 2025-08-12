@@ -3,6 +3,7 @@ import typing
 from threading import Lock
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from humps import pascalize
 from pydantic import AnyHttpUrl, BaseModel
 from ulid import ULID
 
@@ -104,24 +105,37 @@ def build_list_handler(model: type[BaseNode]):
         q: str = "",
         page: int = 1,
         pageSize: int = 50,
+        deepSearch: bool = True,
     ) -> SearchResultObject[allowed_types]:  # type: ignore
         # TODO add get_list method
-        result = await model.get_list(q=q, page=page, page_size=pageSize)
+        # print("DEEP SEARCH", deepSearch)
+
+        result = await model.get_list(
+            q=q, page=page, page_size=pageSize, deep_search=True
+        )
 
         result.next_page = page + 1 if page + 1 <= result.total_pages else None
-        result.next_url = (
+
+        next_url = (
             typing.cast(
                 AnyHttpUrl,
-                request.url.replace_query_params(q=q, page=page + 1, pageSize=pageSize),
+                str(
+                    request.url.replace_query_params(
+                        q=q, page=page + 1, pageSize=pageSize
+                    )
+                ),
             )
             if page + 1 <= result.total_pages
             else None
         )
+
+        result.next_url = next_url
+
         result.previous_page = page - 1 if page - 1 >= 1 else None
         result.previous_url = (
             typing.cast(
                 AnyHttpUrl,
-                (
+                str(
                     request.url.replace_query_params(
                         q=q, page=page - 1, pageSize=pageSize
                     )
@@ -222,7 +236,9 @@ def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
     ):
         router = APIRouter(
             prefix=f"/{model.__name__}",
-            tags=[model.__name__],
+            tags=[
+                f"{pascalize(str(model.__module__).replace('.models', ''))}.{model.__name__}"
+            ],
         )
 
         router.add_api_route(

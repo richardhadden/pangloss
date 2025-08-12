@@ -1,12 +1,6 @@
 from typing import Annotated, Awaitable
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    FastAPI,
-    HTTPException,
-    Response,
-)
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Response
 
 from pangloss.auth import (
     LOGGED_IN_USER_NAME_COOKIE_NAME,
@@ -57,9 +51,13 @@ def setup_user_routes(_app: FastAPI, settings) -> FastAPI:
         raise HTTPException(401, detail={"message": "Bad credentials"})
 
     @api_router.post("/session")
-    async def get_session(response: Response, credentials: LoginCredentials):
-        user = await UserInDB.get(credentials.username)
-        if user and verify_password(credentials.password, user.hashed_password):
+    async def get_session(
+        response: Response,
+        username: Annotated[str, Form()],
+        password: Annotated[str, Form()],
+    ):
+        user = await UserInDB.get(username)
+        if user and verify_password(password, user.hashed_password):
             access_token = security.create_access_token(uid=user.username)
             security.set_access_cookies(token=access_token, response=response)
             response.set_cookie(LOGGED_IN_USER_NAME_COOKIE_NAME, value=user.username)

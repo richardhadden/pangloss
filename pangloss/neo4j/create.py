@@ -28,6 +28,9 @@ from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
 )
 
+if typing.TYPE_CHECKING:
+    from pangloss.models import BaseNode
+
 
 class Identifier(str):
     def __new__(cls):
@@ -70,19 +73,7 @@ def convert_dict_for_writing(data: dict[str, typing.Any]):
 
 
 def get_properties_as_writeable_dict(
-    instance: CreateBase
-    | ReifiedCreateBase
-    | EmbeddedCreateBase
-    | ReferenceCreateBase
-    | EditHeadSetBase
-    | EditSetBase
-    | ReifiedRelationEditSetBase
-    | EmbeddedSetBase
-    | SemanticSpaceCreateBase
-    | EditSetBase
-    | ReifiedRelationEditSetBase
-    | EmbeddedSetBase
-    | SemanticSpaceEditSetBase,
+    instance: "BaseNode | CreateBase | ReifiedCreateBase | EmbeddedCreateBase | ReferenceCreateBase | EditHeadSetBase | EditSetBase | ReifiedRelationEditSetBase  | EmbeddedSetBase | SemanticSpaceCreateBase | EditSetBase | ReifiedRelationEditSetBase | EmbeddedSetBase | SemanticSpaceEditSetBase",
     extras: dict[str, typing.Any] | None = None,
 ) -> dict[str, typing.Any]:
     data = {}
@@ -939,7 +930,7 @@ def build_create_query_object(
     instance: CreateBase, current_username: str | None = None
 ) -> QueryObject:
     query_object = QueryObject()
-    print("build create query", current_username)
+
     add_node_to_create_query_object(
         instance=instance,
         query_object=query_object,

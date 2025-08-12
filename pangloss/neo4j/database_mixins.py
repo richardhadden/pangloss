@@ -187,7 +187,6 @@ class DatabaseQueryMixin:
                 query, typing.cast(dict[str, typing.Any], query_object.params)
             )
             record = await result.value()
-            print(record)
 
         response = typing.cast("RootNode", self.__pg_base_class__).ReferenceView(
             **record[0]
@@ -314,7 +313,7 @@ class DatabaseQueryMixin:
         page_size: int = 10,
         deep_search: bool = False,
     ) -> SearchResultObject["ReferenceViewBase"]:
-        print("=============")
+        print("=============", deep_search)
 
         cls = typing.cast(type["RootNode"], cls)
         with time_query(f"Building search query time for {cls.type}"):
@@ -339,6 +338,7 @@ class DatabaseQueryMixin:
                 query, typing.cast(dict[str, typing.Any], query_params)
             )
             records = await result.value()
+
             if not records:
                 return SearchResultObject[search_result_object_type](
                     results=[],

@@ -1,6 +1,8 @@
+import pytest
 import pytest_asyncio
 from pydantic import AnyHttpUrl
 
+from pangloss.model_config.model_manager import ModelManager
 from pangloss.settings import BaseSettings
 
 
@@ -37,3 +39,8 @@ def database_setup(event_loop):
 
     yield event_loop
     event_loop.run_until_complete(database.close())
+
+
+@pytest.fixture(scope="function", autouse=True)
+def reset_model_manager():
+    ModelManager._reset()

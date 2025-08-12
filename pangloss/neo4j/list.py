@@ -5,14 +5,92 @@ if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import RootNode
 
 
+SPLIT_TERMS_REGEX = re.compile("[ -_]")
+
+
+def build_deep_search_query(
+    search_terms: list[str], node_type: str, model: "type[RootNode]"
+):
+    query = ""
+
+    for i, term in enumerate(search_terms):
+        query += f"""CALL () {{ CALL db.index.fulltext.queryNodes("PgIndexableNodeFullTextIndex", $q[{i}]) YIELD node, score RETURN collect(node) as n{i}, count(node) as c{i} }}\n"""
+
+    query += f"""WITH apoc.coll.sortMaps([{", ".join(f"{{t: n{i}, c: c{i}}}" for i, _ in enumerate(search_terms))}], "^c") as FT"""
+
+    query += f"""
+    WITH FT[0].t as fullTextResultNodes, FT
+    CALL (fullTextResultNodes) {{
+    MATCH (t:{node_type}) WHERE t IN fullTextResultNodes AND NOT t.is_deleted
+    RETURN  t
+    UNION
+    MATCH (t:{
+        node_type
+    }) WHERE any(no IN fullTextResultNodes WHERE (t.id=no.head_id OR t.head_id=no.head_id))
+    RETURN  t
+    {
+        f'''UNION
+    MATCH (x:PGIndexableNode WHERE x in fullTextResultNodes)<-[]-(no:BaseNode)
+    MATCH (t:{node_type} WHERE (t.id=no.head_id OR t.head_id=no.head_id) AND NOT t.is_deleted)
+    RETURN t'''
+        if model._meta.fields.relation_fields or model._meta.fields.embedded_fields
+        else ""
+    }
+    {
+        f'''
+    UNION
+    MATCH (t:{node_type})<-[]-(ni:BaseNode) WHERE NOT t.is_deleted AND any(no IN fullTextResultNodes WHERE (ni.head_id=no.head_id OR ni.id=no.head_id OR no.id=ni.head_id OR no.head_id=ni.id))
+    RETURN t'''
+        if model._meta.reverse_relations
+        else ""
+    }
+    }}"""
+
+    for i, term in enumerate(search_terms[1:], start=1):
+        query += f"""
+    WITH collect(t) as currentNodes, FT, FT[{i}].t as fullTextResultNodes
+    CALL (fullTextResultNodes, currentNodes) {{
+    MATCH (t) WHERE NOT t.is_deleted AND t in currentNodes AND t IN fullTextResultNodes
+    RETURN  t
+    UNION
+    MATCH (t:{
+            node_type
+        }) WHERE t in currentNodes AND any(no IN fullTextResultNodes WHERE (t.id=no.head_id OR t.head_id=no.head_id))   
+    RETURN  t
+    {
+            f'''UNION
+    MATCH (x:BaseNode WHERE x in fullTextResultNodes)<-[]-(no:BaseNode)
+    MATCH (t:{
+                node_type
+            } WHERE t in currentNodes AND (t.id=no.head_id OR t.head_id=no.head_id) AND NOT t.is_deleted)
+    RETURN t'''
+            if model._meta.fields.relation_fields or model._meta.fields.embedded_fields
+            else ""
+        }
+    {
+            f'''UNION
+    MATCH (t:{node_type})<-[]-(ni:PgIndexableNode) WHERE t in currentNodes AND NOT t.is_deleted AND any(no IN fullTextResultNodes WHERE (ni.head_id=no.head_id OR ni.id=no.head_id OR no.id=ni.head_id OR no.head_id=ni.id))
+    RETURN t'''
+            if model._meta.reverse_relations
+            else ""
+        }
+    
+    }}"""
+
+    query += "WITH apoc.agg.slice(t, $skip, $skipEnd) as results, count(t) as count\n"
+    query += """RETURN {count: count, page: $page, page_size: $page_size, total_pages: toInteger(round((count*1.0)/$page_size, 0, "UP")),  results: results}"""
+    return query
+
+
 def build_get_list_query(
     model: type["RootNode"],
     q: typing.Optional[str] = None,
     page: int = 1,
-    page_size: int = 10,
+    page_size: int = 20,
     deep_search: bool = False,
 ) -> tuple[typing.LiteralString, dict[str, typing.Any]]:
     if q and deep_search:
+        print("RUNNING DEEP SEARCH")
         """Returns a list of objects of type/subclasses of model.ReferenceView
         
         Without search param q:
@@ -23,66 +101,48 @@ def build_get_list_query(
             and match against model.label using full-text index
           
         With search param q and deep_search:
-            split and wrap search params as above, match all node labels of any type,
-            returning:
+            - split and wrap search params individually
+            - starting with the param that produces the fewest hits, match:
                 - the matched node if of the correct type
-                - another node pointed to by head_id of matched node, if this other node is of
+                - another node pointed to by head_id or id of matched node, if this other node is of
                     correct type
-                - another node pointed to by the head_id of a node pointed to by the matched
+                - another node pointed to by the head_id or id of a node pointed to by the matched
                     node
+                - another node pointed to by the head_id or id of a node pointing to the matched
+                    node
+            - take these results and pass onto the above matching strategy, *with* the condition
+              that it has already been matched
+            - repeat for all search terms
         """
 
-        terms = q.split()
-        search_string = " AND ".join(f"/.*{re.escape(term)}.*/" for term in terms)
+        terms = [f"/.*{re.escape(term)}.*/" for term in SPLIT_TERMS_REGEX.split(q)]
 
-        query = f"""
-        CALL () {{
-            CALL db.index.fulltext.queryNodes("PgIndexableNodeFullTextIndex", "origins") YIELD node, score
-            CALL (node, score) {{
-                MATCH (node WHERE node:{model.__name__} and not node.is_deleted)
-                RETURN node as item, score * 3 as this_score
-                UNION
-                MATCH (item:{model.__name__})
-                WHERE node.head_type = "{model.__name__}" AND item.id=node.head_id AND NOT item.is_deleted
-                RETURN item, score * 2 as this_score
-                UNION
-                MATCH (node)<-[]-(n:BaseNode)
-                MATCH (item:Factoid WHERE n.head_type = "{model.__name__}" AND item.id=n.head_id AND NOT item.is_deleted)
-                RETURN item{{.*, uris: []}} as item, score as this_score
-            }}
-            WITH DISTINCT item, max(this_score) as max_score ORDER BY max_score
-            RETURN collect(item) as results, count(item) as total_items
-        }}
-        RETURN {{
-            results: results, 
-            count: total_items, 
-            page: 1, 
-            page_size: 10, 
-            totalPages: 
-            toInteger(round((total_items*1.0)/10, 0, "UP"))
-        }}
-        """
+        query = build_deep_search_query(terms, model.__name__, model)
         params = {
             "skip": (page - 1) * page_size,
+            "skipEnd": (page * page_size) - 1,
             "page_size": page_size,
             "page": page,
-            "q": search_string,
+            "q": terms,
         }
 
     elif q:
-        terms = q.split(" ")
+        print("RUNNING SHALLOW SEARCH")
+        terms = SPLIT_TERMS_REGEX.split(q)
 
         search_string = " AND ".join(f"/.*{re.escape(term)}.*/" for term in terms)
 
         query = f"""            
                 CALL db.index.fulltext.queryNodes("{model.__name__}FullTextIndex", $q) YIELD node, score
-                WITH COLLECT {{ MATCH (node WHERE NOT node.is_deleted) RETURN DISTINCT node ORDER BY score SKIP $skip LIMIT $page_size}} AS nodes, score
-                WITH collect(nodes) as nodes, count(DISTINCT nodes) as total_items
-                RETURN {{results: apoc.coll.flatten(nodes), count: total_items, page_size: $page_size, page: 1, total_pages: toInteger(round((total_items*1.0)/$page_size, 0, "UP"))}}
+               
+MATCH (node WHERE NOT node.is_deleted) ORDER BY score
+WITH apoc.agg.slice(node, $skip, $skip_end) as results, count(node) as node_count
+RETURN {{count: node_count, page_size: $page_size, page: 1, total_pages: toInteger(round((node_count*1.0)/$page_size, 0, "UP")), results: results}}
             """
 
         params = {
             "skip": (page - 1) * page_size,
+            "skip_end": (page * page_size) - 1,
             "page_size": page_size,
             "page": page,
             "q": search_string,
