@@ -1,4 +1,4 @@
-terms = ["/.*Latour.*/", "/.*Reassembling.*/", "/.*Social.*/"]
+terms = ["/.*Maximilian.*/"]
 
 query = ""
 

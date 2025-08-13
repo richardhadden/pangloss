@@ -9,7 +9,6 @@ from ulid import ULID
 
 from pangloss import initialise_models
 from pangloss.indexes import (
-    _clear_full_text_indexes,
     _install_index_and_constraints_from_text,
 )
 from pangloss.model_config.models_base import (
@@ -541,7 +540,7 @@ async def test_write_complex_object():
         ["John Smith, wanker", "Kaiser Maximilian"]
     )
 
-    await _clear_full_text_indexes()
+    # await _clear_full_text_indexes()
 
 
 @no_type_check

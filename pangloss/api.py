@@ -105,13 +105,12 @@ def build_list_handler(model: type[BaseNode]):
         q: str = "",
         page: int = 1,
         pageSize: int = 50,
-        deepSearch: bool = True,
+        deepSearch: bool = False,
     ) -> SearchResultObject[allowed_types]:  # type: ignore
         # TODO add get_list method
-        # print("DEEP SEARCH", deepSearch)
 
         result = await model.get_list(
-            q=q, page=page, page_size=pageSize, deep_search=True
+            q=q, page=page, page_size=pageSize, deep_search=deepSearch
         )
 
         result.next_page = page + 1 if page + 1 <= result.total_pages else None

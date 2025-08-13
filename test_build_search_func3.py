@@ -25,17 +25,8 @@ def build_deep_search_query(search_string):
     query += f"""
     WITH FT[0].t as fullTextResultNodes, FT
     CALL (fullTextResultNodes) {{
-    MATCH (t:{nodeType}) WHERE t IN fullTextResultNodes AND NOT t.is_deleted
-    RETURN  t
-    UNION
-    MATCH (t:{nodeType}) WHERE any(no IN fullTextResultNodes WHERE (t.id=no.head_id OR t.head_id=no.head_id))
-    RETURN  t
-    UNION
-    MATCH (x:PGIndexableNode WHERE x in fullTextResultNodes)<-[]-(no:BaseNode)
-    MATCH (t:{nodeType} WHERE (t.id=no.head_id OR t.head_id=no.head_id) AND NOT t.is_deleted)
-    RETURN t
-    UNION
-    MATCH (t:BaseNode)<-[]-(ni:BaseNode) WHERE NOT t.is_deleted AND any(no IN fullTextResultNodes WHERE (ni.head_id=no.head_id OR ni.id=no.head_id OR no.id=ni.head_id OR no.head_id=ni.id))
+    MATCH p = (t:{nodeType})-[]->(:ReadInline)((:ReadInline)-[]->(:ReadInline)){(0,)}(:ReadInline)-[]->{(0,)}(:BaseNode)
+    WHERE any(n in nodes(p) WHERE n in fullTextResultNodes)
     RETURN t
     }}"""
 
