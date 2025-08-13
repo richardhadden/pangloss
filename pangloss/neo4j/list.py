@@ -19,63 +19,47 @@ def build_deep_search_query(
     query += f"""WITH apoc.coll.sortMaps([{", ".join(f"{{t: n{i}, c: c{i}}}" for i, _ in enumerate(search_terms))}], "^c") as FT"""
 
     query += f"""
-    WITH FT[0].t as fullTextResultNodes, FT
-    CALL (fullTextResultNodes) {{
-    MATCH (t:{node_type}) WHERE t IN fullTextResultNodes AND NOT t.is_deleted
-    RETURN  t
+WITH FT[0].t as fullTextResultNodes, FT
+CALL (fullTextResultNodes) {{
+    MATCH p = (t:{node_type})(()-[]->()){{0,}}(b:PGIndexableNode)
+        WHERE (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
+    
     UNION
-    MATCH (t:{
-        node_type
-    }) WHERE any(no IN fullTextResultNodes WHERE (t.id=no.head_id OR t.head_id=no.head_id))
-    RETURN  t
-    {
-        f'''UNION
-    MATCH (x:PGIndexableNode WHERE x in fullTextResultNodes)<-[]-(no:BaseNode)
-    MATCH (t:{node_type} WHERE (t.id=no.head_id OR t.head_id=no.head_id) AND NOT t.is_deleted)
-    RETURN t'''
-        if model._meta.fields.relation_fields or model._meta.fields.embedded_fields
-        else ""
-    }
-    {
-        f'''
+    
+    MATCH p = (t:{node_type})(()<-[]-()){{0,}}(b:PGIndexableNode)
+        WHERE (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
+    
     UNION
-    MATCH (t:{node_type})<-[]-(ni:BaseNode) WHERE NOT t.is_deleted AND any(no IN fullTextResultNodes WHERE (ni.head_id=no.head_id OR ni.id=no.head_id OR no.id=ni.head_id OR no.head_id=ni.id))
-    RETURN t'''
-        if model._meta.reverse_relations
-        else ""
-    }
-    }}"""
+    
+    MATCH (t:{node_type})(()<-[]-()){{0,}}(x:PGIndexableNode)
+    MATCH (x)(()-[]->()){{0,}}(b:PGIndexableNode)
+        WHERE (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
+}}
+"""
 
     for i, term in enumerate(search_terms[1:], start=1):
-        query += f"""
-    WITH collect(t) as currentNodes, FT, FT[{i}].t as fullTextResultNodes
-    CALL (fullTextResultNodes, currentNodes) {{
-    MATCH (t) WHERE NOT t.is_deleted AND t in currentNodes AND t IN fullTextResultNodes
-    RETURN  t
-    UNION
-    MATCH (t:{
-            node_type
-        }) WHERE t in currentNodes AND any(no IN fullTextResultNodes WHERE (t.id=no.head_id OR t.head_id=no.head_id))   
-    RETURN  t
-    {
-            f'''UNION
-    MATCH (x:BaseNode WHERE x in fullTextResultNodes)<-[]-(no:BaseNode)
-    MATCH (t:{
-                node_type
-            } WHERE t in currentNodes AND (t.id=no.head_id OR t.head_id=no.head_id) AND NOT t.is_deleted)
-    RETURN t'''
-            if model._meta.fields.relation_fields or model._meta.fields.embedded_fields
-            else ""
-        }
-    {
-            f'''UNION
-    MATCH (t:{node_type})<-[]-(ni:PgIndexableNode) WHERE t in currentNodes AND NOT t.is_deleted AND any(no IN fullTextResultNodes WHERE (ni.head_id=no.head_id OR ni.id=no.head_id OR no.id=ni.head_id OR no.head_id=ni.id))
-    RETURN t'''
-            if model._meta.reverse_relations
-            else ""
-        }
+        query += f"""WITH FT[1].t as fullTextResultNodes, FT, collect(t) as currentResults
+CALL (fullTextResultNodes, currentResults) {{
+    MATCH (t:{node_type})(()-[]->()){{0,}}(b:PGIndexableNode)
+        WHERE t in currentResults AND (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
     
-    }}"""
+    UNION
+    
+    MATCH (t:{node_type})(()<-[]-()){{0,}}(b:PGIndexableNode)
+        WHERE t in currentResults AND (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
+    
+    UNION
+    
+    MATCH (t:{node_type})(()<-[]-()){{0,}}(x:PGIndexableNode)
+    MATCH (x)(()-[]->()){{0,}}(b:PGIndexableNode)
+        WHERE t in currentResults AND (b in fullTextResultNodes OR t in fullTextResultNodes)
+    RETURN DISTINCT t
+}}"""
 
     query += "WITH apoc.agg.slice(t, $skip, $skipEnd) as results, count(t) as count\n"
     query += """RETURN {count: count, page: $page, page_size: $page_size, total_pages: toInteger(round((count*1.0)/$page_size, 0, "UP")),  results: results}"""
