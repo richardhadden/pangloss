@@ -5,8 +5,6 @@ import typing
 from enum import Enum
 
 import annotated_types
-from pydantic import BaseModel
-
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
@@ -42,6 +40,7 @@ from pangloss.model_config.models_base import (
     _BaseClassProxy,
 )
 from pangloss.models import Embedded
+from pydantic import BaseModel
 
 
 def get_relation_config_from_field_metadata(
@@ -347,7 +346,8 @@ def build_field_definition(
         union_types = typing.get_args(primary_type)
 
         if not all(
-            pg_is_subclass(t, (RootNode, Trait, ReifiedRelation)) for t in union_types
+            pg_is_subclass(t, (RootNode, Trait, ReifiedRelation, SemanticSpace))
+            for t in union_types
         ):
             raise PanglossConfigError(
                 f"{field_name} on {model.__name__} contains a mix of relations"

@@ -671,3 +671,27 @@ def test_self_reference_semantic_space_generic():
             }
         ],
     )
+
+
+@no_type_check
+def test_semantic_space_with_union():
+    class Activity(BaseNode):
+        pass
+
+    class Negative[T](SemanticSpace[T]):
+        pass
+
+    class Order(BaseNode):
+        thing_ordered: Annotated[
+            Activity | Negative[Activity], RelationConfig(reverse_name="is_ordered_in")
+        ]
+
+    initialise_models()
+
+    thing_ordered_field_def = Order._meta.fields["thing_ordered"]
+    assert type(thing_ordered_field_def) is RelationFieldDefinition
+    assert len(thing_ordered_field_def.field_type_definitions) == 2
+
+    rel_to_semantic_space_def = thing_ordered_field_def.field_type_definitions[1]
+    assert isinstance(rel_to_semantic_space_def, RelationToSemanticSpaceDefinition)
+    assert rel_to_semantic_space_def.type_params_to_type_map["T"].type is Activity
