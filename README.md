@@ -374,9 +374,10 @@ This repo contains the third modelling/database layer rewrite of Pangloss. It us
 - Periodic background tasks can be registered using `@background_task` decorator
 - Subclassed relation types also create supertype of the relation (e.g. if `Person.is_friends_with` is a subtype of `Person.knows`, creating the former will also create an edge for the latter); these additional edges are marked with `_pg_shortcut": True,` as a property.
 - Deferred database writes: writing additional shortcut edges is slow, and is only useful for later querying; therefore, the primary write/update queries can be run and result returned to the user, and the inferred shortcuts written afterwards as a background task
+- Experimental "deep_search" full-text search option: searches all text fields on all objects for each token, and returns instances of the requested type with some connection to nodes matching each token
 
 # TODO:
-- DB layer
+- Deleting objects
 
 
 # Full model example for Factoid model using most features
