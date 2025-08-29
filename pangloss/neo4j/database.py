@@ -285,6 +285,7 @@ class DatabaseUtils:
     @database.read_transaction
     @staticmethod
     async def _cypher_read(query: str, tx: Transaction, params: dict = {}):
+        print(query, params)
         result = await tx.run(
             query,  # type: ignore
             **params,

@@ -5,16 +5,6 @@ from collections import ChainMap
 
 import annotated_types
 import neo4j.time
-from pydantic import (
-    AnyHttpUrl,
-    BaseModel,
-    Field,
-    PlainSerializer,
-    computed_field,
-    field_validator,
-)
-from pydantic_extra_types.ulid import ULID as ExtraTypeULID
-
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.model_base_mixins import (
     _BaseClassProxy,
@@ -24,6 +14,15 @@ from pangloss.model_config.model_base_mixins import (
     _StandardModel,
     _ViaEdge,
 )
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    Field,
+    PlainSerializer,
+    computed_field,
+    field_validator,
+)
+from pydantic_extra_types.ulid import ULID as ExtraTypeULID
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (
@@ -59,7 +58,12 @@ class EdgeModel(BaseModel, _StandardModel):
 
 
 @dataclasses.dataclass
-class BaseMeta:
+class AbstractBaseMeta:
+    pass
+
+
+@dataclasses.dataclass
+class BaseMeta(AbstractBaseMeta):
     """Base class for BaseNode Meta fields"""
 
     base_model: type["RootNode"]
@@ -688,6 +692,7 @@ class SemanticSpace[T](SemanticSpaceBase, _StandardModel):
         RelationConfig(
             reverse_name="is_contents_of", create_inline=True, edit_inline=True
         ),
+        annotated_types.MinLen(1),
     ]
 
     def __init_subclass__(cls) -> None:

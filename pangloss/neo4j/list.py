@@ -8,6 +8,27 @@ if typing.TYPE_CHECKING:
 SPLIT_TERMS_REGEX = re.compile("[ -_]")
 
 
+def get_index_offsets(page: int, page_size: int) -> tuple[int, int]:
+    """
+    Returns the start and end index for pagination.
+
+    Args:
+        page (int): The page number (1-based).
+        page_size (int): The number of items per page.
+
+    Returns:
+        tuple[int, int]: A tuple (start_index, end_index), both 0-based.
+    """
+    if page < 1 or page_size < 1:
+        raise ValueError("Page and page_size must both be >= 1")
+
+    page = page - 1
+
+    start_index = (page) * page_size
+    end_index = start_index + (page_size)
+    return start_index, end_index
+
+
 def build_deep_search_query(
     search_terms: list[str], node_type: str, model: "type[RootNode]"
 ):
@@ -101,10 +122,12 @@ def build_get_list_query(
 
         terms = [f"/.*{re.escape(term)}.*/" for term in SPLIT_TERMS_REGEX.split(q)]
 
+        skip, skipEnd = get_index_offsets(page, page_size)
+
         query = build_deep_search_query(terms, model.__name__, model)
         params = {
-            "skip": (page - 1) * page_size,
-            "skipEnd": (page * page_size) - 1,
+            "skip": skip,
+            "skipEnd": skipEnd,
             "page_size": page_size,
             "page": page,
             "q": terms,
@@ -124,9 +147,10 @@ WITH apoc.agg.slice(node, $skip, $skip_end) as results, count(node) as node_coun
 RETURN {{count: node_count, page_size: $page_size, page: 1, total_pages: toInteger(round((node_count*1.0)/$page_size, 0, "UP")), results: results}}
             """
 
+        skip, skipEnd = get_index_offsets(page, page_size)
         params = {
-            "skip": (page - 1) * page_size,
-            "skip_end": (page * page_size) - 1,
+            "skip": skip,
+            "skip_end": skipEnd,
             "page_size": page_size,
             "page": page,
             "q": search_string,
@@ -143,8 +167,10 @@ RETURN {{count: node_count, page_size: $page_size, page: 1, total_pages: toInteg
                     WITH COLLECT(matches) AS matches_list, total_items
                     RETURN {{results: matches_list, count: total_items, page: $page, page_size: $pageSize, totalPages: toInteger(round((total_items*1.0)/$pageSize, 0, "UP"))}}
                 """
+
+        skip, skipEnd = get_index_offsets(page, page_size)
         params = {
-            "skip": (page - 1) * page_size,
+            "skip": skip,
             "pageSize": page_size,
             "page": page,
         }

@@ -19,6 +19,24 @@ if typing.TYPE_CHECKING:
     from pangloss.settings import BaseSettings
 
 
+from typing import NamedTuple
+
+
+class APIRouterInstance(NamedTuple):
+    instance: "PanglossAPIRouter"
+    module: str
+
+
+class PanglossAPIRouter(APIRouter):
+    """A subclass of FastAPI.APIRouter that keeps track of its instances and installs them as endpoints at startup"""
+
+    instances: list[APIRouterInstance] = []
+
+    def __init__(self, *args, **kwargs):
+        __class__.instances.append(APIRouterInstance(self, self.__module__))
+        super().__init__(*args, **kwargs)
+
+
 class DeferredQueryRunner:
     """A class to manage deferred queries for creating and updating instances.
     It uses asyncio tasks to run the deferred queries in the background.

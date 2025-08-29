@@ -20,7 +20,7 @@ RunningBackgroundTasks = []
 def get_application(settings: BaseSettings, initialise_database: bool = True):
     DEVELOPMENT_MODE = "--reload" in sys.argv  # Dumb hack!
 
-    from pangloss.api import setup_api_routes
+    from pangloss.api import PanglossAPIRouter, setup_api_routes
     from pangloss.background_tasks import (
         BackgroundTaskCloseRegistry,
         BackgroundTaskRegistry,
@@ -75,6 +75,15 @@ def get_application(settings: BaseSettings, initialise_database: bool = True):
 
     _app = setup_api_routes(_app, settings)
     _app = setup_user_routes(_app, settings)
+
+    for installed_app in settings.INSTALLED_APPS:
+        try:
+            __import__(f"{installed_app}.api")
+        except Exception:
+            pass
+
+    for pangloss_api_routers in PanglossAPIRouter.instances:
+        _app.include_router(pangloss_api_routers.instance)
     _app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # settings.BACKEND_CORS_ORIGINS ,

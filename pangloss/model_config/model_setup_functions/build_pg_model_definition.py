@@ -25,6 +25,7 @@ from pangloss.model_config.field_definitions import (
 )
 from pangloss.model_config.model_manager import ModelManager
 from pangloss.model_config.models_base import (
+    AbstractBaseMeta,
     EdgeModel,
     EmbeddedCreateBase,
     MultiKeyField,
@@ -271,17 +272,34 @@ def build_field_definition(
     | type[MultiKeyField]
     | type["SemanticSpace"]
     | type[_BaseClassProxy],
-) -> FieldDefinition:
+) -> FieldDefinition | None:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
 
     annotation = resolve_forward_ref(annotation)
+
+    # Find derived Meta declarations on classes and don't make into a field!
+    if (
+        typing.get_origin(annotation) is typing.ClassVar
+        and typing.get_args(annotation)
+        and issubclass(
+            typing.get_args(typing.get_args(annotation)[0])[0], AbstractBaseMeta
+        )
+    ):
+        return None
+
     if issubclass(model, (ReifiedBase, EdgeModel, SemanticSpace)):
         # ReifiedBase/SemanticSpace is already necessarily a pydantic.BaseModel, which interprets
         # the annotation as a string; so need to do the actual lookups of types on the model
         # and then can reconstruct the type back to the unadulterated Python format
         # i.e. typing.Annotated[<Type>, *<Metadata>]
         # so we can use the same code below
+        if (
+            typing.get_args(annotation)
+            and inspect.isclass(typing.get_args(annotation)[0])
+            and issubclass(typing.get_args(annotation)[0], AbstractBaseMeta)
+        ):
+            return None
 
         primary_type = model.model_fields[field_name].annotation
 
@@ -601,6 +619,15 @@ def build_field_definition(
             field_annotation=annotation,
         )
 
+    # Checks to make sure that anything that is a Meta class of any sort is
+    # not turned into a FieldDefinition
+    if (
+        typing.get_args(annotation)
+        and inspect.isclass(typing.get_args(annotation)[0])
+        and issubclass(typing.get_args(annotation)[0], AbstractBaseMeta)
+    ):
+        return None
+
     return PropertyFieldDefinition(
         field_name=field_name,
         field_annotation=annotation,
@@ -616,9 +643,9 @@ def build_pg_model_definitions(
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
-        field_definitions[field_name] = build_field_definition(
-            field_name, annotation, model=model
-        )
+        definition = build_field_definition(field_name, annotation, model=model)
+        if definition:
+            field_definitions[field_name] = definition
 
     model.__pg_field_definitions__ = ModelFieldDefinitions(field_definitions)
 
