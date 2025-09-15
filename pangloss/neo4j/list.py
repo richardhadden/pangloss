@@ -5,7 +5,7 @@ if typing.TYPE_CHECKING:
     from pangloss.model_config.models_base import RootNode
 
 
-SPLIT_TERMS_REGEX = re.compile("[ -_]")
+SPLIT_TERMS_REGEX = re.compile(r"[ \-\_]")
 
 
 def get_index_offsets(page: int, page_size: int) -> tuple[int, int]:
