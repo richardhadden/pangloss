@@ -4,7 +4,7 @@ import pytest
 
 from pangloss import initialise_models
 from pangloss.exceptions import PanglossConfigError
-from pangloss.models import BaseNode, RelationConfig
+from pangloss.models import BaseNode, HeritableTrait, ReifiedRelation, RelationConfig
 from pangloss.utils import gen_ulid
 
 
@@ -222,3 +222,55 @@ def test_field_from_container_model_bound_to_contained():
     assert isinstance(order.thing_ordered[0], OtherThing.Create)
     assert order.thing_ordered[0].type == "OtherThing"
     assert order.thing_ordered[0].when == "After Last Tuesday"
+
+
+def test_override_on_inherited_from_trait():
+    """Make sure the annotations chainmap includes Traits"""
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class SomeTrait(HeritableTrait):
+        related_thing: Annotated[
+            RelatedThing, RelationConfig(reverse_name="reverse_related_thing")
+        ]
+
+    class Thing(BaseNode, SomeTrait):
+        thing_related_thing: Annotated[
+            RelatedThing,
+            RelationConfig(
+                reverse_name="reverse_name_related_thing",
+                subclasses_relation=["related_thing"],
+            ),
+        ]
+
+    initialise_models()
+
+
+def test_override_on_inherited_with_reified():
+    """Make sure the annotations chainmap includes Traits"""
+
+    class Identification[T](ReifiedRelation[T]):
+        pass
+
+    class SecondIdentifification[T](ReifiedRelation[T]):
+        pass
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class SomeTrait(HeritableTrait):
+        related_thing: Annotated[
+            RelatedThing, RelationConfig(reverse_name="reverse_related_thing")
+        ]
+
+    class Thing(BaseNode, SomeTrait):
+        thing_related_thing: Annotated[
+            SecondIdentifification[Identification[RelatedThing]],
+            RelationConfig(
+                reverse_name="reverse_name_related_thing",
+                subclasses_relation=["related_thing"],
+            ),
+        ]
+
+    initialise_models()

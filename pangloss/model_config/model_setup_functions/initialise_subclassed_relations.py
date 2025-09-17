@@ -3,8 +3,12 @@ import typing
 
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
+    RelationDefinition,
     RelationFieldDefinition,
+    RelationToNodeDefinition,
+    RelationToReifiedDefinition,
     SubclassedRelationNames,
+    TypeParamsToTypeMap,
 )
 from pangloss.model_config.model_setup_functions.utils import (
     get_concrete_model_types,
@@ -17,6 +21,29 @@ from pangloss.model_config.models_base import (
 )
 
 
+def recurse_type_params_to_type_map_for_base_types(
+    t: dict[str, TypeParamsToTypeMap], types
+):
+    tp = t[list(t.keys())[0]]
+    if hasattr(tp.type, "__pydantic_generic_metadata__") and issubclass(
+        tp.type.__pydantic_generic_metadata__["args"][0],  # type: ignore
+        RootNode,
+    ):
+        types.append(tp.type.__pydantic_generic_metadata__["args"][0])  # type: ignore
+
+
+def get_types(relation_definitions: list[RelationDefinition]):
+    types = []
+    for rd in relation_definitions:
+        if isinstance(rd, RelationToNodeDefinition):
+            types.append(rd.annotated_type)
+        if isinstance(rd, RelationToReifiedDefinition):
+            recurse_type_params_to_type_map_for_base_types(
+                rd.type_params_to_type_map, types
+            )
+    return types
+
+
 def subclassed_relation_not_subclass_of_relation(
     current_relation_defintion: RelationFieldDefinition,
     subclassed_relation_definition: RelationFieldDefinition,
@@ -24,31 +51,39 @@ def subclassed_relation_not_subclass_of_relation(
     """Checks whether a relation that subclasses another relation's types is a subset of the
     subclassed relation"""
 
-    current_relation_types = get_concrete_model_types(
-        typing.cast(
-            type["RootNode"]
-            | type[HeritableTrait]
-            | type[NonHeritableTrait]
-            | types.UnionType
-            | type[ReifiedRelation],
-            current_relation_defintion.field_annotation,
-        ),
-        include_subclasses=True,
-        include_abstract=True,
-    )
+    current_relation_types = []
 
-    subclassed_relation_types = get_concrete_model_types(
-        typing.cast(
-            type["RootNode"]
-            | type[HeritableTrait]
-            | type[NonHeritableTrait]
-            | types.UnionType
-            | type[ReifiedRelation],
-            subclassed_relation_definition.field_annotation,
-        ),
-        include_subclasses=True,
-        include_abstract=True,
-    )
+    for t in get_types(current_relation_defintion.field_type_definitions):
+        current_relation_types.extend(
+            get_concrete_model_types(
+                typing.cast(
+                    type["RootNode"]
+                    | type[HeritableTrait]
+                    | type[NonHeritableTrait]
+                    | types.UnionType
+                    | type[ReifiedRelation],
+                    t,
+                ),
+                include_subclasses=True,
+                include_abstract=True,
+            )
+        )
+
+    subclassed_relation_types = []
+
+    for t in get_types(subclassed_relation_definition.field_type_definitions):
+        subclassed_relation_types = get_concrete_model_types(
+            typing.cast(
+                type["RootNode"]
+                | type[HeritableTrait]
+                | type[NonHeritableTrait]
+                | types.UnionType
+                | type[ReifiedRelation],
+                t,
+            ),
+            include_subclasses=True,
+            include_abstract=True,
+        )
 
     if not all(
         t in subclassed_relation_types for t in current_relation_types

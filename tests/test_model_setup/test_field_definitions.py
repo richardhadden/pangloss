@@ -840,3 +840,22 @@ def test_build_relation_field_to_reified_with_union_of_types_curious():
     )
 
     print(field_definition)
+
+
+def test_annotations_on_inherited_from_trait():
+    """Make sure the annotations chainmap includes Traits"""
+
+    class RelatedThing(BaseNode):
+        pass
+
+    class SomeTrait(HeritableTrait):
+        related_thing: typing.Annotated[
+            RelatedThing, RelationConfig(reverse_name="reverse_related_thing")
+        ]
+
+    class Thing(BaseNode, SomeTrait):
+        pass
+
+    build_pg_annotations(Thing)
+
+    assert Thing.__pg_annotations__["related_thing"]
