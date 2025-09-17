@@ -256,6 +256,9 @@ def test_override_on_inherited_with_reified():
     class SecondIdentifification[T](ReifiedRelation[T]):
         pass
 
+    class ThirdIdentification[T](ReifiedRelation[T]):
+        pass
+
     class RelatedThing(BaseNode):
         pass
 
@@ -265,6 +268,15 @@ def test_override_on_inherited_with_reified():
         ]
 
     class Thing(BaseNode, SomeTrait):
+        thing_related_thing: Annotated[
+            Identification[RelatedThing],
+            RelationConfig(
+                reverse_name="reverse_name_related_thing",
+                subclasses_relation=["related_thing"],
+            ),
+        ]
+
+    class Thing2(BaseNode, SomeTrait):
         thing_related_thing: Annotated[
             SecondIdentifification[Identification[RelatedThing]],
             RelationConfig(

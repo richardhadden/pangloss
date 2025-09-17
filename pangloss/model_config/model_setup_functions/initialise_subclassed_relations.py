@@ -25,6 +25,9 @@ def recurse_type_params_to_type_map_for_base_types(
     t: dict[str, TypeParamsToTypeMap], types
 ):
     tp = t[list(t.keys())[0]]
+    if issubclass(tp.type, RootNode):
+        types.append(tp.type)
+
     if hasattr(tp.type, "__pydantic_generic_metadata__") and issubclass(
         tp.type.__pydantic_generic_metadata__["args"][0],  # type: ignore
         RootNode,
@@ -130,8 +133,8 @@ def initialise_subclassed_relations(model: type[RootNode]):
                     raise PanglossConfigError(
                         f"Relation '{model.__name__}.{relation_definition.field_name}' "
                         f"is trying to subclass the relation '{subclassed_relation_name}', "
-                        f"but the type of '{relation_definition.field_name}' "
-                        f"is not a subset of the type of '{subclassed_relation_name}'"
+                        f"but the type of '{relation_definition.field_name}' ({relation_definition.field_annotation})"
+                        f"is not a subset of the type of '{subclassed_relation_name} ({model._meta.fields[subclassed_relation_name].field_annotation})'"
                     )
 
                 # Add the relation labels from the inherited field
