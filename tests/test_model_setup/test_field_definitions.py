@@ -371,12 +371,12 @@ def test_build_relation_field_to_reified_with_union_of_types():
 
 
 def test_build_field_definition_for_literal_value_with_default():
-    class Person(BaseNode):
+    class Edge(EdgeModel):
         age: int = 100
 
     ModelManager.initialise_models()
 
-    field = Person._meta.fields["age"]
+    field = Edge.__pg_field_definitions__["age"]
 
     assert isinstance(field, PropertyFieldDefinition)
     assert field.default_value == 100

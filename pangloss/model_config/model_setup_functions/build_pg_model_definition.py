@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import inspect
 import types
 import typing
@@ -537,6 +538,7 @@ def build_field_definition(
             field_name=field_name,
             field_annotation=primary_type,
             validators=validators,
+            default_value=default_value,
         )
     if typing.get_origin(annotation) is list and is_annotated(
         typing.get_args(annotation)[0]
@@ -644,11 +646,35 @@ def build_pg_model_definitions(
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
+        if (
+            issubclass(model, BaseModel)
+            and field_name != "type"
+            and field_name in model.model_fields
+            and isinstance(
+                model.model_fields[field_name].default,
+                (
+                    bool,
+                    int,
+                    float,
+                    str,
+                    datetime.date,
+                    datetime.timedelta,
+                    datetime.datetime,
+                    Enum,
+                ),
+            )
+        ):
+            default_value = model.model_fields[field_name].default
+        elif getattr(model, field_name, None) and field_name != "type":
+            default_value = getattr(model, field_name, None)
+        else:
+            default_value = None
+
         definition = build_field_definition(
             field_name,
             annotation,
             model=model,
-            default_value=field_name != "type" and getattr(model, field_name, None),
+            default_value=default_value,
         )
         if definition:
             field_definitions[field_name] = definition
@@ -668,7 +694,10 @@ def build_abstract_specialist_type_model_definitions(
         if field_name in model.__class_vars__:
             continue
         field_definitions[field_name] = build_field_definition(
-            field_name, annotation, model=model
+            field_name,
+            annotation,
+            model=model,
+            default_value=field_name != "type" and getattr(model, field_name, None),
         )
 
     model.__pg_specialist_type_fields_definitions__ = ModelFieldDefinitions(
