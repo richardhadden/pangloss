@@ -370,6 +370,18 @@ def test_build_relation_field_to_reified_with_union_of_types():
     )
 
 
+def test_build_field_definition_for_literal_value_with_default():
+    class Person(BaseNode):
+        age: int = 100
+
+    ModelManager.initialise_models()
+
+    field = Person._meta.fields["age"]
+
+    assert isinstance(field, PropertyFieldDefinition)
+    assert field.default_value == 100
+
+
 def test_build_field_definition_for_literal_value():
     class Person(BaseNode):
         pass

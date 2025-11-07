@@ -52,8 +52,9 @@ type MappedCypherTypes = (
 
 
 @dataclasses.dataclass
-class PropertyFieldDefinition(FieldDefinition):
-    field_annotation: type[MappedCypherTypes]
+class PropertyFieldDefinition[T: MappedCypherTypes](FieldDefinition):
+    field_annotation: type[T]
+    default_value: T | None = None
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
         default_factory=list
     )

@@ -5,6 +5,8 @@ import typing
 from enum import Enum
 
 import annotated_types
+from pydantic import BaseModel
+
 from pangloss.exceptions import PanglossConfigError
 from pangloss.model_config.field_definitions import (
     EmbeddedFieldDefinition,
@@ -41,7 +43,6 @@ from pangloss.model_config.models_base import (
     _BaseClassProxy,
 )
 from pangloss.models import Embedded
-from pydantic import BaseModel
 
 
 def get_relation_config_from_field_metadata(
@@ -272,6 +273,7 @@ def build_field_definition(
     | type[MultiKeyField]
     | type["SemanticSpace"]
     | type[_BaseClassProxy],
+    default_value: typing.Any | None = None,
 ) -> FieldDefinition | None:
     # Handle annotated types, normally indicative of a relation but not necessarily:
     # Annotated[RelatedType, RelationConfig] or Annotated[str, some_validator]
@@ -628,9 +630,8 @@ def build_field_definition(
     ):
         return None
 
-    return PropertyFieldDefinition(
-        field_name=field_name,
-        field_annotation=annotation,
+    return PropertyFieldDefinition[annotation](
+        field_name=field_name, field_annotation=annotation, default_value=default_value
     )
 
 
@@ -643,7 +644,13 @@ def build_pg_model_definitions(
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
-        definition = build_field_definition(field_name, annotation, model=model)
+        print(field_name, getattr(model, field_name, None))
+        definition = build_field_definition(
+            field_name,
+            annotation,
+            model=model,
+            default_value=field_name != "type" and getattr(model, field_name, None),
+        )
         if definition:
             field_definitions[field_name] = definition
 
