@@ -644,7 +644,6 @@ def build_pg_model_definitions(
 ) -> None:
     field_definitions = {}
     for field_name, annotation in model.__pg_annotations__.items():
-        print(field_name, getattr(model, field_name, None))
         definition = build_field_definition(
             field_name,
             annotation,
