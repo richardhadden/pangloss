@@ -193,6 +193,8 @@ def build_create_handler(model: type[BaseNode]):
         entity: model.Create,  # type: ignore
         current_user: typing.Annotated[User, Depends(get_current_active_user)],
     ) -> model.ReferenceView:  # type: ignore
+        print(request, entity, current_user)
+
         entity = typing.cast(CreateBase, entity)
         result, deferred_query = await entity.create(
             username=current_user.username, use_deferred_query=True
@@ -216,8 +218,8 @@ def build_get_edit_handler(model: type[BaseNode]):
     return get_edit
 
 
-def build_patch_edit_handler(model: type[BaseNode]):
-    async def patch_edit(
+def build_put_edit_handler(model: type[BaseNode]):
+    async def put_edit(
         background_tasks: BackgroundTasks,
         id: ULID,
         entity: model.EditHeadSet,  # type: ignore
@@ -243,7 +245,7 @@ def build_patch_edit_handler(model: type[BaseNode]):
         DeferredQueryRunner.run_deferred_update(id, deferred_query)
         return SuccessResponse(detail="Update successful")
 
-    return patch_edit
+    return put_edit
 
 
 def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
@@ -294,10 +296,10 @@ def setup_api_routes(_app: FastAPI, settings: "BaseSettings") -> FastAPI:
 
                 router.add_api_route(
                     "/{id}/edit",
-                    endpoint=build_patch_edit_handler(model),
-                    methods={"patch"},
-                    name=f"{model.__name__}.Edit.Patch",
-                    operation_id=f"{model.__name__}EditPatch",
+                    endpoint=build_put_edit_handler(model),
+                    methods={"put"},
+                    name=f"{model.__name__}.Edit.Put",
+                    operation_id=f"{model.__name__}EditPut",
                 )
 
             if model.Meta.delete:

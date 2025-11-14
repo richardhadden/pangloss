@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import bcrypt
 from authx import AuthX, AuthXConfig
 from pydantic import BaseModel
@@ -10,6 +12,8 @@ config.JWT_ALGORITHM = "HS256"
 config.JWT_SECRET_KEY = "SECRET_KEY"
 config.JWT_TOKEN_LOCATION = ["headers", "query", "cookies", "json"]
 config.JWT_CSRF_METHODS = []
+config.JWT_COOKIE_SAMESITE = "none"
+config.JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=1)
 
 
 LOGGED_IN_USER_NAME_COOKIE_NAME = "logged_in_user_name"

@@ -76,7 +76,7 @@ def start_project_settings(project_path):
 
 
 @cli_app.command(name="dev", help="Starts development server")
-def run(
+def dev(
     Project=typing.Annotated[
         Path, typer.Option(exists=False, help="The path of the project to run")
     ],
@@ -113,6 +113,33 @@ def run(
         "on",
         "--reload",
         *reload_watch_list,
+    ]
+    subprocess.call(sc_command)
+
+
+@cli_app.command(name="run", help="Starts development server")
+def run(
+    Project=typing.Annotated[
+        Path, typer.Option(exists=False, help="The path of the project to run")
+    ],
+):
+    project_path = get_project_path()
+
+    start_project_settings(project_path)
+    settings = get_project_settings(str(project_path))
+    # reload_watch_list = []  # ["--reload-dir", project_path]
+
+    for installed_app in settings.INSTALLED_APPS:
+        m = __import__(installed_app)
+
+        # reload_watch_list.append("--reload-dir")
+        # reload_watch_list.append(m.__path__[0])
+
+    pp = ".".join(Path(typing.cast(str, project_path)).parts)
+
+    sc_command = [
+        "uvicorn",
+        f"{str(pp)}.main:app",
     ]
     subprocess.call(sc_command)
 

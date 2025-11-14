@@ -1,6 +1,7 @@
 from typing import Annotated, Awaitable
 
-from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Response
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request, Response
+from pydantic import BaseModel
 
 from pangloss.auth import (
     LOGGED_IN_USER_NAME_COOKIE_NAME,
@@ -10,6 +11,10 @@ from pangloss.auth import (
     verify_password,
 )
 from pangloss.users.models import User, UserCreate, UserInDB
+
+
+class RefreshForm(BaseModel):
+    refresh_token: str
 
 
 @security.set_subject_getter  # type: ignore
@@ -59,7 +64,9 @@ def setup_user_routes(_app: FastAPI, settings) -> FastAPI:
         user = await UserInDB.get(username)
         if user and verify_password(password, user.hashed_password):
             access_token = security.create_access_token(uid=user.username)
+            refresh_token = security.create_refresh_token(uid=user.username)
             security.set_access_cookies(token=access_token, response=response)
+            security.set_refresh_cookies(token=refresh_token, response=response)
             response.set_cookie(LOGGED_IN_USER_NAME_COOKIE_NAME, value=user.username)
 
             return {"message": "success"}
@@ -68,9 +75,43 @@ def setup_user_routes(_app: FastAPI, settings) -> FastAPI:
     @api_router.delete("/session")
     async def delete_session(response: Response):
         response.delete_cookie(security.config.JWT_ACCESS_COOKIE_NAME)
+        response.delete_cookie(security.config.JWT_REFRESH_COOKIE_NAME)
         response.delete_cookie(LOGGED_IN_USER_NAME_COOKIE_NAME)
 
         return {"message": "success"}
+
+    @api_router.post("/session/refresh")
+    async def refresh(
+        request: Request, response: Response, refresh_data: RefreshForm | None = None
+    ):
+        """
+        Refresh endpoint - creates a new access token using a refresh token
+
+        Can accept the refresh token either:
+        1. In the Authorization header
+        2. In the request body as JSON
+        """
+        try:
+            # First try to get the refresh token from the Authorization header
+            try:
+                refresh_payload = await security.refresh_token_required(request)
+            except Exception as header_error:
+                if not refresh_data or not refresh_data.refresh_token:
+                    # If we don't have a token in either place, raise the original error
+                    raise header_error
+
+                # Manually decode and verify the refresh token
+                token = refresh_data.refresh_token
+                refresh_payload = security.verify_token(
+                    token,
+                    verify_type=True,
+                )
+            # Create a new access token
+            access_token = security.create_access_token(refresh_payload.sub)
+            security.set_access_cookies(token=access_token, response=response)
+            return {"access_token": access_token}
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=str(e))
 
     @api_router.get("/me", response_model=User)
     async def read_users_me(
