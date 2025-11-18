@@ -5,15 +5,6 @@ from collections import ChainMap
 
 import annotated_types
 import neo4j.time
-from pangloss.exceptions import PanglossConfigError
-from pangloss.model_config.model_base_mixins import (
-    _BaseClassProxy,
-    _BindingSubModelValidator,
-    _OwnsMethods,
-    _RelationInContextOf,
-    _StandardModel,
-    _ViaEdge,
-)
 from pydantic import (
     AnyHttpUrl,
     BaseModel,
@@ -23,6 +14,16 @@ from pydantic import (
     field_validator,
 )
 from pydantic_extra_types.ulid import ULID as ExtraTypeULID
+
+from pangloss.exceptions import PanglossConfigError
+from pangloss.model_config.model_base_mixins import (
+    _BaseClassProxy,
+    _BindingSubModelValidator,
+    _OwnsMethods,
+    _RelationInContextOf,
+    _StandardModel,
+    _ViaEdge,
+)
 
 if typing.TYPE_CHECKING:
     from pangloss.model_config.field_definitions import (

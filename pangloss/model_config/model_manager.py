@@ -16,6 +16,16 @@ if typing.TYPE_CHECKING:
     from pangloss.models import BaseNode
 
 
+type AllModelTypes = (
+    type["BaseNode"]
+    | type["ReifiedRelation"]
+    | type["EdgeModel"]
+    | type["MultiKeyField"]
+    | type["Trait"]
+    | type["SemanticSpace"]
+)
+
+
 class ModelManager:
     _initialised = False
     base_models: dict[str, type["BaseNode"]] = {}
@@ -27,6 +37,27 @@ class ModelManager:
 
     def __init__(self):
         raise PanglossInitialisationError("ModelManager class cannot be initialised")
+
+    @classmethod
+    def all(
+        cls,
+    ) -> dict[
+        str,
+        type["BaseNode"]
+        | type["ReifiedRelation"]
+        | type["EdgeModel"]
+        | type["MultiKeyField"]
+        | type["Trait"]
+        | type["SemanticSpace"],
+    ]:
+        return {
+            **cls.base_models,
+            **cls.reified_relation_models,
+            **cls.edge_models,
+            **cls.multikeyfields_models,
+            **cls.trait_models,
+            **cls.semantic_space_models,
+        }
 
     @classmethod
     def _reset(cls):

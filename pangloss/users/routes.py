@@ -1,5 +1,6 @@
-from typing import Annotated, Awaitable
+from typing import Annotated, Awaitable, cast
 
+from authx import RequestToken
 from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request, Response
 from pydantic import BaseModel
 
@@ -103,7 +104,7 @@ def setup_user_routes(_app: FastAPI, settings) -> FastAPI:
                 # Manually decode and verify the refresh token
                 token = refresh_data.refresh_token
                 refresh_payload = security.verify_token(
-                    token,
+                    cast(RequestToken, token),
                     verify_type=True,
                 )
             # Create a new access token

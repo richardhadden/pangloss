@@ -14,6 +14,7 @@ config.JWT_TOKEN_LOCATION = ["headers", "query", "cookies", "json"]
 config.JWT_CSRF_METHODS = []
 config.JWT_COOKIE_SAMESITE = "none"
 config.JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=1)
+config.JWT_SESSION_COOKIE = True
 
 
 LOGGED_IN_USER_NAME_COOKIE_NAME = "logged_in_user_name"
