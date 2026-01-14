@@ -43,10 +43,14 @@ def start_project_settings(project_path):
         settings = get_project_settings(project_path)
     except PanglossInitialisationError:
         print("Cannot find settings")
+
     try:
         Database.initialise_default_database(settings)
         for app in settings.INSTALLED_APPS:
-            __import__(app)
+            try:
+                __import__(app)
+            except Exception as e:
+                print("Error import app", app, e)
             try:
                 __import__(f"{app}.models")
             except Exception as e:
@@ -58,14 +62,15 @@ def start_project_settings(project_path):
                 pass
             try:
                 m = __import__(f"{app}.cli")
-
-                c = m.cli.__dict__.get("cli")
-                if c:
-                    cli_app.add_typer(c, name=c.info.name)
-            except AttributeError:
-                pass
-            except ModuleNotFoundError:
-                pass
+                typer_objects = [
+                    v for k, v in m.cli.__dict__.items() if isinstance(v, typer.Typer)
+                ]
+                for typer_object in typer_objects:
+                    cli_app.add_typer(typer_object, name=typer_object.info.name)
+            except AttributeError as e:
+                print("Error importing app: AttributeError", e)
+            except ModuleNotFoundError as e:
+                print("Error importing app: ModuleNotFoundError", e)
             except Exception as e:
                 raise PanglossInitialisationError(f"Cannot install CLI for {app}, {e}")
     except AttributeError as e:

@@ -38,6 +38,7 @@ def import_project_file_of_name(folder_name: str, file_name: str):
 
 def get_project_settings(project_name: str):
     p = import_project_file_of_name(folder_name=project_name, file_name="settings.py")
+
     if not p:
         raise PanglossInitialisationError(f'Project "{project_name}" not found"')
     return getattr(p, "settings")
@@ -83,13 +84,10 @@ def initialisation_task(
 @overload
 def initialisation_task(
     *, run_in_dev: bool = False, dev_only: bool = False
-) -> Callable[[Callable[[], None]], Callable[[], None]]: ...
-
-
-@overload
-def initialisation_task(
-    *, run_in_dev: bool = False, dev_only: bool = False
-) -> Callable[[Callable[[], Awaitable[None]]], Callable[[], Awaitable[None]]]: ...
+) -> (
+    Callable[[Callable[[], None]], Callable[[], None]]
+    | Callable[[Callable[[], Awaitable[None]]], Callable[[], Awaitable[None]]]
+): ...
 
 
 def initialisation_task(
