@@ -185,7 +185,10 @@ def build_relation_fields_definitions(
     if isinstance(primary_type, typing.TypeVar):
         return [
             RelationToTypeVarDefinition(
-                annotated_type=primary_type, typevar_name=primary_type.__name__
+                field_name=field_name,
+                field_annotation=primary_type,
+                annotated_type=primary_type,
+                typevar_name=primary_type.__name__,
             )
         ]
 
@@ -210,6 +213,8 @@ def build_relation_fields_definitions(
 
         return [
             RelationToReifiedDefinition(
+                field_name=field_name,
+                field_annotation=primary_type,
                 annotated_type=primary_type,
                 origin_type=possible_generic_type,
                 type_params_to_type_map=type_param_to_types_map,
@@ -235,6 +240,8 @@ def build_relation_fields_definitions(
 
         return [
             RelationToSemanticSpaceDefinition(
+                field_name=field_name,
+                field_annotation=primary_type,
                 annotated_type=primary_type,
                 origin_type=possible_generic_type,
                 type_params_to_type_map=type_param_to_types_map,
@@ -243,7 +250,13 @@ def build_relation_fields_definitions(
 
     # Check whether the Annotated[Type, ...] is to a related model
     elif pg_is_subclass(primary_type, (RootNode, Trait)):
-        return [RelationToNodeDefinition(annotated_type=primary_type)]
+        return [
+            RelationToNodeDefinition(
+                field_name=field_name,
+                field_annotation=primary_type,
+                annotated_type=primary_type,
+            )
+        ]
 
     else:
         return []
@@ -618,10 +631,7 @@ def build_field_definition(
         )
 
     if inspect.isclass(annotation) and issubclass(annotation, Enum):
-        return EnumFieldDefinition(
-            field_name=field_name,
-            field_annotation=annotation,
-        )
+        return EnumFieldDefinition(field_name=field_name, field_annotation=annotation)
 
     # Checks to make sure that anything that is a Meta class of any sort is
     # not turned into a FieldDefinition
@@ -671,8 +681,8 @@ def build_pg_model_definitions(
             default_value = None
 
         definition = build_field_definition(
-            field_name,
-            annotation,
+            field_name=field_name,
+            annotation=annotation,
             model=model,
             default_value=default_value,
         )
@@ -706,11 +716,14 @@ def build_abstract_specialist_type_model_definitions(
 
 
 def create_relation_with_bound_type(
+    field_name: str,
     bound_type: type[RootNode] | type[ReifiedRelation] | type[SemanticSpace],
 ) -> RelationDefinition:
     if pg_is_subclass(bound_type, RootNode):
         return RelationToNodeDefinition(
-            annotated_type=typing.cast(type[RootNode], bound_type)
+            field_name=field_name,
+            field_annotation=typing.cast(type[RootNode], bound_type),
+            annotated_type=typing.cast(type[RootNode], bound_type),
         )
 
     elif pg_is_subclass(bound_type, ReifiedRelation):
@@ -733,6 +746,8 @@ def create_relation_with_bound_type(
             for type_param, real_type in zip(origin_type.__parameters__, inner_types)
         }
         return RelationToReifiedDefinition(
+            field_name=field_name,
+            field_annotation=bound_type,
             annotated_type=bound_type,
             origin_type=origin_type,
             type_params_to_type_map=type_param_to_types_map,
@@ -758,6 +773,8 @@ def create_relation_with_bound_type(
             for type_param, real_type in zip(origin_type.__parameters__, inner_types)
         }
         return RelationToSemanticSpaceDefinition(
+            field_name=field_name,
+            field_annotation=bound_type,
             annotated_type=bound_type,
             origin_type=origin_type,
             type_params_to_type_map=type_param_to_types_map,
@@ -786,18 +803,20 @@ def build_pg_bound_model_definition_for_instatiated_reified(
                             model.model_fields[field.field_name].annotation
                         ):
                             new_relation_definition = create_relation_with_bound_type(
-                                typing.cast(
+                                field_name=field.field_name,
+                                bound_type=typing.cast(
                                     type[RootNode] | type[ReifiedRelation],
                                     union_part,
-                                )
+                                ),
                             )
                             field_type_definitions.append(new_relation_definition)
                     else:
                         new_relation_definition = create_relation_with_bound_type(
-                            typing.cast(
+                            field_name=field.field_name,
+                            bound_type=typing.cast(
                                 type[RootNode] | type[ReifiedRelation],
                                 model.model_fields[field.field_name].annotation,
-                            )
+                            ),
                         )
                         field_type_definitions.append(new_relation_definition)
             annotation = model.model_fields[field.field_name].annotation
@@ -832,12 +851,13 @@ def build_pg_bound_model_definition_for_instatiated_semantic_space(
                     field_type_definitions.append(relation_definition)
                 elif isinstance(relation_definition, RelationToTypeVarDefinition):
                     new_relation_definition = create_relation_with_bound_type(
-                        typing.cast(
+                        field_name=field.field_name,
+                        bound_type=typing.cast(
                             type[RootNode]
                             | type[ReifiedRelation]
                             | type[SemanticSpace],
                             model.model_fields[field.field_name].annotation,
-                        )
+                        ),
                     )
                     field_type_definitions.append(new_relation_definition)
             annotation = model.model_fields[field.field_name].annotation

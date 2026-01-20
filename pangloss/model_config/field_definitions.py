@@ -26,7 +26,7 @@ if typing.TYPE_CHECKING:
     )
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class FieldDefinition(ABC):
     field_annotation: typing.Any
     field_name: str
@@ -52,7 +52,7 @@ type MappedCypherTypes = (
 )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class PropertyFieldDefinition[T: MappedCypherTypes](FieldDefinition):
     field_annotation: type[T]
     default_value: T | None = None
@@ -62,7 +62,7 @@ class PropertyFieldDefinition[T: MappedCypherTypes](FieldDefinition):
     field_metatype: typing.ClassVar[typing.Literal["PropertyField"]] = "PropertyField"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class MultiKeyFieldDefinition(FieldDefinition):
     field_annotation: type["MultiKeyField[MappedCypherTypes]"]
     multi_key_field_type: type["MultiKeyField"]
@@ -76,7 +76,7 @@ class MultiKeyFieldDefinition(FieldDefinition):
     )  # TODO: validators in this case should really refer to the value_type
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class ListFieldDefinition(FieldDefinition):
     field_annotation: type[MappedCypherTypes]
     field_metatype: typing.ClassVar[typing.Literal["ListField"]] = "ListField"
@@ -91,13 +91,13 @@ class ListFieldDefinition(FieldDefinition):
     """Validators for each item in the list type"""
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class EnumFieldDefinition(FieldDefinition):
     field_annotation: type[enum.Enum]
     field_metatype: typing.ClassVar[typing.Literal["EnumField"]] = "EnumField"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class EmbeddedFieldDefinition(FieldDefinition):
     field_annotation: type["RootNode"] | types.UnionType
     validators: list[annotated_types.BaseMetadata] = dataclasses.field(
@@ -110,21 +110,25 @@ class EmbeddedFieldDefinition(FieldDefinition):
 
     def __post_init__(self):
         if not self.validators:
-            self.validators = [annotated_types.MinLen(1), annotated_types.MaxLen(1)]
+            object.__setattr__(
+                self,
+                "validators",
+                [annotated_types.MinLen(1), annotated_types.MaxLen(1)],
+            )
 
 
-@dataclasses.dataclass
-class RelationDefinition:
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
+class RelationDefinition(FieldDefinition):
     metatype: typing.ClassVar[typing.Literal["Relation"]] = "Relation"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class RelationToNodeDefinition(RelationDefinition):
     annotated_type: type["RootNode"]
     metatype: typing.ClassVar[typing.Literal["RelationToNode"]] = "RelationToNode"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class RelationToTypeVarDefinition(RelationDefinition):
     annotated_type: typing.TypeVar
     typevar_name: str
@@ -137,7 +141,7 @@ class TypeParamsToTypeMap:
     type: type["RootNode"] | type["ReifiedRelation"]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class RelationToReifiedDefinition(RelationDefinition):
     annotated_type: type["ReifiedRelation"]
     origin_type: type["ReifiedRelation"]
@@ -148,7 +152,7 @@ class RelationToReifiedDefinition(RelationDefinition):
     metatype: typing.ClassVar[typing.Literal["RelationToReified"]] = "RelationToReified"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class RelationToSemanticSpaceDefinition(RelationDefinition):
     annotated_type: type["SemanticSpace"]
     origin_type: type["SemanticSpace"]
@@ -176,7 +180,7 @@ class SubclassedRelationNames(typing.NamedTuple):
     reverse_name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, frozen=True, slots=True)
 class RelationFieldDefinition(FieldDefinition):
     containing_model: "type[ReifiedBase] | type[EdgeModel] | type[SemanticSpace] | type[RootNode] | type[MultiKeyField] | type[_BaseClassProxy]"
     field_annotation: annotation_types
