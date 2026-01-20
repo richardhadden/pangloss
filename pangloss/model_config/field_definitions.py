@@ -3,6 +3,7 @@ import datetime
 import enum
 import types
 import typing
+from abc import ABC
 from collections import ChainMap, defaultdict
 
 import annotated_types
@@ -25,8 +26,8 @@ if typing.TYPE_CHECKING:
     )
 
 
-@dataclasses.dataclass
-class FieldDefinition:
+@dataclasses.dataclass(kw_only=True)
+class FieldDefinition(ABC):
     field_annotation: typing.Any
     field_name: str
     field_metatype: typing.ClassVar[
