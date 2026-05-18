@@ -1,7 +1,7 @@
 # Pangloss
 ## Prosopography and Network Graph-Labyrinth Orientation System 🔆
 
-## NOTE: this is a rewrite of the core functionality of Pangloss; it is not currently working. Documentation below is to illustrate API
+## NOTE: this is a rewrite of the core functionality of Pangloss; it is currently in development, and available for testing
 
 ## Installation
 
