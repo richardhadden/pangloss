@@ -88,7 +88,7 @@ or
 uv run pangloss run --project test_project
 ```
 
-
+The Swagger documentation should be available at `/docs/`
 
 
 ## Premise
