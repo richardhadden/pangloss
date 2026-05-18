@@ -3,6 +3,93 @@
 
 ## NOTE: this is a rewrite of the core functionality of Pangloss; it is not currently working. Documentation below is to illustrate API
 
+## Installation
+
+#### Create a project with `uv`
+
+```bash
+uv init my-pangloss-application
+cd my-pangloss-application
+```
+
+#### Add pangloss as a dependency (from github at the moment)
+
+```bash
+uv add "pangloss @ https://github.com/richardhadden/pangloss.git"
+```
+
+#### Create a pangloss project
+(Similar to Django, the project holds the settings and registered apps; the app contains a set of models)
+
+```bash
+uv run pangloss create project my_project
+```
+
+#### Create an application to hold your models
+
+```bash
+uv run pangloss create app my_app
+```
+
+#### Adjust the `settings.py` file in `my_project`
+Set the database connection and register your app as an installed app
+
+```python
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "my_project"
+    DB_URL: str = "bolt://localhost:7687"
+    DB_USER: str = "neo4j"
+    DB_PASSWORD: str = "password"
+    DB_DATABASE_NAME: str = "neo4j"
+
+    INSTALLED_APPS: list[str] = ["pangloss", "my_app"] # <-- register your application
+```
+
+#### Create some models
+In `my_app.models`, add some models (see below)
+
+
+### At this point, you have a deployable project
+
+### To run locally or on server... (with the database running on the right port, obviously!)
+
+#### Create a user
+
+```bash
+uv run pangloss user create
+```
+(to do: make this run as a script with complete args for automatically deploying)
+
+#### Run dev server
+
+```bash
+uv run pangloss dev --project test_project
+```
+
+(You must specify the project with your `settings.py`)
+
+The project name can also be added to `pyproject.toml` (useful for deployment):
+
+```toml
+[tool.pangloss.config]
+project = "my_project"
+```
+
+### Run production server
+
+
+```bash
+uv run uvicorn test_project.main:app
+```
+
+or
+
+```bash
+uv run pangloss run --project test_project
+```
+
+
+
 
 ## Premise
 
