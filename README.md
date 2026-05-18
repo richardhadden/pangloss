@@ -53,6 +53,14 @@ In `my_app.models`, add some models (see below)
 
 ### To run locally or on server... (with the database running on the right port, obviously!)
 
+#### Install database indexes
+
+```bash
+uv run pangloss setup-database
+```
+
+(small bug: `--project` flag not passed to this command; try adding the project name to `pyproject.toml`: see below)
+
 #### Create a user
 
 ```bash
