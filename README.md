@@ -66,7 +66,7 @@ uv run pangloss user create
 uv run pangloss dev --project test_project
 ```
 
-(You must specify the project with your `settings.py`)
+(You must specify the project containing your `settings.py`)
 
 The project name can also be added to `pyproject.toml` (useful for deployment):
 
